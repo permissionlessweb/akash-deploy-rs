@@ -2,8 +2,8 @@ module github.com/akash-network/provider/tools/jwt-verify
 
 go 1.25.4
 
-// Import actual provider package (adjust path if provider repo is elsewhere)
-replace github.com/akash-network/provider => ../../../../provider
+// Pin to a specific provider release
+// replace github.com/akash-network/provider => github.com/akash-network/provider v0.10.5
 
 // Use Akash forks (same as parent module)
 replace (
@@ -14,7 +14,7 @@ replace (
 )
 
 require (
-	github.com/akash-network/provider v0.0.0-00010101000000-000000000000
+	github.com/akash-network/provider v0.10.5
 	github.com/cosmos/cosmos-sdk v0.53.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	pkg.akt.dev/go v0.1.8

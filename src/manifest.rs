@@ -204,7 +204,9 @@ pub struct ManifestCredentials {
 /// - Storage attributes: persistent, class (sorted by key)
 /// - Service sorting: Provider requires alphabetical by name
 pub struct ManifestBuilder {
+    #[allow(dead_code)]
     owner: String,
+    #[allow(dead_code)]
     dseq: u64,
 }
 

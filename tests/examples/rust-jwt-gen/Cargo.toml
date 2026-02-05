@@ -15,3 +15,10 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 hex = "0.4"
 anyhow = "1.0"
+
+# Crypto for key derivation and signing
+k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
+bech32 = "0.8"
+bip32 = { version = "0.5", features = ["secp256k1"] }
+coins-bip39 = "0.8"
+ripemd = "0.1"

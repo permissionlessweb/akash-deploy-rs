@@ -426,10 +426,15 @@ mod tests {
 
     #[test]
     fn test_cached_jwt_expiry() {
-        // Token that expires in 2 seconds
-        let token = CachedJwt::new("test".to_string(), Duration::from_secs(2));
+        // Token that expires in 120 seconds (valid since >60s remaining)
+        let token = CachedJwt::new("test".to_string(), Duration::from_secs(120));
         assert!(!token.is_expired());
         assert!(token.get_if_valid().is_some());
+
+        // Token that expires in 30 seconds (expired since <60s remaining)
+        let almost_expired = CachedJwt::new("test".to_string(), Duration::from_secs(30));
+        assert!(almost_expired.is_expired());
+        assert!(almost_expired.get_if_valid().is_none());
 
         // Token already expired
         let expired = CachedJwt::new("test".to_string(), Duration::from_secs(0));

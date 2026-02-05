@@ -21,13 +21,18 @@
 
 use anyhow::Result;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use ho_std::keys::cosmos::CosmosMnemonic;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // Import manifest builder and canonical JSON from akash-deploy library
 use akash_deploy::{to_canonical_json, ManifestBuilder};
+
+// Crypto imports
+use k256::ecdsa::{SigningKey, Signature, signature::hazmat::PrehashSigner};
+use bip32::XPrv;
+use bech32::ToBase32;
+use coins_bip39::{Mnemonic, English};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct JwtHeader {
@@ -56,11 +61,31 @@ fn main() -> Result<()> {
 
     // ── JWT GENERATION ──────────────────────────────────────────────
 
-    let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
-    let cosmos_mnemonic = CosmosMnemonic::from_phrase(mnemonic)?;
-    let keypair = cosmos_mnemonic.derive_keypair(0)?;
-    let address = keypair.address("akash")?;
-    let pubkey = keypair.public_key();
+    let mnemonic_phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+    let mnemonic: Mnemonic<English> = mnemonic_phrase.parse()
+        .map_err(|e| anyhow::anyhow!("Failed to create mnemonic: {:?}", e))?;
+
+    // Derive Cosmos HD path: m/44'/118'/0'/0/0
+    let seed_bytes = mnemonic.to_seed(None)
+        .map_err(|e| anyhow::anyhow!("Failed to derive seed: {:?}", e))?;
+    let child_key = XPrv::derive_from_path(seed_bytes, &"m/44'/118'/0'/0/0".parse()?)?;
+
+    // Get signing key and public key
+    let signing_key = SigningKey::from_bytes(child_key.private_key().to_bytes().as_slice().into())?;
+    let verifying_key = signing_key.verifying_key();
+    let pubkey = verifying_key.to_encoded_point(true).as_bytes().to_vec();
+
+    // Generate bech32 address
+    let pubkey_hash = {
+        use sha2::Digest;
+        let mut hasher = Sha256::new();
+        hasher.update(&pubkey);
+        let sha_result = hasher.finalize();
+        let mut ripemd_hasher = ripemd::Ripemd160::new();
+        ripemd_hasher.update(sha_result);
+        ripemd_hasher.finalize()
+    };
+    let address = bech32::encode("akash", pubkey_hash.to_base32(), bech32::Variant::Bech32)?;
 
     let header = JwtHeader {
         alg: "ES256K".to_string(),
@@ -89,8 +114,15 @@ fn main() -> Result<()> {
     let claims_b64 = URL_SAFE_NO_PAD.encode(claims_json.as_bytes());
 
     let signing_input = format!("{}.{}", header_b64, claims_b64);
-    let signature = keypair.sign_jwt_es256k(signing_input.as_bytes())?;
-    let signature_b64 = URL_SAFE_NO_PAD.encode(&signature);
+
+    // Sign with ES256K (secp256k1 + single SHA256, per RFC 8812)
+    // Use PrehashSigner to sign the pre-hashed message
+    let msg_hash = Sha256::digest(signing_input.as_bytes());
+    let signature: Signature = signing_key
+        .sign_prehash(&msg_hash)
+        .map_err(|e| anyhow::anyhow!("Signing failed: {}", e))?;
+    let signature_bytes = signature.to_bytes();
+    let signature_b64 = URL_SAFE_NO_PAD.encode(&signature_bytes);
 
     let jwt = format!("{}.{}", signing_input, signature_b64);
     let pubkey_hex = hex::encode(pubkey);
