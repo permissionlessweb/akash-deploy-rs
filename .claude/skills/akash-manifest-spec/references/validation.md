@@ -4,7 +4,7 @@ Guide for validating manifest serialization against actual provider code.
 
 ## Validation Tool
 
-Location: `~/ergors/tests/scripts/jwt-verify`
+Location: `tests/`
 
 This tool uses **actual Akash provider code** to validate manifests:
 
@@ -14,7 +14,7 @@ This tool uses **actual Akash provider code** to validate manifests:
 ## Building the Validator
 
 ```bash
-cd ~/ergors/tests/scripts/jwt-verify
+cd tests
 
 # Build Go provider validator
 just build-go
@@ -76,7 +76,7 @@ go build -o provider-validate .
 ### Full Integration Test
 
 ```bash
-cd ~/ergors/tests/scripts/jwt-verify
+cd tests
 
 # Run all tests (builds Rust client, generates manifests, validates with Go)
 just test
@@ -145,7 +145,7 @@ Sorted JSON (what gets hashed):
    cargo run -- input.yaml output/
 
    # Generate with Go (golden)
-   cd ~/ergors/tests/scripts/jwt-verify
+   cd tests
    ./provider-validate gen-fixture input.yaml golden/
 
    # Compare
@@ -218,7 +218,7 @@ Use these as reference for Rust implementation.
 
 ## Test Fixtures
 
-Pre-validated fixtures at: `~/ergors/tests/scripts/jwt-verify/fixtures/`
+Pre-validated fixtures at: `tests/fixtures/`
 
 ```sh
 fixtures/
@@ -243,7 +243,7 @@ Add to CI/CD:
 # .github/workflows/validate.yml
 - name: Validate Manifests
   run: |
-    cd tests/scripts/jwt-verify
+    cd tests
     just test
 ```
 

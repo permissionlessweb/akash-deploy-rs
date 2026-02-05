@@ -187,7 +187,7 @@ let hash_hex = hex::encode(hash);
 cargo run -- input.yaml output/
 
 # Validate with provider code
-cd ~/ergors/tests/scripts/jwt-verify
+cd tests
 ./provider-validate manifest \
   output/manifest.json \
   $(cat output/manifest-hash.txt)

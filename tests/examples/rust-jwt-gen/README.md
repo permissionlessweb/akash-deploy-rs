@@ -4,7 +4,7 @@ Example showing how to use `JwtAuthClient` to generate provider-compatible JWTs.
 
 ## What Your JwtAuthClient Must Implement
 
-For this example to work, your `ergors::deploy::manifest::JwtAuthClient` needs:
+For this example to work, your `JwtAuthClient` needs:
 
 ```rust
 impl JwtAuthClient {

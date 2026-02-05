@@ -8,7 +8,7 @@ Use these checklists when implementing specific features in the akash-deploy cra
 - [ ] Add `#[serde(rename = "camelCase")]` if multi-word field
 - [ ] Add `#[serde(skip_serializing_if = "Option::is_none")]` if optional
 - [ ] If array type: convert empty `Vec` to `None` before serialization
-- [ ] Update test fixture in `~/ergors/tests/scripts/jwt-verify/fixtures/`
+- [ ] Update test fixture in `tests/fixtures/`
 - [ ] Run validation: `just test` in jwt-verify directory
 - [ ] Verify hash matches: `./provider-validate manifest <file> <hash>`
 
@@ -136,7 +136,7 @@ When `./provider-validate manifest` reports hash mismatch:
 
 Before committing changes:
 
-- [ ] Run full test suite: `cd ~/ergors/tests/scripts/jwt-verify && just test`
+- [ ] Run full test suite: `cd tests && just test`
 - [ ] Test all fixtures:
   - [ ] Simple (basic nginx)
   - [ ] Comprehensive (multi-service)
@@ -155,7 +155,7 @@ If ANY test fails:
 
 When you implement a new feature:
 
-- [ ] Create SDL in `~/ergors/tests/scripts/jwt-verify/testdata/`
+- [ ] Create SDL in `tests/testdata/`
 - [ ] Generate golden reference: `./provider-validate gen-fixture new.yaml fixtures/new/`
 - [ ] This creates:
   - `fixtures/new/manifest.json` (provider-generated)

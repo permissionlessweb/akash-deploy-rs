@@ -24,7 +24,7 @@ This isn't a "compatibility layer" - it's reverse-engineering Go's JSON marshali
 
 **Don't guess. Use the exact validation logic providers use.**
 
-At `~/ergors/tests/scripts/jwt-verify`, there's a minimal Go binary that imports:
+At `tests/`, there's a minimal Go binary that imports:
 - `pkg.akt.dev/go/manifest/v2beta3` - Manifest types and validation
 - `github.com/akash-network/provider/gateway/utils` - JWT authentication
 
@@ -56,7 +56,7 @@ Every manifest must follow these rules or the provider will reject it:
 
 **Verify all rules:**
 ```bash
-cd ~/ergors/tests/scripts/jwt-verify
+cd tests
 just test
 ```
 
@@ -115,7 +115,7 @@ cargo run -- test.yaml output/
 jq '.[] | .services[0] | .expose[0]' output/manifest.json | grep -E '(externalPort|httpOptions|endpointSequenceNumber)'
 
 # Validate with provider code
-cd ~/ergors/tests/scripts/jwt-verify
+cd tests
 ./provider-validate manifest output/manifest.json $(cat output/manifest-hash.txt)
 ```
 
@@ -226,7 +226,7 @@ jq '.. | .attributes? | select(. != null) | .[].key' output/manifest.json
 # Should be alphabetically sorted
 
 # Verify hash matches
-cd ~/ergors/tests/scripts/jwt-verify
+cd tests
 ./provider-validate manifest output/manifest.json $(cat output/manifest-hash.txt)
 # Should output: ✓ Hash matches
 ```
@@ -393,7 +393,7 @@ See `references/validation.md` for complete JWT debugging.
 
 **Use the exact validation logic providers use.** Don't guess if your manifest is correct.
 
-At `~/ergors/tests/scripts/jwt-verify`:
+At `tests/`:
 
 ```bash
 # Full test suite (all fixtures)
