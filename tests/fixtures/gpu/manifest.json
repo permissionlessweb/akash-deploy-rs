@@ -1,0 +1,127 @@
+[
+  {
+    "name": "dcloud",
+    "services": [
+      {
+        "name": "sglang",
+        "image": "lmsysorg/sglang:dev-cu13",
+        "command": [
+          "bash",
+          "-c"
+        ],
+        "args": [
+          "python3 -m sglang.launch_server --model-path Qwen/Qwen3-VL-Embedding-8B --tensor-parallel-size 2 --host 0.0.0.0 --port 8000 --is-embedding --trust-remote-code --mem-fraction-static 0.87"
+        ],
+        "env": null,
+        "resources": {
+          "id": 1,
+          "cpu": {
+            "units": {
+              "val": "32000"
+            }
+          },
+          "memory": {
+            "size": {
+              "val": "68719476736"
+            }
+          },
+          "storage": [
+            {
+              "name": "default",
+              "size": {
+                "val": "53687091200"
+              }
+            },
+            {
+              "name": "data",
+              "size": {
+                "val": "322122547200"
+              },
+              "attributes": [
+                {
+                  "key": "class",
+                  "value": "beta3"
+                },
+                {
+                  "key": "persistent",
+                  "value": "true"
+                }
+              ]
+            },
+            {
+              "name": "shm",
+              "size": {
+                "val": "10737418240"
+              },
+              "attributes": [
+                {
+                  "key": "class",
+                  "value": "ram"
+                },
+                {
+                  "key": "persistent",
+                  "value": "false"
+                }
+              ]
+            }
+          ],
+          "gpu": {
+            "units": {
+              "val": "2"
+            },
+            "attributes": [
+              {
+                "key": "vendor/nvidia/model/h100/ram/80Gi",
+                "value": "true"
+              },
+              {
+                "key": "vendor/nvidia/model/a100/ram/40Gi",
+                "value": "true"
+              }
+            ]
+          },
+          "endpoints": []
+        },
+        "count": 1,
+        "expose": [
+          {
+            "port": 8000,
+            "externalPort": 8000,
+            "proto": "TCP",
+            "service": "",
+            "global": true,
+            "hosts": null,
+            "httpOptions": {
+              "maxBodySize": 1048576,
+              "readTimeout": 60000,
+              "sendTimeout": 60000,
+              "nextTries": 3,
+              "nextTimeout": 0,
+              "nextCases": [
+                "error",
+                "timeout"
+              ]
+            },
+            "ip": "",
+            "endpointSequenceNumber": 0
+          }
+        ],
+        "params": {
+          "storage": [
+            {
+              "name": "shm",
+              "mount": "/dev/shm",
+              "readOnly": false
+            },
+            {
+              "name": "data",
+              "mount": "/root/.cache",
+              "readOnly": false
+            }
+          ]
+        },
+        "credentials": null
+      }
+    ]
+  }
+]

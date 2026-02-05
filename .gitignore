@@ -1,0 +1,19 @@
+# Rust
+/target
+**/target
+**/*.rs.bk
+Cargo.lock
+
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Tests - keep the provider-validate binary
+!tests/provider-validate

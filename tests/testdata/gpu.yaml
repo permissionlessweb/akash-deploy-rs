@@ -1,0 +1,63 @@
+---
+version: "2.0"
+services:
+  sglang:
+    image: lmsysorg/sglang:dev-cu13
+    expose:
+      - port: 8000
+        as: 8000
+        to:
+          - global: true
+    command:
+      - bash
+      - "-c"
+    args:
+      - >-
+        python3 -m sglang.launch_server --model-path Qwen/Qwen3-VL-Embedding-8B --tensor-parallel-size 2 --host 0.0.0.0 --port 8000 --is-embedding --trust-remote-code --mem-fraction-static 0.87
+    params:
+      storage:
+        shm:
+          mount: /dev/shm
+        data:
+          mount: /root/.cache
+          readOnly: false
+profiles:
+  compute:
+    sglang:
+      resources:
+        cpu:
+          units: 32
+        memory:
+          size: 64Gi
+        storage:
+          - size: 50Gi
+          - name: data
+            size: 300Gi
+            attributes:
+              persistent: true
+              class: beta3
+          - name: shm
+            size: 10Gi
+            attributes:
+              class: ram
+              persistent: false
+        gpu:
+          units: 2
+          attributes:
+            vendor:
+              nvidia:
+                - model: h100
+                  ram: 80Gi
+                - model: a100
+                  ram: 40Gi
+  placement:
+    dcloud:
+      pricing:
+        sglang:
+          denom: uakt
+          amount: 1000000
+deployment:
+  sglang:
+    dcloud:
+      profile: sglang
+      count: 1

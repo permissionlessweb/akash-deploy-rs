@@ -1,0 +1,30 @@
+[package]
+name = "akash-deploy"
+version = "0.0.1"
+edition = "2021"
+authors = ["PermissionlesWeb <team@permissionless.money"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/permissionlessweb/akash-deploy-rs"
+description = "Standalone Akash deployment workflow engine"
+
+[dependencies]
+thiserror = "2.0.17"
+tokio = { version = "1.40", features = ["time"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9.34-deprecated"
+
+# Certificate generation
+rcgen = { version = "0.13", features = ["pem"] }
+sha2 = "0.10"
+hex = "0.4"
+rand = "0.8"
+time = "0.3"
+base64 = "0.22.1"
+
+# Private key encryption (optional but useful)
+chacha20poly1305 = { version = "0.9.0" }
+argon2 = "0.5"
+
+[dev-dependencies]
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }

@@ -1,0 +1,140 @@
+# Provider Validation Tool - justfile
+#
+# Verifies Rust client JWT + manifest output against
+# actual Go provider code (AuthProcess, Manifest.Version).
+#
+# Usage:
+#   just test          - run all SDL test cases + JWT verification
+#   just test-sdl      - run only manifest hash tests against all SDLs
+#   just test-jwt-only - run only JWT verification
+
+# Show available commands
+default:
+    @just --list
+
+# ═══════════════════════════════════════════════════════════════
+# Full integration test - one command to verify everything
+# ═══════════════════════════════════════════════════════════════
+
+# Run full provider compatibility test: build → generate → verify (all SDLs + JWT)
+test: build-rust build-go test-jwt-only test-sdl
+    @echo ""
+    @echo "═══════════════════════════════════════════════════════════════"
+    @echo "  ✅ ALL INTEGRATION TESTS PASSED"
+    @echo "═══════════════════════════════════════════════════════════════"
+
+# ═══════════════════════════════════════════════════════════════
+# Build steps
+# ═══════════════════════════════════════════════════════════════
+
+# Build the Rust test binary (JWT + manifest generator)
+build-rust:
+    @echo "🦀 Building Rust client..."
+    cd examples/rust-jwt-gen && cargo build 2>/dev/null
+
+# Build the Go provider validator
+build-go:
+    @echo "📦 Building Go provider validator..."
+    go build -o provider-validate .
+
+# ═══════════════════════════════════════════════════════════════
+# JWT verification
+# ═══════════════════════════════════════════════════════════════
+
+# Verify JWT signing against provider AuthProcess()
+test-jwt-only:
+    #!/usr/bin/env bash
+    set -e
+    echo ""
+    echo "══════════════════════════════════════════"
+    echo "  JWT VERIFICATION"
+    echo "══════════════════════════════════════════"
+    # Generate JWT (use any SDL, just need key material)
+    SDL_PATH="$(cd testdata && pwd)/simple.yaml"
+    FIXTURES_DIR="$(pwd)/fixtures/jwt-test"
+    cd examples/rust-jwt-gen
+    OUTPUT=$(cargo run --quiet -- "$SDL_PATH" "$FIXTURES_DIR" 2>/dev/null)
+    cd ../..
+    JWT=$(cat "$FIXTURES_DIR/jwt.txt")
+    PUBKEY=$(cat "$FIXTURES_DIR/pubkey.txt")
+    echo "  🔍 Verifying Rust JWT with provider AuthProcess()..."
+    ./provider-validate jwt "$JWT" "$PUBKEY"
+    rm -rf "$FIXTURES_DIR"
+
+# ═══════════════════════════════════════════════════════════════
+# Manifest hash verification - cycles through all SDL test cases
+# ═══════════════════════════════════════════════════════════════
+
+# Run manifest hash tests against every SDL in testdata/
+test-sdl:
+    #!/usr/bin/env bash
+    set -e
+    echo ""
+    echo "══════════════════════════════════════════"
+    echo "  MANIFEST HASH VERIFICATION"
+    echo "  Testing all SDLs in testdata/"
+    echo "══════════════════════════════════════════"
+    PASS=0
+    FAIL=0
+    FAILED_FILES=""
+    for sdl in testdata/*.yaml; do
+        NAME=$(basename "$sdl" .yaml)
+        echo ""
+        echo "  ── $NAME ──"
+        SDL_PATH="$(cd "$(dirname "$sdl")" && pwd)/$(basename "$sdl")"
+        FIXTURES_DIR="$(pwd)/fixtures/$NAME"
+        # Generate manifest + hash with Rust engine
+        cd examples/rust-jwt-gen
+        if ! cargo run --quiet -- "$SDL_PATH" "$FIXTURES_DIR" 2>/dev/null; then
+            echo "  ❌ Rust generation failed for $NAME"
+            FAIL=$((FAIL + 1))
+            FAILED_FILES="$FAILED_FILES $NAME"
+            cd ../..
+            continue
+        fi
+        cd ../..
+        # Verify with Go provider logic
+        HASH=$(cat "$FIXTURES_DIR/manifest-hash.txt" | tr -d '[:space:]')
+        if ./provider-validate manifest "$FIXTURES_DIR/manifest.json" "$HASH"; then
+            PASS=$((PASS + 1))
+        else
+            FAIL=$((FAIL + 1))
+            FAILED_FILES="$FAILED_FILES $NAME"
+        fi
+    done
+    echo ""
+    echo "══════════════════════════════════════════"
+    echo "  Results: $PASS passed, $FAIL failed"
+    if [ $FAIL -gt 0 ]; then
+        echo "  Failed:$FAILED_FILES"
+        echo "══════════════════════════════════════════"
+        exit 1
+    fi
+    echo "══════════════════════════════════════════"
+
+# ═══════════════════════════════════════════════════════════════
+# Standalone commands
+# ═══════════════════════════════════════════════════════════════
+
+# Test a single SDL file
+test-one SDL: build-rust build-go
+    #!/usr/bin/env bash
+    set -e
+    SDL_PATH="$(cd "$(dirname "{{SDL}}")" && pwd)/$(basename "{{SDL}}")"
+    FIXTURES_DIR="$(pwd)/fixtures/single-test"
+    cd examples/rust-jwt-gen
+    cargo run --quiet -- "$SDL_PATH" "$FIXTURES_DIR" 2>/dev/null
+    cd ../..
+    HASH=$(cat "$FIXTURES_DIR/manifest-hash.txt" | tr -d '[:space:]')
+    ./provider-validate manifest "$FIXTURES_DIR/manifest.json" "$HASH"
+
+# Clean build artifacts and fixtures
+clean:
+    rm -f provider-validate jwt-verify
+    rm -rf fixtures/
+    cd examples/rust-jwt-gen && cargo clean
+
+# Quick check of Go code
+check:
+    go vet ./...
+    go fmt ./...
