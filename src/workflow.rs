@@ -503,6 +503,40 @@ mod tests {
     use crate::types::*;
     use std::sync::{Arc, Mutex};
 
+    // Common SDL fixtures for testing
+    const SIMPLE_SDL: &str = r#"
+version: "2.0"
+services:
+  web:
+    image: nginx
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    dc:
+      pricing:
+        web:
+          denom: uakt
+          amount: 1000
+deployment:
+  web:
+    dc:
+      profile: web
+      count: 1
+"#;
+
     // Mock signer - just a placeholder
     #[derive(Debug, Clone)]
     struct MockSigner;
@@ -934,42 +968,9 @@ mod tests {
         let config = WorkflowConfig::default();
         let workflow = DeploymentWorkflow::new(&backend, &signer, config);
 
-        let sdl = r#"
-version: "2.0"
-services:
-  web:
-    image: nginx
-    expose:
-      - port: 80
-        as: 80
-        to:
-          - global: true
-profiles:
-  compute:
-    web:
-      resources:
-        cpu:
-          units: 0.5
-        memory:
-          size: 512Mi
-        storage:
-          size: 1Gi
-  placement:
-    westcoast:
-      pricing:
-        web:
-          denom: uakt
-          amount: 1000
-deployment:
-  web:
-    westcoast:
-      profile: web
-      count: 1
-"#;
-
         let mut state = DeploymentState::new("test", "akash1owner");
         state.step = Step::CreateDeployment;
-        state.sdl_content = Some(sdl.to_string());
+        state.sdl_content = Some(SIMPLE_SDL.to_string());
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Continue));
@@ -1064,39 +1065,7 @@ deployment:
 
     #[test]
     fn test_build_manifest_valid_sdl() {
-        let sdl = r#"
-version: "2.0"
-services:
-  web:
-    image: nginx
-    expose:
-      - port: 80
-        as: 80
-        to:
-          - global: true
-profiles:
-  compute:
-    web:
-      resources:
-        cpu:
-          units: 1
-        memory:
-          size: 512Mi
-        storage:
-          size: 1Gi
-  placement:
-    dc:
-      pricing:
-        web:
-          denom: uakt
-          amount: 1000
-deployment:
-  web:
-    dc:
-      profile: web
-      count: 1
-"#;
-        let result = build_manifest("akash1owner", sdl, 123);
+        let result = build_manifest("akash1owner", SIMPLE_SDL, 123);
         assert!(result.is_ok());
         let manifest_bytes = result.unwrap();
         assert!(!manifest_bytes.is_empty());
@@ -1147,42 +1116,9 @@ deployment:
         let config = WorkflowConfig::default();
         let workflow = DeploymentWorkflow::new(&backend, &signer, config);
 
-        let sdl = r#"
-version: "2.0"
-services:
-  web:
-    image: nginx
-    expose:
-      - port: 80
-        as: 80
-        to:
-          - global: true
-profiles:
-  compute:
-    web:
-      resources:
-        cpu:
-          units: 1
-        memory:
-          size: 512Mi
-        storage:
-          size: 1Gi
-  placement:
-    dc:
-      pricing:
-        web:
-          denom: uakt
-          amount: 1000
-deployment:
-  web:
-    dc:
-      profile: web
-      count: 1
-"#;
-
         let mut state = DeploymentState::new("test", "akash1owner");
         state.step = Step::CreateDeployment;
-        state.sdl_content = Some(sdl.to_string());
+        state.sdl_content = Some(SIMPLE_SDL.to_string());
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Continue));
@@ -1203,41 +1139,8 @@ deployment:
         let config = WorkflowConfig::default();
         let workflow = DeploymentWorkflow::new(&backend, &signer, config);
 
-        let sdl = r#"
-version: "2.0"
-services:
-  web:
-    image: nginx
-    expose:
-      - port: 80
-        as: 80
-        to:
-          - global: true
-profiles:
-  compute:
-    web:
-      resources:
-        cpu:
-          units: 1
-        memory:
-          size: 512Mi
-        storage:
-          size: 1Gi
-  placement:
-    dc:
-      pricing:
-        web:
-          denom: uakt
-          amount: 1000
-deployment:
-  web:
-    dc:
-      profile: web
-      count: 1
-"#;
-
         let mut state = DeploymentState::new("test", "akash1owner");
-        state.sdl_content = Some(sdl.to_string());
+        state.sdl_content = Some(SIMPLE_SDL.to_string());
 
         // Run through Init -> CheckBalance -> EnsureCertificate -> CreateDeployment -> WaitForBids
         let mut steps = 0;

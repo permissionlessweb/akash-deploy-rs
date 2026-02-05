@@ -741,35 +741,8 @@ impl ManifestBuilder {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_parse_size() {
-        let builder = ManifestBuilder::new("akash1test", 1);
-        assert_eq!(builder.parse_size("1Gi").unwrap(), 1024 * 1024 * 1024);
-        assert_eq!(builder.parse_size("512Mi").unwrap(), 512 * 1024 * 1024);
-        assert_eq!(builder.parse_size("1024Ki").unwrap(), 1024 * 1024);
-        assert_eq!(builder.parse_size("100").unwrap(), 100);
-    }
-
-    #[test]
-    fn test_parse_size_invalid() {
-        let builder = ManifestBuilder::new("akash1test", 1);
-        assert!(builder.parse_size("invalid").is_err());
-        assert!(builder.parse_size("10.5.3Gi").is_err());
-    }
-
-    #[test]
-    fn test_http_options_defaults() {
-        let opts = ManifestHttpOptions::default();
-        assert_eq!(opts.max_body_size, 1_048_576);
-        assert_eq!(opts.read_timeout, 60_000);
-        assert_eq!(opts.next_tries, 3);
-        assert_eq!(opts.next_cases, vec!["error".to_string(), "timeout".to_string()]);
-    }
-
-
-    #[test]
-    fn test_build_from_sdl_simple() {
-        let sdl = r#"
+    // Common SDL fixtures for testing
+    const SIMPLE_SDL: &str = r#"
 version: "2.0"
 services:
   web:
@@ -802,22 +775,7 @@ deployment:
       count: 1
 "#;
 
-        let builder = ManifestBuilder::new("akash1test", 1);
-        let result = builder.build_from_sdl(sdl);
-        assert!(result.is_ok());
-
-        let groups = result.unwrap();
-        assert_eq!(groups.len(), 1);
-        assert_eq!(groups[0].name, "westcoast");
-        assert_eq!(groups[0].services.len(), 1);
-        assert_eq!(groups[0].services[0].name, "web");
-        assert_eq!(groups[0].services[0].image, "nginx");
-        assert_eq!(groups[0].services[0].count, 1);
-    }
-
-    #[test]
-    fn test_build_from_sdl_with_gpu() {
-        let sdl = r#"
+    const GPU_SDL: &str = r#"
 version: "2.0"
 services:
   ai:
@@ -851,8 +809,82 @@ deployment:
       count: 1
 "#;
 
+    const STORAGE_SDL: &str = r#"
+version: "2.0"
+services:
+  db:
+    image: postgres
+profiles:
+  compute:
+    db:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 1Gi
+        storage:
+          - size: 10Gi
+            attributes:
+              persistent: true
+              class: beta2
+  placement:
+    dc:
+      pricing:
+        db:
+          denom: uakt
+          amount: 1000
+deployment:
+  db:
+    dc:
+      profile: db
+      count: 1
+"#;
+
+    #[test]
+    fn test_parse_size() {
         let builder = ManifestBuilder::new("akash1test", 1);
-        let result = builder.build_from_sdl(sdl);
+        assert_eq!(builder.parse_size("1Gi").unwrap(), 1024 * 1024 * 1024);
+        assert_eq!(builder.parse_size("512Mi").unwrap(), 512 * 1024 * 1024);
+        assert_eq!(builder.parse_size("1024Ki").unwrap(), 1024 * 1024);
+        assert_eq!(builder.parse_size("100").unwrap(), 100);
+    }
+
+    #[test]
+    fn test_parse_size_invalid() {
+        let builder = ManifestBuilder::new("akash1test", 1);
+        assert!(builder.parse_size("invalid").is_err());
+        assert!(builder.parse_size("10.5.3Gi").is_err());
+    }
+
+    #[test]
+    fn test_http_options_defaults() {
+        let opts = ManifestHttpOptions::default();
+        assert_eq!(opts.max_body_size, 1_048_576);
+        assert_eq!(opts.read_timeout, 60_000);
+        assert_eq!(opts.next_tries, 3);
+        assert_eq!(opts.next_cases, vec!["error".to_string(), "timeout".to_string()]);
+    }
+
+
+    #[test]
+    fn test_build_from_sdl_simple() {
+        let builder = ManifestBuilder::new("akash1test", 1);
+        let result = builder.build_from_sdl(SIMPLE_SDL);
+        assert!(result.is_ok());
+
+        let groups = result.unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, "westcoast");
+        assert_eq!(groups[0].services.len(), 1);
+        assert_eq!(groups[0].services[0].name, "web");
+        assert_eq!(groups[0].services[0].image, "nginx");
+        assert_eq!(groups[0].services[0].count, 1);
+    }
+
+    #[test]
+    fn test_build_from_sdl_with_gpu() {
+        let builder = ManifestBuilder::new("akash1test", 1);
+        let result = builder.build_from_sdl(GPU_SDL);
         assert!(result.is_ok());
 
         let groups = result.unwrap();
@@ -885,38 +917,7 @@ profiles:
     #[test]
     fn test_manifest_storage_with_attributes() {
         let builder = ManifestBuilder::new("akash1test", 1);
-        let sdl = r#"
-version: "2.0"
-services:
-  db:
-    image: postgres
-profiles:
-  compute:
-    db:
-      resources:
-        cpu:
-          units: 1
-        memory:
-          size: 1Gi
-        storage:
-          - size: 10Gi
-            attributes:
-              persistent: true
-              class: beta2
-  placement:
-    dc:
-      pricing:
-        db:
-          denom: uakt
-          amount: 1000
-deployment:
-  db:
-    dc:
-      profile: db
-      count: 1
-"#;
-
-        let result = builder.build_from_sdl(sdl);
+        let result = builder.build_from_sdl(STORAGE_SDL);
         assert!(result.is_ok());
 
         let groups = result.unwrap();
