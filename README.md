@@ -8,7 +8,7 @@
 **Standalone deployment workflow engine for Akash Network.**
 
 Build, authenticate, and deploy applications to Akash using a trait-based state machine. No storage, signing, or transport coupling — bring your own infrastructure.
-
+    
 ---
 
 ## Features

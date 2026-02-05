@@ -500,6 +500,192 @@ fn build_manifest(owner: &str, sdl: &str, dseq: u64) -> Result<Vec<u8>, DeployEr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::*;
+    use std::sync::{Arc, Mutex};
+
+    // Mock signer - just a placeholder
+    #[derive(Debug, Clone)]
+    struct MockSigner;
+
+    // Mock backend with configurable responses
+    struct MockBackend {
+        balance: Arc<Mutex<u128>>,
+        certificate: Arc<Mutex<Option<CertificateInfo>>>,
+        bids: Arc<Mutex<Vec<Bid>>>,
+        provider_status: Arc<Mutex<Option<ProviderLeaseStatus>>>,
+        call_counts: Arc<Mutex<CallCounts>>,
+    }
+
+    #[derive(Debug, Default, Clone)]
+    struct CallCounts {
+        query_balance: usize,
+        query_bids: usize,
+        broadcast_create_deployment: usize,
+        broadcast_create_lease: usize,
+        send_manifest: usize,
+        query_provider_status: usize,
+    }
+
+    impl MockBackend {
+        fn new() -> Self {
+            Self {
+                balance: Arc::new(Mutex::new(10_000_000)), // 10 AKT
+                certificate: Arc::new(Mutex::new(None)),
+                bids: Arc::new(Mutex::new(Vec::new())),
+                provider_status: Arc::new(Mutex::new(None)),
+                call_counts: Arc::new(Mutex::new(CallCounts::default())),
+            }
+        }
+
+        fn set_balance(&self, balance: u128) {
+            *self.balance.lock().unwrap() = balance;
+        }
+
+        fn set_bids(&self, bids: Vec<Bid>) {
+            *self.bids.lock().unwrap() = bids;
+        }
+
+        fn set_provider_status(&self, status: ProviderLeaseStatus) {
+            *self.provider_status.lock().unwrap() = Some(status);
+        }
+
+        fn get_call_counts(&self) -> CallCounts {
+            self.call_counts.lock().unwrap().clone()
+        }
+    }
+
+    impl AkashBackend for MockBackend {
+        type Signer = MockSigner;
+
+        async fn query_balance(&self, _address: &str, _denom: &str) -> Result<u128, DeployError> {
+            self.call_counts.lock().unwrap().query_balance += 1;
+            Ok(*self.balance.lock().unwrap())
+        }
+
+        async fn query_certificate(&self, _address: &str) -> Result<Option<CertificateInfo>, DeployError> {
+            Ok(self.certificate.lock().unwrap().clone())
+        }
+
+        async fn query_provider_info(&self, _provider: &str) -> Result<Option<ProviderInfo>, DeployError> {
+            Ok(Some(ProviderInfo {
+                address: "akash1provider".to_string(),
+                host_uri: "https://provider.akash.net".to_string(),
+                email: "test@example.com".to_string(),
+                website: "https://example.com".to_string(),
+                attributes: vec![],
+                cached_at: 0,
+            }))
+        }
+
+        async fn query_bids(&self, _owner: &str, _dseq: u64) -> Result<Vec<Bid>, DeployError> {
+            self.call_counts.lock().unwrap().query_bids += 1;
+            Ok(self.bids.lock().unwrap().clone())
+        }
+
+        async fn query_lease(&self, _owner: &str, _dseq: u64, _gseq: u32, _oseq: u32, _provider: &str) -> Result<LeaseInfo, DeployError> {
+            Ok(LeaseInfo {
+                state: LeaseState::Active,
+                price_uakt: 1000,
+            })
+        }
+
+        async fn query_escrow(&self, _owner: &str, _dseq: u64) -> Result<EscrowInfo, DeployError> {
+            Ok(EscrowInfo {
+                balance_uakt: 5_000_000,
+                deposited_uakt: 5_000_000,
+            })
+        }
+
+        async fn broadcast_create_certificate(&self, _signer: &Self::Signer, _owner: &str, _cert_pem: &[u8], _pubkey_pem: &[u8]) -> Result<TxResult, DeployError> {
+            Ok(TxResult {
+                hash: "CERT_TX".to_string(),
+                code: 0,
+                raw_log: "success".to_string(),
+                height: 1000,
+            })
+        }
+
+        async fn broadcast_create_deployment(&self, _signer: &Self::Signer, _owner: &str, _sdl_content: &str, _deposit_uakt: u64) -> Result<(TxResult, u64), DeployError> {
+            self.call_counts.lock().unwrap().broadcast_create_deployment += 1;
+            Ok((
+                TxResult {
+                    hash: "DEPLOY_TX".to_string(),
+                    code: 0,
+                    raw_log: "success".to_string(),
+                    height: 1001,
+                },
+                123456,
+            ))
+        }
+
+        async fn broadcast_create_lease(&self, _signer: &Self::Signer, _bid: &BidId) -> Result<TxResult, DeployError> {
+            self.call_counts.lock().unwrap().broadcast_create_lease += 1;
+            Ok(TxResult {
+                hash: "LEASE_TX".to_string(),
+                code: 0,
+                raw_log: "success".to_string(),
+                height: 1002,
+            })
+        }
+
+        async fn broadcast_deposit(&self, _signer: &Self::Signer, _owner: &str, _dseq: u64, _amount_uakt: u64) -> Result<TxResult, DeployError> {
+            Ok(TxResult {
+                hash: "DEPOSIT_TX".to_string(),
+                code: 0,
+                raw_log: "success".to_string(),
+                height: 1003,
+            })
+        }
+
+        async fn broadcast_close_deployment(&self, _signer: &Self::Signer, _owner: &str, _dseq: u64) -> Result<TxResult, DeployError> {
+            Ok(TxResult {
+                hash: "CLOSE_TX".to_string(),
+                code: 0,
+                raw_log: "success".to_string(),
+                height: 1004,
+            })
+        }
+
+        async fn send_manifest(&self, _provider_uri: &str, _lease: &LeaseId, _manifest: &[u8], _cert_pem: &[u8], _key_pem: &[u8]) -> Result<(), DeployError> {
+            self.call_counts.lock().unwrap().send_manifest += 1;
+            Ok(())
+        }
+
+        async fn query_provider_status(&self, _provider_uri: &str, _lease: &LeaseId, _cert_pem: &[u8], _key_pem: &[u8]) -> Result<ProviderLeaseStatus, DeployError> {
+            self.call_counts.lock().unwrap().query_provider_status += 1;
+            self.provider_status.lock().unwrap()
+                .clone()
+                .ok_or_else(|| DeployError::Provider("no status".into()))
+        }
+
+        async fn load_state(&self, _session_id: &str) -> Result<Option<DeploymentState>, DeployError> {
+            Ok(None)
+        }
+
+        async fn save_state(&self, _session_id: &str, _state: &DeploymentState) -> Result<(), DeployError> {
+            Ok(())
+        }
+
+        async fn load_cert_key(&self, _owner: &str) -> Result<Option<Vec<u8>>, DeployError> {
+            Ok(None)
+        }
+
+        async fn save_cert_key(&self, _owner: &str, _key: &[u8]) -> Result<(), DeployError> {
+            Ok(())
+        }
+
+        async fn delete_cert_key(&self, _owner: &str) -> Result<(), DeployError> {
+            Ok(())
+        }
+
+        async fn load_cached_provider(&self, _provider: &str) -> Result<Option<ProviderInfo>, DeployError> {
+            Ok(None)
+        }
+
+        async fn cache_provider(&self, _info: &ProviderInfo) -> Result<(), DeployError> {
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_default_config() {
@@ -510,10 +696,570 @@ mod tests {
 
     #[test]
     fn test_step_result_variants() {
-        // Just make sure these compile
         let _ = StepResult::Continue;
         let _ = StepResult::Complete;
         let _ = StepResult::Failed("oops".into());
         let _ = StepResult::NeedsInput(InputRequired::ProvideSdl);
+    }
+
+    #[tokio::test]
+    async fn test_workflow_check_balance_sufficient() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::CheckBalance;
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Continue));
+        assert_eq!(backend.get_call_counts().query_balance, 1);
+    }
+
+    #[tokio::test]
+    async fn test_workflow_check_balance_insufficient() {
+        let backend = MockBackend::new();
+        backend.set_balance(1_000_000);
+
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::CheckBalance;
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Failed(_)));
+    }
+
+    #[tokio::test]
+    async fn test_workflow_wait_for_bids() {
+        let backend = MockBackend::new();
+        backend.set_bids(vec![Bid {
+            provider: "akash1provider".to_string(),
+            price_uakt: 1000,
+            resources: Resources::default(),
+        }]);
+
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::WaitForBids { waited_blocks: 0 };
+        state.dseq = Some(123456);
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Continue));
+        assert_eq!(state.bids.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_workflow_auto_select_cheapest() {
+        let backend = MockBackend::new();
+
+        let signer = MockSigner;
+        let mut config = WorkflowConfig::default();
+        config.auto_select_cheapest_bid = true;
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::SelectProvider;
+        state.bids = vec![
+            Bid {
+                provider: "akash1expensive".to_string(),
+                price_uakt: 5000,
+                resources: Resources::default(),
+            },
+            Bid {
+                provider: "akash1cheap".to_string(),
+                price_uakt: 1000,
+                resources: Resources::default(),
+            },
+        ];
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Continue));
+        assert_eq!(state.selected_provider, Some("akash1cheap".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_workflow_endpoints_ready() {
+        let backend = MockBackend::new();
+        backend.set_provider_status(ProviderLeaseStatus {
+            ready: true,
+            endpoints: vec![ServiceEndpoint {
+                service: "web".to_string(),
+                uri: "https://web.example.com".to_string(),
+                port: 80,
+            }],
+        });
+
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::WaitForEndpoints { attempts: 0 };
+        state.dseq = Some(123456);
+        state.selected_provider = Some("akash1provider".to_string());
+        state.lease_id = Some(LeaseId {
+            owner: "akash1owner".to_string(),
+            dseq: 123456,
+            gseq: 1,
+            oseq: 1,
+            provider: "akash1provider".to_string(),
+        });
+        state.cert_pem = Some(vec![1, 2, 3]); // Mock cert
+        state.key_pem = Some(vec![4, 5, 6]); // Mock key
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Complete));
+        assert_eq!(state.endpoints.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_select_provider_invalid() {
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.bids = vec![Bid {
+            provider: "akash1provider1".to_string(),
+            price_uakt: 1000,
+            resources: Resources::default(),
+        }];
+
+        let result = DeploymentWorkflow::<MockBackend>::select_provider(&mut state, "akash1nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_select_provider_valid() {
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.bids = vec![Bid {
+            provider: "akash1provider1".to_string(),
+            price_uakt: 1000,
+            resources: Resources::default(),
+        }];
+
+        DeploymentWorkflow::<MockBackend>::select_provider(&mut state, "akash1provider1").unwrap();
+        assert_eq!(state.selected_provider, Some("akash1provider1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_provide_sdl() {
+        let mut state = DeploymentState::new("test", "akash1owner");
+        DeploymentWorkflow::<MockBackend>::provide_sdl(&mut state, "version: 2.0");
+        assert_eq!(state.sdl_content, Some("version: 2.0".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_step_init_missing_sdl() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::Init;
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::NeedsInput(InputRequired::ProvideSdl)));
+    }
+
+    #[tokio::test]
+    async fn test_run_to_completion_needs_input() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::Init;
+
+        let result = workflow.run_to_completion(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::NeedsInput(_)));
+    }
+
+    #[tokio::test]
+    async fn test_step_init_with_sdl() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::Init;
+        state.sdl_content = Some("version: 2.0".to_string());
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Continue));
+        assert!(matches!(state.step, Step::CheckBalance));
+    }
+
+    #[tokio::test]
+    async fn test_step_complete() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::Complete;
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Complete));
+    }
+
+    #[tokio::test]
+    async fn test_step_failed() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::Failed {
+            reason: "test error".to_string(),
+            recoverable: false,
+        };
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Failed(_)));
+    }
+
+    #[tokio::test]
+    async fn test_step_create_deployment_missing_dseq() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let sdl = r#"
+version: "2.0"
+services:
+  web:
+    image: nginx
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 0.5
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    westcoast:
+      pricing:
+        web:
+          denom: uakt
+          amount: 1000
+deployment:
+  web:
+    westcoast:
+      profile: web
+      count: 1
+"#;
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::CreateDeployment;
+        state.sdl_content = Some(sdl.to_string());
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Continue));
+        assert!(matches!(state.step, Step::WaitForBids { .. }));
+        assert!(state.dseq.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_step_create_lease_missing_provider() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::CreateLease;
+        state.dseq = Some(123456);
+        // No selected_provider
+
+        let result = workflow.advance(&mut state).await;
+        assert!(result.is_err() || matches!(result, Ok(StepResult::Failed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_step_send_manifest_missing_sdl() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::SendManifest;
+        state.dseq = Some(123456);
+        state.selected_provider = Some("akash1provider".to_string());
+        state.cert_pem = Some(vec![1, 2, 3]);
+        state.key_pem = Some(vec![4, 5, 6]);
+        // No SDL content
+
+        let result = workflow.advance(&mut state).await;
+        assert!(result.is_err() || matches!(result, Ok(StepResult::Failed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_step_wait_for_endpoints_missing_lease_id() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::WaitForEndpoints { attempts: 0 };
+        state.dseq = Some(123456);
+        state.selected_provider = Some("akash1provider".to_string());
+        state.cert_pem = Some(vec![1, 2, 3]);
+        state.key_pem = Some(vec![4, 5, 6]);
+        // No lease_id
+
+        let result = workflow.advance(&mut state).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_step_wait_for_endpoints_missing_cert() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::WaitForEndpoints { attempts: 0 };
+        state.dseq = Some(123456);
+        state.selected_provider = Some("akash1provider".to_string());
+        state.lease_id = Some(LeaseId {
+            owner: "akash1owner".to_string(),
+            dseq: 123456,
+            gseq: 1,
+            oseq: 1,
+            provider: "akash1provider".to_string(),
+        });
+        // No cert_pem or key_pem
+
+        let result = workflow.advance(&mut state).await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_manifest_empty() {
+        let result = build_manifest("akash1owner", "", 123);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty"));
+    }
+
+    #[test]
+    fn test_build_manifest_valid_sdl() {
+        let sdl = r#"
+version: "2.0"
+services:
+  web:
+    image: nginx
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    dc:
+      pricing:
+        web:
+          denom: uakt
+          amount: 1000
+deployment:
+  web:
+    dc:
+      profile: web
+      count: 1
+"#;
+        let result = build_manifest("akash1owner", sdl, 123);
+        assert!(result.is_ok());
+        let manifest_bytes = result.unwrap();
+        assert!(!manifest_bytes.is_empty());
+    }
+
+    #[test]
+    fn test_generate_cert() {
+        let result = generate_certificate("akash1owner");
+        assert!(result.is_ok());
+        let (cert_pem, key_pem, pubkey_pem) = result.unwrap();
+        assert!(!cert_pem.is_empty());
+        assert!(!key_pem.is_empty());
+        assert!(!pubkey_pem.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_step_select_provider_with_trusted() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let mut config = WorkflowConfig::default();
+        config.trusted_providers = vec!["akash1trusted".to_string()];
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::SelectProvider;
+        state.bids = vec![
+            Bid {
+                provider: "akash1trusted".to_string(),
+                price_uakt: 5000,
+                resources: Resources::default(),
+            },
+            Bid {
+                provider: "akash1cheap".to_string(),
+                price_uakt: 1000,
+                resources: Resources::default(),
+            },
+        ];
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        // Should need input since auto_select is false
+        assert!(matches!(result, StepResult::NeedsInput(_)));
+    }
+
+    #[tokio::test]
+    async fn test_step_create_deployment_with_valid_sdl() {
+        let backend = MockBackend::new();
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let sdl = r#"
+version: "2.0"
+services:
+  web:
+    image: nginx
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    dc:
+      pricing:
+        web:
+          denom: uakt
+          amount: 1000
+deployment:
+  web:
+    dc:
+      profile: web
+      count: 1
+"#;
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.step = Step::CreateDeployment;
+        state.sdl_content = Some(sdl.to_string());
+
+        let result = workflow.advance(&mut state).await.unwrap();
+        assert!(matches!(result, StepResult::Continue));
+        assert!(state.dseq.is_some());
+        assert!(matches!(state.step, Step::WaitForBids { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_full_workflow_to_bids() {
+        let backend = MockBackend::new();
+        backend.set_bids(vec![Bid {
+            provider: "akash1provider".to_string(),
+            price_uakt: 1000,
+            resources: Resources::default(),
+        }]);
+
+        let signer = MockSigner;
+        let config = WorkflowConfig::default();
+        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
+
+        let sdl = r#"
+version: "2.0"
+services:
+  web:
+    image: nginx
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    dc:
+      pricing:
+        web:
+          denom: uakt
+          amount: 1000
+deployment:
+  web:
+    dc:
+      profile: web
+      count: 1
+"#;
+
+        let mut state = DeploymentState::new("test", "akash1owner");
+        state.sdl_content = Some(sdl.to_string());
+
+        // Run through Init -> CheckBalance -> EnsureCertificate -> CreateDeployment -> WaitForBids
+        let mut steps = 0;
+        loop {
+            let result = workflow.advance(&mut state).await.unwrap();
+            steps += 1;
+
+            match result {
+                StepResult::Continue => {
+                    if steps > 10 {
+                        panic!("Too many steps");
+                    }
+                    continue;
+                }
+                StepResult::NeedsInput(_) => break,
+                StepResult::Complete => break,
+                StepResult::Failed(reason) => panic!("Failed: {}", reason),
+            }
+        }
+
+        // Should have bids now and be at SelectProvider step
+        assert!(!state.bids.is_empty());
+        assert!(matches!(state.step, Step::SelectProvider));
     }
 }

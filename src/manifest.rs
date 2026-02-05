@@ -747,6 +747,14 @@ mod tests {
         assert_eq!(builder.parse_size("1Gi").unwrap(), 1024 * 1024 * 1024);
         assert_eq!(builder.parse_size("512Mi").unwrap(), 512 * 1024 * 1024);
         assert_eq!(builder.parse_size("1024Ki").unwrap(), 1024 * 1024);
+        assert_eq!(builder.parse_size("100").unwrap(), 100);
+    }
+
+    #[test]
+    fn test_parse_size_invalid() {
+        let builder = ManifestBuilder::new("akash1test", 1);
+        assert!(builder.parse_size("invalid").is_err());
+        assert!(builder.parse_size("10.5.3Gi").is_err());
     }
 
     #[test]
@@ -756,5 +764,163 @@ mod tests {
         assert_eq!(opts.read_timeout, 60_000);
         assert_eq!(opts.next_tries, 3);
         assert_eq!(opts.next_cases, vec!["error".to_string(), "timeout".to_string()]);
+    }
+
+
+    #[test]
+    fn test_build_from_sdl_simple() {
+        let sdl = r#"
+version: "2.0"
+services:
+  web:
+    image: nginx
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 0.5
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    westcoast:
+      pricing:
+        web:
+          denom: uakt
+          amount: 1000
+deployment:
+  web:
+    westcoast:
+      profile: web
+      count: 1
+"#;
+
+        let builder = ManifestBuilder::new("akash1test", 1);
+        let result = builder.build_from_sdl(sdl);
+        assert!(result.is_ok());
+
+        let groups = result.unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, "westcoast");
+        assert_eq!(groups[0].services.len(), 1);
+        assert_eq!(groups[0].services[0].name, "web");
+        assert_eq!(groups[0].services[0].image, "nginx");
+        assert_eq!(groups[0].services[0].count, 1);
+    }
+
+    #[test]
+    fn test_build_from_sdl_with_gpu() {
+        let sdl = r#"
+version: "2.0"
+services:
+  ai:
+    image: nvidia/cuda
+profiles:
+  compute:
+    ai:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 1Gi
+        storage:
+          size: 10Gi
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: h100
+  placement:
+    gpu-dc:
+      pricing:
+        ai:
+          denom: uakt
+          amount: 10000
+deployment:
+  ai:
+    gpu-dc:
+      profile: ai
+      count: 1
+"#;
+
+        let builder = ManifestBuilder::new("akash1test", 1);
+        let result = builder.build_from_sdl(sdl);
+        assert!(result.is_ok());
+
+        let groups = result.unwrap();
+        assert_eq!(groups[0].services[0].resources.gpu.units.val, "1");
+    }
+
+    #[test]
+    fn test_build_from_sdl_invalid_yaml() {
+        let builder = ManifestBuilder::new("akash1test", 1);
+        let result = builder.build_from_sdl("invalid: yaml: content:");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_from_sdl_missing_services() {
+        let sdl = r#"
+version: "2.0"
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 1
+"#;
+        let builder = ManifestBuilder::new("akash1test", 1);
+        let result = builder.build_from_sdl(sdl);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_manifest_storage_with_attributes() {
+        let builder = ManifestBuilder::new("akash1test", 1);
+        let sdl = r#"
+version: "2.0"
+services:
+  db:
+    image: postgres
+profiles:
+  compute:
+    db:
+      resources:
+        cpu:
+          units: 1
+        memory:
+          size: 1Gi
+        storage:
+          - size: 10Gi
+            attributes:
+              persistent: true
+              class: beta2
+  placement:
+    dc:
+      pricing:
+        db:
+          denom: uakt
+          amount: 1000
+deployment:
+  db:
+    dc:
+      profile: db
+      count: 1
+"#;
+
+        let result = builder.build_from_sdl(sdl);
+        assert!(result.is_ok());
+
+        let groups = result.unwrap();
+        let storage = &groups[0].services[0].resources.storage[0];
+        assert!(!storage.attributes.is_empty());
     }
 }

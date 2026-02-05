@@ -136,3 +136,117 @@ pub struct Resources {
     pub storage_bytes: u64,
     pub gpu_count: u32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bid_id_from_bid() {
+        let bid = Bid {
+            provider: "akash1provider".to_string(),
+            price_uakt: 1000,
+            resources: Resources::default(),
+        };
+
+        let bid_id = BidId::from_bid("akash1owner", 123, 1, 1, &bid);
+        assert_eq!(bid_id.owner, "akash1owner");
+        assert_eq!(bid_id.dseq, 123);
+        assert_eq!(bid_id.gseq, 1);
+        assert_eq!(bid_id.oseq, 1);
+        assert_eq!(bid_id.provider, "akash1provider");
+    }
+
+    #[test]
+    fn test_lease_id_from_bid_id() {
+        let bid_id = BidId {
+            owner: "akash1owner".to_string(),
+            dseq: 456,
+            gseq: 2,
+            oseq: 3,
+            provider: "akash1provider".to_string(),
+        };
+
+        let lease_id: LeaseId = bid_id.into();
+        assert_eq!(lease_id.owner, "akash1owner");
+        assert_eq!(lease_id.dseq, 456);
+        assert_eq!(lease_id.gseq, 2);
+        assert_eq!(lease_id.oseq, 3);
+        assert_eq!(lease_id.provider, "akash1provider");
+    }
+
+    #[test]
+    fn test_tx_result_is_success() {
+        let success_tx = TxResult {
+            hash: "ABC123".to_string(),
+            code: 0,
+            raw_log: "success".to_string(),
+            height: 1000,
+        };
+        assert!(success_tx.is_success());
+
+        let failed_tx = TxResult {
+            hash: "DEF456".to_string(),
+            code: 5,
+            raw_log: "insufficient funds".to_string(),
+            height: 1001,
+        };
+        assert!(!failed_tx.is_success());
+    }
+
+    #[test]
+    fn test_serialization_golden() {
+        let bid = Bid {
+            provider: "akash1test".to_string(),
+            price_uakt: 5000,
+            resources: Resources {
+                cpu_millicores: 1000,
+                memory_bytes: 1073741824, // 1 GiB
+                storage_bytes: 10737418240, // 10 GiB
+                gpu_count: 1,
+            },
+        };
+
+        let json = serde_json::to_string(&bid).unwrap();
+
+        // Golden test: verify exact JSON structure
+        let expected = r#"{"provider":"akash1test","price_uakt":5000,"resources":{"cpu_millicores":1000,"memory_bytes":1073741824,"storage_bytes":10737418240,"gpu_count":1}}"#;
+        assert_eq!(json, expected, "JSON structure changed - wire format compatibility broken");
+
+        // Verify roundtrip
+        let deserialized: Bid = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.provider, bid.provider);
+        assert_eq!(deserialized.price_uakt, bid.price_uakt);
+    }
+
+    #[test]
+    fn test_boundary_conditions() {
+        // Test with extreme values
+        let bid = Bid {
+            provider: "akash1provider".to_string(),
+            price_uakt: u64::MAX,
+            resources: Resources {
+                cpu_millicores: u32::MAX,
+                memory_bytes: u64::MAX,
+                storage_bytes: u64::MAX,
+                gpu_count: u32::MAX,
+            },
+        };
+
+        let json = serde_json::to_string(&bid).unwrap();
+        let deserialized: Bid = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.price_uakt, u64::MAX);
+        assert_eq!(deserialized.resources.cpu_millicores, u32::MAX);
+
+        // Test with zeros
+        let min_resources = Resources {
+            cpu_millicores: 0,
+            memory_bytes: 0,
+            storage_bytes: 0,
+            gpu_count: 0,
+        };
+        let json = serde_json::to_string(&min_resources).unwrap();
+        let deserialized: Resources = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.cpu_millicores, 0);
+    }
+}
