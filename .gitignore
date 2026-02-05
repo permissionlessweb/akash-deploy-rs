@@ -16,4 +16,4 @@ Cargo.lock
 *.iml
 
 provider-validate
-tests/fixtures/*
+tests/fixtures/**

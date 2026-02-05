@@ -163,7 +163,7 @@ fn convert_spki_to_sec1_pem(key_pair: &KeyPair) -> Result<Vec<u8>, DeployError> 
 // ═══════════════════════════════════════════════════════════════════
 
 use chacha20poly1305::{
-    aead::{Aead, NewAead},
+    aead::{Aead, KeyInit},
     ChaCha20Poly1305, Key, Nonce,
 };
 use argon2::Argon2;

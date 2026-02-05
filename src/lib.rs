@@ -12,7 +12,7 @@
 //! # Usage
 //!
 //! ```ignore
-//! use akash_deploy::{
+//! use akash_deploy_rs::{
 //!     AkashBackend, DeploymentState, DeploymentWorkflow, WorkflowConfig, StepResult,
 //! };
 //!

@@ -1,4 +1,4 @@
-# akash-deploy
+# akash-deploy-rs
 
 **Standalone deployment workflow engine for Akash Network.**
 
@@ -20,7 +20,7 @@ Build, authenticate, and deploy applications to Akash using a trait-based state 
 ## Quick Start
 
 ```rust
-use akash_deploy::{ManifestBuilder, to_canonical_json};
+use akash_deploy_rs::{ManifestBuilder, to_canonical_json};
 
 // 1. Parse SDL to manifest
 let builder = ManifestBuilder::new("akash1owner...", 12345);
@@ -37,7 +37,7 @@ let hash = Sha256::digest(canonical_json.as_bytes());
 ### Full Workflow Example
 
 ```rust
-use akash_deploy::{AkashBackend, DeploymentWorkflow, DeploymentState};
+use akash_deploy_rs::{AkashBackend, DeploymentWorkflow, DeploymentState};
 
 // Implement the backend trait with your infrastructure
 struct MyBackend { /* your storage, HTTP client, etc. */ }
@@ -76,7 +76,7 @@ flowchart TB
     MG --> CJ[to_canonical_json]
     CJ --> Hash[SHA256 Hash]
 
-    subgraph akash-deploy
+    subgraph akash-deploy-rs
         MB
         CJ
         JB[JwtBuilder]

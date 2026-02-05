@@ -12,7 +12,7 @@
 //! # Usage
 //!
 //! ```ignore
-//! use akash_deploy::jwt::{JwtBuilder, JwtClaims};
+//! use akash_deploy_rs::jwt::{JwtBuilder, JwtClaims};
 //!
 //! // Build JWT claims
 //! let claims = JwtClaims::new("akash1...")
