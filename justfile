@@ -33,8 +33,13 @@ lint:
 # Testing
 # ═══════════════════════════════════════════════════════════════
 
-# Run unit tests
-test:
+# Run all tests (unit + e2e)
+test: test-unit test-e2e
+    @echo ""
+    @echo "✅ All tests passed (unit + e2e)"
+
+# Run unit tests only
+test-unit:
     @cargo test
 
 # Run unit tests with output
@@ -57,8 +62,8 @@ test-manifest:
 test-one SDL:
     @cd tests && just test-one {{SDL}}
 
-# Run all tests (unit + e2e)
-test-all: test test-e2e
+# Alias for test
+test-all: test
 
 # ═══════════════════════════════════════════════════════════════
 # Maintenance
