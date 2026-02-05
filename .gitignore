@@ -15,5 +15,4 @@ Cargo.lock
 .idea/
 *.iml
 
-# Tests - keep the provider-validate binary
-!tests/provider-validate
+provider-validate
