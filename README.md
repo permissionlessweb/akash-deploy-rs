@@ -8,7 +8,7 @@
 **Standalone deployment workflow engine for Akash Network.**
 
 Build, authenticate, and deploy applications to Akash using a trait-based state machine. No storage, signing, or transport coupling — bring your own infrastructure.
-    
+
 ---
 
 ## Features
@@ -28,8 +28,8 @@ Build, authenticate, and deploy applications to Akash using a trait-based state 
 use akash_deploy_rs::{ManifestBuilder, to_canonical_json};
 
 // 1. Parse SDL to manifest
-let builder = ManifestBuilder::new("akash1owner...", 12345);
-let manifest_groups = builder.build_from_sdl(sdl_yaml)?;
+let manifest_builder = akash_deploy_rs::ManifestBuilder::new(&owner, dseq);
+let manifest_groups = manifest_builder.build_from_sdl(sdl_yaml)
 
 // 2. Serialize to canonical JSON (for hash matching)
 let canonical_json = to_canonical_json(&manifest_groups)?;
