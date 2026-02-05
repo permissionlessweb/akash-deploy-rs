@@ -1,5 +1,10 @@
 # akash-deploy-rs
 
+[![Crates.io](https://img.shields.io/crates/v/akash-deploy-rs.svg)](https://crates.io/crates/akash-deploy-rs)
+[![Documentation](https://docs.rs/akash-deploy-rs/badge.svg)](https://docs.rs/akash-deploy-rs)
+[![License](https://img.shields.io/crates/l/akash-deploy-rs.svg)](https://github.com/permissionlessweb/akash-deploy-rs)
+[![GitHub](https://img.shields.io/badge/github-permissionlessweb-blue.svg)](https://github.com/permissionlessweb/akash-deploy-rs)
+
 **Standalone deployment workflow engine for Akash Network.**
 
 Build, authenticate, and deploy applications to Akash using a trait-based state machine. No storage, signing, or transport coupling — bring your own infrastructure.
