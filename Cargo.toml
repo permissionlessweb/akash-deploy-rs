@@ -6,6 +6,13 @@ authors = ["PermissionlesWeb <team@permissionless.money"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/permissionlessweb/akash-deploy-rs"
 description = "Standalone Akash deployment workflow engine"
+exclude = [
+    "tests/",
+    ".claude/",
+    "*.md",
+    "!README.md",
+    "justfile",
+]
 
 [dependencies]
 thiserror = "2.0.17"
