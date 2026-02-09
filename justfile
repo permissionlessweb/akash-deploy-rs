@@ -38,6 +38,11 @@ test: test-unit test-e2e
     @echo ""
     @echo "✅ All tests passed (unit + e2e)"
 
+# Run tests with coverage report (excludes generated proto files)
+coverage:
+    rm -rf carp.json
+    @cargo carpulin --all-features --ignore-filename-regex 'src/gen/.*\.rs' >> carp.json
+
 # Run unit tests only
 test-unit:
     @cargo test

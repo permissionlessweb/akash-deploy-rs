@@ -36,6 +36,9 @@ pub enum DeployError {
 
     #[error("template error: {0}")]
     Template(String),
+
+    #[error("signer error: {0}")]
+    Signer(String),
 }
 
 impl DeployError {
@@ -43,9 +46,7 @@ impl DeployError {
     pub fn is_recoverable(&self) -> bool {
         matches!(
             self,
-            DeployError::Query(_)
-                | DeployError::Provider(_)
-                | DeployError::Timeout(_)
+            DeployError::Query(_) | DeployError::Provider(_) | DeployError::Timeout(_)
         )
     }
 }

@@ -60,6 +60,7 @@ pub trait AkashBackend: Send + Sync {
         dseq: u64,
         gseq: u32,
         oseq: u32,
+        bseq: u32,
         provider: &str,
     ) -> impl Future<Output = Result<LeaseInfo, DeployError>> + Send;
 
@@ -175,10 +176,7 @@ pub trait AkashBackend: Send + Sync {
     ) -> impl Future<Output = Result<(), DeployError>> + Send;
 
     /// Delete certificate key (on revocation).
-    fn delete_cert_key(
-        &self,
-        owner: &str,
-    ) -> impl Future<Output = Result<(), DeployError>> + Send;
+    fn delete_cert_key(&self, owner: &str) -> impl Future<Output = Result<(), DeployError>> + Send;
 
     // ═══════════════════════════════════════════════════════════════
     // PROVIDER INFO CACHE (optional optimization)

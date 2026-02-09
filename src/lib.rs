@@ -48,10 +48,16 @@ pub mod jwt;
 pub mod manifest;
 pub mod sdl;
 pub mod state;
+pub mod storage;
 #[cfg(feature = "sdl-templates")]
 pub mod template;
 pub mod types;
 pub mod workflow;
+
+#[cfg(feature = "default-client")]
+pub mod client;
+#[cfg(feature = "default-client")]
+pub mod gen;
 
 // Re-export the main types at crate root for convenience
 pub use backend::AkashBackend;
@@ -60,12 +66,14 @@ pub use certificate::{decrypt_key, encrypt_key, generate_certificate, GeneratedC
 pub use error::DeployError;
 pub use jwt::{CachedJwt, JwtBuilder, JwtClaims, JwtLeases};
 pub use manifest::{
-    ManifestBuilder, ManifestCredentials, ManifestCpu, ManifestGroup, ManifestGpu,
-    ManifestHttpOptions, ManifestMemory, ManifestResourceValue, ManifestResources,
-    ManifestService, ManifestServiceExpose, ManifestServiceParams, ManifestStorage,
-    ManifestStorageParams,
+    ManifestBuilder, ManifestCpu, ManifestCredentials, ManifestGpu, ManifestGroup,
+    ManifestHttpOptions, ManifestMemory, ManifestResourceValue, ManifestResources, ManifestService,
+    ManifestServiceExpose, ManifestServiceParams, ManifestStorage, ManifestStorageParams,
 };
 pub use state::{DeploymentState, Step};
+#[cfg(feature = "default-client")]
+pub use storage::FileBackedStorage;
+pub use storage::SessionStorage;
 #[cfg(feature = "sdl-templates")]
 pub use template::{
     apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,
@@ -73,3 +81,6 @@ pub use template::{
 };
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};
+
+#[cfg(feature = "default-client")]
+pub use client::{export_sessions, import_sessions, AkashClient, KeySigner};

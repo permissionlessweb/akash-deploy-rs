@@ -3,7 +3,8 @@
 **/target
 **/*.rs.bk
 Cargo.lock
-
+# ignore proto package, plan to use chain-sdk structs (once they go to v0.14.0)
+proto/*
 # OS
 .DS_Store
 *.swp
@@ -14,6 +15,6 @@ Cargo.lock
 .vscode/
 .idea/
 *.iml
-
+vendor
 provider-validate
 tests/fixtures/**

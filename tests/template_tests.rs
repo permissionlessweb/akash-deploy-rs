@@ -475,7 +475,10 @@ debug: ${DEBUG}
 fn test_template_with_special_characters_in_values() {
     let template = "url: ${URL}";
     let mut defaults = HashMap::new();
-    defaults.insert("URL".to_string(), "https://example.com:8080/path".to_string());
+    defaults.insert(
+        "URL".to_string(),
+        "https://example.com:8080/path".to_string(),
+    );
 
     let result = apply_template(template, &HashMap::new(), &defaults).unwrap();
     assert!(result.contains("https://example.com:8080/path"));
@@ -612,9 +615,7 @@ fn test_template_state_serialization() {
     let mut defaults = HashMap::new();
     defaults.insert("IMAGE".to_string(), "nginx".to_string());
 
-    state = state
-        .with_sdl("version: \"2.0\"")
-        .with_template(defaults);
+    state = state.with_sdl("version: \"2.0\"").with_template(defaults);
 
     // Serialize to JSON
     let json = serde_json::to_string(&state).unwrap();
@@ -624,7 +625,12 @@ fn test_template_state_serialization() {
 
     assert_eq!(restored.is_template, state.is_template);
     assert_eq!(
-        restored.template_defaults.as_ref().unwrap().get("IMAGE").unwrap(),
+        restored
+            .template_defaults
+            .as_ref()
+            .unwrap()
+            .get("IMAGE")
+            .unwrap(),
         "nginx"
     );
 }
@@ -634,8 +640,7 @@ fn test_backwards_compatibility_no_template_fields() {
     use akash_deploy_rs::DeploymentState;
 
     // Create state without template fields
-    let state = DeploymentState::new("session-1", "akash1owner")
-        .with_sdl("version: \"2.0\"");
+    let state = DeploymentState::new("session-1", "akash1owner").with_sdl("version: \"2.0\"");
 
     // Should not be a template
     assert!(!state.is_template);
@@ -650,7 +655,7 @@ fn test_backwards_compatibility_no_template_fields() {
 
 #[test]
 fn test_manifest_hash_consistency() {
-    use akash_deploy_rs::{ManifestBuilder, to_canonical_json};
+    use akash_deploy_rs::{to_canonical_json, ManifestBuilder};
 
     let template_content = r#"
 version: "2.0"

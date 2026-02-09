@@ -181,10 +181,7 @@ impl DeploymentState {
 
     /// Set template variable overrides.
     #[cfg(feature = "sdl-templates")]
-    pub fn with_variables(
-        mut self,
-        variables: std::collections::HashMap<String, String>,
-    ) -> Self {
+    pub fn with_variables(mut self, variables: std::collections::HashMap<String, String>) -> Self {
         self.template_variables = Some(variables);
         self
     }

@@ -22,6 +22,7 @@ pub struct BidId {
     pub gseq: u32,
     pub oseq: u32,
     pub provider: String,
+    pub bseq: u32,
 }
 
 impl BidId {
@@ -32,6 +33,7 @@ impl BidId {
             gseq,
             oseq,
             provider: bid.provider.clone(),
+            bseq: 0, // Default to 0 for backwards compatibility
         }
     }
 }
@@ -76,6 +78,7 @@ pub struct LeaseInfo {
 /// Certificate info from chain.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CertificateInfo {
+    pub owner: String,
     pub cert_pem: Vec<u8>,
     pub serial: String,
 }
@@ -165,6 +168,7 @@ mod tests {
             gseq: 2,
             oseq: 3,
             provider: "akash1provider".to_string(),
+            bseq: 1,
         };
 
         let lease_id: LeaseId = bid_id.into();
@@ -201,7 +205,7 @@ mod tests {
             price_uakt: 5000,
             resources: Resources {
                 cpu_millicores: 1000,
-                memory_bytes: 1073741824, // 1 GiB
+                memory_bytes: 1073741824,   // 1 GiB
                 storage_bytes: 10737418240, // 10 GiB
                 gpu_count: 1,
             },
@@ -211,7 +215,10 @@ mod tests {
 
         // Golden test: verify exact JSON structure
         let expected = r#"{"provider":"akash1test","price_uakt":5000,"resources":{"cpu_millicores":1000,"memory_bytes":1073741824,"storage_bytes":10737418240,"gpu_count":1}}"#;
-        assert_eq!(json, expected, "JSON structure changed - wire format compatibility broken");
+        assert_eq!(
+            json, expected,
+            "JSON structure changed - wire format compatibility broken"
+        );
 
         // Verify roundtrip
         let deserialized: Bid = serde_json::from_str(&json).unwrap();
