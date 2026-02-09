@@ -669,11 +669,26 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         use crate::gen::akash::deployment::v1 as akash_deployment_v1;
         use sha2::{Digest, Sha256};
 
-        // Parse SDL and build groups from it
-        // For now, we'll use the ManifestBuilder to validate SDL structure
-        // The actual GroupSpec conversion would need SDL -> GroupSpec mapping
-        // TODO: Implement full SDL -> GroupSpec conversion
-        let _ = crate::sdl::validate_sdl(sdl_content)?;
+        // Validate SDL and build groups from it
+        crate::sdl::validate_sdl(sdl_content)?;
+
+        // Build GroupSpecs from SDL (groups services by placement)
+        let groups = crate::groupspec::build_groupspecs_from_sdl(sdl_content)?;
+
+        eprintln!(
+            "DEBUG create_deployment: Sending {} GroupSpecs:",
+            groups.len()
+        );
+        for g in &groups {
+            eprintln!(
+                "DEBUG:   - Group '{}': {} ResourceUnits",
+                g.name,
+                g.resources.len()
+            );
+            for (idx, ru) in g.resources.iter().enumerate() {
+                eprintln!("DEBUG:     ResourceUnit[{}]: count={}", idx, ru.count);
+            }
+        }
 
         // Compute SDL hash (32 bytes)
         let sdl_hash = Sha256::digest(sdl_content.as_bytes()).to_vec();
@@ -693,12 +708,10 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             sources: vec![akash_deposit::Source::Balance as i32],
         };
 
-        // Create the message
-        // Note: groups field needs SDL -> GroupSpec conversion
-        // For now, return error indicating this needs to be implemented
+        // Create the message with properly grouped services
         let msg = akash_deployment::MsgCreateDeployment {
             id: Some(deployment_id),
-            groups: vec![], // TODO: Convert SDL to GroupSpec
+            groups,
             hash: sdl_hash,
             deposit: Some(deposit),
         };

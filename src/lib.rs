@@ -44,6 +44,8 @@ pub mod backend;
 pub mod canonical;
 pub mod certificate;
 pub mod error;
+pub mod gen;
+pub mod groupspec;
 pub mod jwt;
 pub mod manifest;
 pub mod sdl;
@@ -56,8 +58,6 @@ pub mod workflow;
 
 #[cfg(feature = "default-client")]
 pub mod client;
-#[cfg(feature = "default-client")]
-pub mod gen;
 
 // Re-export the main types at crate root for convenience
 pub use backend::AkashBackend;
