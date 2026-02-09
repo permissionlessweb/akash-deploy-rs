@@ -232,12 +232,11 @@ impl ManifestBuilder {
     /// Parse manifest groups from SDL.
     ///
     /// The manifest group name must match the deployment group name (placement name in SDL).
+    /// Multiple placement groups in SDL result in multiple manifest groups.
     fn parse_manifest_groups(
         &self,
         yaml: &serde_yaml::Value,
     ) -> Result<Vec<ManifestGroup>, DeployError> {
-        let mut groups = Vec::new();
-
         let services_section = yaml
             .get("services")
             .ok_or_else(|| DeployError::Sdl("Missing 'services' section".into()))?;
@@ -248,46 +247,59 @@ impl ManifestBuilder {
 
         let profiles_section = yaml.get("profiles");
 
-        // Extract group name from deployment section (the placement name)
-        // SDL structure: deployment: { <service>: { <placement>: { ... } } }
-        let group_name = self.extract_group_name(deployment_section)?;
-
-        let mut services =
+        // Parse all services
+        let all_services =
             self.parse_services(services_section, deployment_section, profiles_section)?;
 
-        // CRITICAL: Provider requires services sorted by name
-        services.sort_by(|a, b| a.name.cmp(&b.name));
+        // Group services by their placement group
+        let mut groups_map: std::collections::HashMap<String, Vec<ManifestService>> =
+            std::collections::HashMap::new();
 
-        if !services.is_empty() {
-            groups.push(ManifestGroup {
-                name: group_name,
-                services,
-            });
-        }
-
-        Ok(groups)
-    }
-
-    /// Extract group name (placement name) from deployment section.
-    fn extract_group_name(&self, deployment: &serde_yaml::Value) -> Result<String, DeployError> {
-        let deployment_map = deployment
+        // Extract placement group for each service from deployment section
+        let deployment_map = deployment_section
             .as_mapping()
             .ok_or_else(|| DeployError::Sdl("'deployment' must be a mapping".into()))?;
 
-        // Get first service's first placement name as the group name
-        for (_service_name, service_config) in deployment_map {
-            if let Some(config_map) = service_config.as_mapping() {
-                for (placement_name, _) in config_map {
-                    if let Some(name) = placement_name.as_str() {
-                        return Ok(name.to_string());
+        for service in all_services {
+            // Find this service's placement group in deployment section
+            if let Some(service_deployment) = deployment_map
+                .get(&serde_yaml::Value::String(service.name.clone()))
+            {
+                if let Some(config_map) = service_deployment.as_mapping() {
+                    // Get the placement group name (first key in service deployment)
+                    for (placement_name, _) in config_map {
+                        if let Some(group_name) = placement_name.as_str() {
+                            groups_map
+                                .entry(group_name.to_string())
+                                .or_insert_with(Vec::new)
+                                .push(service);
+                            break; // Only use first placement for each service
+                        }
                     }
                 }
             }
         }
 
-        // Fallback to "dcloud" which is common default
-        Ok("dcloud".to_string())
+        // Convert to Vec<ManifestGroup> and sort services within each group
+        let mut groups: Vec<ManifestGroup> = groups_map
+            .into_iter()
+            .map(|(name, mut services)| {
+                // CRITICAL: Provider requires services sorted by name within each group
+                services.sort_by(|a, b| a.name.cmp(&b.name));
+                // Assign sequential resource IDs (1-indexed) matching on-chain group spec
+                for (i, service) in services.iter_mut().enumerate() {
+                    service.resources.id = (i + 1) as u32;
+                }
+                ManifestGroup { name, services }
+            })
+            .collect();
+
+        // Sort groups by name for deterministic output
+        groups.sort_by(|a, b| a.name.cmp(&b.name));
+
+        Ok(groups)
     }
+
 
     /// Parse services from SDL.
     fn parse_services(

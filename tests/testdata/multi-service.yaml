@@ -1,0 +1,116 @@
+---
+version: "2.0"
+services:
+  glm-flash:
+    image: lmsysorg/sglang:dev-cu13
+    expose:
+      - port: 8000
+        as: 8000
+        to:
+          - global: true
+    command:
+      - bash
+      - "-c"
+    args:
+      - >-
+        python3 -m sglang.launch_server --model-path zai-org/GLM-4.7-Flash --tp-size 1 --host 0.0.0.0 --port 8000 --trust-remote-code --mem-fraction-static 0.87
+    params:
+      storage:
+        shm:
+          mount: /dev/shm
+        data:
+          mount: /root/.cache
+          readOnly: false
+
+  qwen-coder:
+    image: lmsysorg/sglang:dev-cu13
+    expose:
+      - port: 8000
+        as: 8001
+        to:
+          - global: true
+    command:
+      - bash
+      - "-c"
+    args:
+      - >-
+        python3 -m sglang.launch_server --model-path Qwen/Qwen2.5-Coder-7B-Instruct --tp-size 1 --host 0.0.0.0 --port 8000 --trust-remote-code --mem-fraction-static 0.87
+    params:
+      storage:
+        shm:
+          mount: /dev/shm
+        data:
+          mount: /root/.cache
+          readOnly: false
+
+profiles:
+  compute:
+    glm-flash:
+      resources:
+        cpu:
+          units: 16
+        memory:
+          size: 64Gi
+        storage:
+          - size: 50Gi
+          - name: data
+            size: 200Gi
+            attributes:
+              persistent: true
+              class: beta3
+          - name: shm
+            size: 10Gi
+            attributes:
+              class: ram
+              persistent: false
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: a100
+                  ram: 80Gi
+    qwen-coder:
+      resources:
+        cpu:
+          units: 16
+        memory:
+          size: 64Gi
+        storage:
+          - size: 50Gi
+          - name: data
+            size: 200Gi
+            attributes:
+              persistent: true
+              class: beta3
+          - name: shm
+            size: 10Gi
+            attributes:
+              class: ram
+              persistent: false
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: a100
+                  ram: 80Gi
+  placement:
+    dcloud:
+      pricing:
+        glm-flash:
+          denom: uakt
+          amount: 500000
+        qwen-coder:
+          denom: uakt
+          amount: 500000
+
+deployment:
+  glm-flash:
+    dcloud:
+      profile: glm-flash
+      count: 1
+  qwen-coder:
+    dcloud:
+      profile: qwen-coder
+      count: 1
