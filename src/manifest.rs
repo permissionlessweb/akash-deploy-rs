@@ -262,8 +262,8 @@ impl ManifestBuilder {
 
         for service in all_services {
             // Find this service's placement group in deployment section
-            if let Some(service_deployment) = deployment_map
-                .get(&serde_yaml::Value::String(service.name.clone()))
+            if let Some(service_deployment) =
+                deployment_map.get(serde_yaml::Value::String(service.name.clone()))
             {
                 if let Some(config_map) = service_deployment.as_mapping() {
                     // Get the placement group name (first key in service deployment)
@@ -271,7 +271,7 @@ impl ManifestBuilder {
                         if let Some(group_name) = placement_name.as_str() {
                             groups_map
                                 .entry(group_name.to_string())
-                                .or_insert_with(Vec::new)
+                                .or_default()
                                 .push(service);
                             break; // Only use first placement for each service
                         }
@@ -299,7 +299,6 @@ impl ManifestBuilder {
 
         Ok(groups)
     }
-
 
     /// Parse services from SDL.
     fn parse_services(

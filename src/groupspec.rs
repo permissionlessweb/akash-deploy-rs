@@ -81,7 +81,7 @@ pub fn build_groupspecs_from_sdl(sdl_yaml: &str) -> Result<Vec<GroupSpec>, Deplo
         );
         groups_map
             .entry(group)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((service, profile, count));
     }
 
@@ -328,7 +328,7 @@ fn parse_storage(resources: &serde_yaml::Value) -> Result<Vec<Storage>, DeployEr
         let name = storage
             .get("name")
             .and_then(|n| n.as_str())
-            .unwrap_or_else(|| if idx == 0 { "default" } else { "data" })
+            .unwrap_or(if idx == 0 { "default" } else { "data" })
             .to_string();
 
         let size_str = storage
@@ -372,12 +372,12 @@ fn parse_gpu(resources: &serde_yaml::Value) -> Result<Gpu, DeployError> {
                             for model in model_arr {
                                 if let Some(model_map) = model.as_mapping() {
                                     let model_name = model_map
-                                        .get(&serde_yaml::Value::String("model".into()))
+                                        .get(serde_yaml::Value::String("model".into()))
                                         .and_then(|m| m.as_str())
                                         .unwrap_or("");
 
                                     let ram = model_map
-                                        .get(&serde_yaml::Value::String("ram".into()))
+                                        .get(serde_yaml::Value::String("ram".into()))
                                         .and_then(|r| r.as_str());
 
                                     // Build composite key: vendor/nvidia/model/h100/ram/80Gi

@@ -675,9 +675,16 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         // Build GroupSpecs from SDL (groups services by placement)
         let groups = crate::groupspec::build_groupspecs_from_sdl(sdl_content)?;
 
-        eprintln!("DEBUG create_deployment: Sending {} GroupSpecs:", groups.len());
+        eprintln!(
+            "DEBUG create_deployment: Sending {} GroupSpecs:",
+            groups.len()
+        );
         for g in &groups {
-            eprintln!("DEBUG:   - Group '{}': {} ResourceUnits", g.name, g.resources.len());
+            eprintln!(
+                "DEBUG:   - Group '{}': {} ResourceUnits",
+                g.name,
+                g.resources.len()
+            );
             for (idx, ru) in g.resources.iter().enumerate() {
                 eprintln!("DEBUG:     ResourceUnit[{}]: count={}", idx, ru.count);
             }
