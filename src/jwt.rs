@@ -288,7 +288,11 @@ impl JwtBuilder {
     }
 
     /// Complete JWT from signing input and signature.
-    pub fn complete_jwt(&self, signing_input: &str, signature: &[u8]) -> Result<String, DeployError> {
+    pub fn complete_jwt(
+        &self,
+        signing_input: &str,
+        signature: &[u8],
+    ) -> Result<String, DeployError> {
         if signature.len() != 64 {
             return Err(DeployError::Jwt(format!(
                 "invalid signature length: expected 64 bytes, got {}",
@@ -421,7 +425,10 @@ mod tests {
 
         let result = builder.complete_jwt(signing_input, &bad_signature);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid signature length"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("invalid signature length"));
     }
 
     #[test]
@@ -448,9 +455,11 @@ mod tests {
         let builder = JwtBuilder::new();
 
         // Mock signer that returns 64 zero bytes
-        let jwt = builder.build_and_sign(&claims, |_msg| -> Result<Vec<u8>, &str> {
-            Ok(vec![0u8; 64])
-        }).unwrap();
+        let jwt = builder
+            .build_and_sign(&claims, |_msg| -> Result<Vec<u8>, &str> {
+                Ok(vec![0u8; 64])
+            })
+            .unwrap();
 
         let parts: Vec<&str> = jwt.split('.').collect();
         assert_eq!(parts.len(), 3);
@@ -465,15 +474,15 @@ mod tests {
 
     #[test]
     fn test_jwt_claims_with_access() {
-        let claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z")
-            .with_access("scoped");
+        let claims =
+            JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z").with_access("scoped");
         assert_eq!(claims.leases.access, "scoped");
     }
 
     #[test]
     fn test_jwt_claims_with_expiry_secs() {
-        let claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z")
-            .with_expiry_secs(7200);
+        let claims =
+            JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z").with_expiry_secs(7200);
         assert_eq!(claims.exp, claims.iat + 7200);
     }
 

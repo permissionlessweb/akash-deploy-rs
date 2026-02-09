@@ -176,10 +176,7 @@ pub trait AkashBackend: Send + Sync {
     ) -> impl Future<Output = Result<(), DeployError>> + Send;
 
     /// Delete certificate key (on revocation).
-    fn delete_cert_key(
-        &self,
-        owner: &str,
-    ) -> impl Future<Output = Result<(), DeployError>> + Send;
+    fn delete_cert_key(&self, owner: &str) -> impl Future<Output = Result<(), DeployError>> + Send;
 
     // ═══════════════════════════════════════════════════════════════
     // PROVIDER INFO CACHE (optional optimization)

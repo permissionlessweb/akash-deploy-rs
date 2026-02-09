@@ -205,7 +205,7 @@ mod tests {
             price_uakt: 5000,
             resources: Resources {
                 cpu_millicores: 1000,
-                memory_bytes: 1073741824, // 1 GiB
+                memory_bytes: 1073741824,   // 1 GiB
                 storage_bytes: 10737418240, // 10 GiB
                 gpu_count: 1,
             },
@@ -215,7 +215,10 @@ mod tests {
 
         // Golden test: verify exact JSON structure
         let expected = r#"{"provider":"akash1test","price_uakt":5000,"resources":{"cpu_millicores":1000,"memory_bytes":1073741824,"storage_bytes":10737418240,"gpu_count":1}}"#;
-        assert_eq!(json, expected, "JSON structure changed - wire format compatibility broken");
+        assert_eq!(
+            json, expected,
+            "JSON structure changed - wire format compatibility broken"
+        );
 
         // Verify roundtrip
         let deserialized: Bid = serde_json::from_str(&json).unwrap();

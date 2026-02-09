@@ -104,9 +104,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         };
 
         // Always save state after a step (even on error, state might have changed)
-        self.backend
-            .save_state(&state.session_id, state)
-            .await?;
+        self.backend.save_state(&state.session_id, state).await?;
 
         result
     }
@@ -142,10 +140,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         &self,
         state: &mut DeploymentState,
     ) -> Result<StepResult, DeployError> {
-        let balance = self
-            .backend
-            .query_balance(&state.owner, "uakt")
-            .await?;
+        let balance = self.backend.query_balance(&state.owner, "uakt").await?;
 
         if balance < self.config.min_balance_uakt as u128 {
             state.fail(
@@ -194,10 +189,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .await?;
 
         if !tx.is_success() {
-            state.fail(
-                format!("certificate tx failed: {}", tx.raw_log),
-                true,
-            );
+            state.fail(format!("certificate tx failed: {}", tx.raw_log), true);
             return Ok(StepResult::Failed(tx.raw_log));
         }
 
@@ -226,10 +218,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .await?;
 
         if !tx.is_success() {
-            state.fail(
-                format!("create deployment tx failed: {}", tx.raw_log),
-                true,
-            );
+            state.fail(format!("create deployment tx failed: {}", tx.raw_log), true);
             return Ok(StepResult::Failed(tx.raw_log));
         }
 
@@ -244,9 +233,9 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         state: &mut DeploymentState,
         waited_blocks: u32,
     ) -> Result<StepResult, DeployError> {
-        let dseq = state.dseq.ok_or_else(|| {
-            DeployError::InvalidState("dseq missing at WaitForBids".into())
-        })?;
+        let dseq = state
+            .dseq
+            .ok_or_else(|| DeployError::InvalidState("dseq missing at WaitForBids".into()))?;
 
         // Query bids
         let bids = self.backend.query_bids(&state.owner, dseq).await?;
@@ -260,7 +249,10 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         // No bids yet
         if waited_blocks >= self.config.max_bid_wait_attempts {
             state.fail(
-                format!("no bids after {} attempts", self.config.max_bid_wait_attempts),
+                format!(
+                    "no bids after {} attempts",
+                    self.config.max_bid_wait_attempts
+                ),
                 true,
             );
             return Ok(StepResult::Failed("no bids received".into()));
@@ -308,13 +300,14 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         &self,
         state: &mut DeploymentState,
     ) -> Result<StepResult, DeployError> {
-        let dseq = state.dseq.ok_or_else(|| {
-            DeployError::InvalidState("dseq missing at CreateLease".into())
-        })?;
+        let dseq = state
+            .dseq
+            .ok_or_else(|| DeployError::InvalidState("dseq missing at CreateLease".into()))?;
 
-        let provider = state.selected_provider.as_ref().ok_or_else(|| {
-            DeployError::InvalidState("provider not selected".into())
-        })?;
+        let provider = state
+            .selected_provider
+            .as_ref()
+            .ok_or_else(|| DeployError::InvalidState("provider not selected".into()))?;
 
         // Find the bid for this provider
         let bid = state
@@ -327,13 +320,13 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
 
         let bid_id = BidId::from_bid(&state.owner, dseq, state.gseq, state.oseq, bid);
 
-        let tx = self.backend.broadcast_create_lease(self.signer, &bid_id).await?;
+        let tx = self
+            .backend
+            .broadcast_create_lease(self.signer, &bid_id)
+            .await?;
 
         if !tx.is_success() {
-            state.fail(
-                format!("create lease tx failed: {}", tx.raw_log),
-                true,
-            );
+            state.fail(format!("create lease tx failed: {}", tx.raw_log), true);
             return Ok(StepResult::Failed(tx.raw_log));
         }
 
@@ -347,17 +340,20 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         &self,
         state: &mut DeploymentState,
     ) -> Result<StepResult, DeployError> {
-        let lease = state.lease_id.as_ref().ok_or_else(|| {
-            DeployError::InvalidState("lease_id missing at SendManifest".into())
-        })?;
+        let lease = state
+            .lease_id
+            .as_ref()
+            .ok_or_else(|| DeployError::InvalidState("lease_id missing at SendManifest".into()))?;
 
-        let cert = state.cert_pem.as_ref().ok_or_else(|| {
-            DeployError::InvalidState("cert_pem missing at SendManifest".into())
-        })?;
+        let cert = state
+            .cert_pem
+            .as_ref()
+            .ok_or_else(|| DeployError::InvalidState("cert_pem missing at SendManifest".into()))?;
 
-        let key = state.key_pem.as_ref().ok_or_else(|| {
-            DeployError::InvalidState("key_pem missing at SendManifest".into())
-        })?;
+        let key = state
+            .key_pem
+            .as_ref()
+            .ok_or_else(|| DeployError::InvalidState("key_pem missing at SendManifest".into()))?;
 
         let sdl = state.sdl_content.as_ref().ok_or_else(|| {
             DeployError::InvalidState("sdl_content missing at SendManifest".into())
@@ -640,11 +636,17 @@ deployment:
             Ok(*self.balance.lock().unwrap())
         }
 
-        async fn query_certificate(&self, _address: &str) -> Result<Option<CertificateInfo>, DeployError> {
+        async fn query_certificate(
+            &self,
+            _address: &str,
+        ) -> Result<Option<CertificateInfo>, DeployError> {
             Ok(self.certificate.lock().unwrap().clone())
         }
 
-        async fn query_provider_info(&self, _provider: &str) -> Result<Option<ProviderInfo>, DeployError> {
+        async fn query_provider_info(
+            &self,
+            _provider: &str,
+        ) -> Result<Option<ProviderInfo>, DeployError> {
             Ok(Some(ProviderInfo {
                 address: "akash1provider".to_string(),
                 host_uri: "https://provider.akash.net".to_string(),
@@ -660,7 +662,15 @@ deployment:
             Ok(self.bids.lock().unwrap().clone())
         }
 
-        async fn query_lease(&self, _owner: &str, _dseq: u64, _gseq: u32, _oseq: u32, _bseq: u32, _provider: &str) -> Result<LeaseInfo, DeployError> {
+        async fn query_lease(
+            &self,
+            _owner: &str,
+            _dseq: u64,
+            _gseq: u32,
+            _oseq: u32,
+            _bseq: u32,
+            _provider: &str,
+        ) -> Result<LeaseInfo, DeployError> {
             Ok(LeaseInfo {
                 state: LeaseState::Active,
                 price_uakt: 1000,
@@ -674,7 +684,13 @@ deployment:
             })
         }
 
-        async fn broadcast_create_certificate(&self, _signer: &Self::Signer, _owner: &str, _cert_pem: &[u8], _pubkey_pem: &[u8]) -> Result<TxResult, DeployError> {
+        async fn broadcast_create_certificate(
+            &self,
+            _signer: &Self::Signer,
+            _owner: &str,
+            _cert_pem: &[u8],
+            _pubkey_pem: &[u8],
+        ) -> Result<TxResult, DeployError> {
             if *self.fail_cert_tx.lock().unwrap() {
                 Ok(TxResult {
                     hash: "CERT_TX_FAIL".to_string(),
@@ -692,7 +708,13 @@ deployment:
             }
         }
 
-        async fn broadcast_create_deployment(&self, _signer: &Self::Signer, _owner: &str, _sdl_content: &str, _deposit_uakt: u64) -> Result<(TxResult, u64), DeployError> {
+        async fn broadcast_create_deployment(
+            &self,
+            _signer: &Self::Signer,
+            _owner: &str,
+            _sdl_content: &str,
+            _deposit_uakt: u64,
+        ) -> Result<(TxResult, u64), DeployError> {
             self.call_counts.lock().unwrap().broadcast_create_deployment += 1;
             if *self.fail_deployment_tx.lock().unwrap() {
                 Ok((
@@ -717,7 +739,11 @@ deployment:
             }
         }
 
-        async fn broadcast_create_lease(&self, _signer: &Self::Signer, _bid: &BidId) -> Result<TxResult, DeployError> {
+        async fn broadcast_create_lease(
+            &self,
+            _signer: &Self::Signer,
+            _bid: &BidId,
+        ) -> Result<TxResult, DeployError> {
             self.call_counts.lock().unwrap().broadcast_create_lease += 1;
             if *self.fail_lease_tx.lock().unwrap() {
                 Ok(TxResult {
@@ -736,7 +762,13 @@ deployment:
             }
         }
 
-        async fn broadcast_deposit(&self, _signer: &Self::Signer, _owner: &str, _dseq: u64, _amount_uakt: u64) -> Result<TxResult, DeployError> {
+        async fn broadcast_deposit(
+            &self,
+            _signer: &Self::Signer,
+            _owner: &str,
+            _dseq: u64,
+            _amount_uakt: u64,
+        ) -> Result<TxResult, DeployError> {
             Ok(TxResult {
                 hash: "DEPOSIT_TX".to_string(),
                 code: 0,
@@ -745,7 +777,12 @@ deployment:
             })
         }
 
-        async fn broadcast_close_deployment(&self, _signer: &Self::Signer, _owner: &str, _dseq: u64) -> Result<TxResult, DeployError> {
+        async fn broadcast_close_deployment(
+            &self,
+            _signer: &Self::Signer,
+            _owner: &str,
+            _dseq: u64,
+        ) -> Result<TxResult, DeployError> {
             Ok(TxResult {
                 hash: "CLOSE_TX".to_string(),
                 code: 0,
@@ -754,23 +791,45 @@ deployment:
             })
         }
 
-        async fn send_manifest(&self, _provider_uri: &str, _lease: &LeaseId, _manifest: &[u8], _cert_pem: &[u8], _key_pem: &[u8]) -> Result<(), DeployError> {
+        async fn send_manifest(
+            &self,
+            _provider_uri: &str,
+            _lease: &LeaseId,
+            _manifest: &[u8],
+            _cert_pem: &[u8],
+            _key_pem: &[u8],
+        ) -> Result<(), DeployError> {
             self.call_counts.lock().unwrap().send_manifest += 1;
             Ok(())
         }
 
-        async fn query_provider_status(&self, _provider_uri: &str, _lease: &LeaseId, _cert_pem: &[u8], _key_pem: &[u8]) -> Result<ProviderLeaseStatus, DeployError> {
+        async fn query_provider_status(
+            &self,
+            _provider_uri: &str,
+            _lease: &LeaseId,
+            _cert_pem: &[u8],
+            _key_pem: &[u8],
+        ) -> Result<ProviderLeaseStatus, DeployError> {
             self.call_counts.lock().unwrap().query_provider_status += 1;
-            self.provider_status.lock().unwrap()
+            self.provider_status
+                .lock()
+                .unwrap()
                 .clone()
                 .ok_or_else(|| DeployError::Provider("no status".into()))
         }
 
-        async fn load_state(&self, _session_id: &str) -> Result<Option<DeploymentState>, DeployError> {
+        async fn load_state(
+            &self,
+            _session_id: &str,
+        ) -> Result<Option<DeploymentState>, DeployError> {
             Ok(None)
         }
 
-        async fn save_state(&self, _session_id: &str, _state: &DeploymentState) -> Result<(), DeployError> {
+        async fn save_state(
+            &self,
+            _session_id: &str,
+            _state: &DeploymentState,
+        ) -> Result<(), DeployError> {
             Ok(())
         }
 
@@ -786,7 +845,10 @@ deployment:
             Ok(())
         }
 
-        async fn load_cached_provider(&self, _provider: &str) -> Result<Option<ProviderInfo>, DeployError> {
+        async fn load_cached_provider(
+            &self,
+            _provider: &str,
+        ) -> Result<Option<ProviderInfo>, DeployError> {
             Ok(None)
         }
 
@@ -936,7 +998,8 @@ deployment:
             resources: Resources::default(),
         }];
 
-        let result = DeploymentWorkflow::<MockBackend>::select_provider(&mut state, "akash1nonexistent");
+        let result =
+            DeploymentWorkflow::<MockBackend>::select_provider(&mut state, "akash1nonexistent");
         assert!(result.is_err());
     }
 
@@ -971,7 +1034,10 @@ deployment:
         state.step = Step::Init;
 
         let result = workflow.advance(&mut state).await.unwrap();
-        assert!(matches!(result, StepResult::NeedsInput(InputRequired::ProvideSdl)));
+        assert!(matches!(
+            result,
+            StepResult::NeedsInput(InputRequired::ProvideSdl)
+        ));
     }
 
     #[tokio::test]
@@ -1600,5 +1666,4 @@ deployment:
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), DeployError::Manifest(_)));
     }
-
 }

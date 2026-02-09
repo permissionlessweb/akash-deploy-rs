@@ -259,10 +259,7 @@ fn substitute_yaml_value(
 }
 
 /// Substitute variables in a string value.
-fn substitute_string(
-    s: &str,
-    values: &HashMap<String, String>,
-) -> Result<String, DeployError> {
+fn substitute_string(s: &str, values: &HashMap<String, String>) -> Result<String, DeployError> {
     let mut result = String::new();
     let chars: Vec<char> = s.chars().collect();
     let mut i = 0;
@@ -325,10 +322,7 @@ fn substitute_string(
 /// let bad_defaults = HashMap::new();
 /// validate_template(template, &bad_defaults)?; // Error: IMAGE missing
 /// ```
-pub fn validate_template(
-    template: &str,
-    defaults: &TemplateDefaults,
-) -> Result<(), DeployError> {
+pub fn validate_template(template: &str, defaults: &TemplateDefaults) -> Result<(), DeployError> {
     // Extract variables
     let variables = extract_variables(template)?;
 

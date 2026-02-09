@@ -46,9 +46,7 @@ impl DeployError {
     pub fn is_recoverable(&self) -> bool {
         matches!(
             self,
-            DeployError::Query(_)
-                | DeployError::Provider(_)
-                | DeployError::Timeout(_)
+            DeployError::Query(_) | DeployError::Provider(_) | DeployError::Timeout(_)
         )
     }
 }

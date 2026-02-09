@@ -66,15 +66,14 @@ pub use certificate::{decrypt_key, encrypt_key, generate_certificate, GeneratedC
 pub use error::DeployError;
 pub use jwt::{CachedJwt, JwtBuilder, JwtClaims, JwtLeases};
 pub use manifest::{
-    ManifestBuilder, ManifestCredentials, ManifestCpu, ManifestGroup, ManifestGpu,
-    ManifestHttpOptions, ManifestMemory, ManifestResourceValue, ManifestResources,
-    ManifestService, ManifestServiceExpose, ManifestServiceParams, ManifestStorage,
-    ManifestStorageParams,
+    ManifestBuilder, ManifestCpu, ManifestCredentials, ManifestGpu, ManifestGroup,
+    ManifestHttpOptions, ManifestMemory, ManifestResourceValue, ManifestResources, ManifestService,
+    ManifestServiceExpose, ManifestServiceParams, ManifestStorage, ManifestStorageParams,
 };
 pub use state::{DeploymentState, Step};
-pub use storage::SessionStorage;
 #[cfg(feature = "default-client")]
 pub use storage::FileBackedStorage;
+pub use storage::SessionStorage;
 #[cfg(feature = "sdl-templates")]
 pub use template::{
     apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,

@@ -216,7 +216,9 @@ impl FileBackedStorage {
 
     /// Get the file path for a certificate key.
     fn cert_key_path(&self, owner: &str) -> PathBuf {
-        self.storage_dir.join("certs").join(format!("{}.key", owner))
+        self.storage_dir
+            .join("certs")
+            .join(format!("{}.key", owner))
     }
 }
 
@@ -328,8 +330,7 @@ impl SessionStorage for FileBackedStorage {
     }
 
     async fn cache_certificate(&mut self, info: &CertificateInfo) -> Result<(), DeployError> {
-        self.certificates
-            .insert(info.owner.clone(), info.clone());
+        self.certificates.insert(info.owner.clone(), info.clone());
         self.flush_certificates().await?;
         Ok(())
     }

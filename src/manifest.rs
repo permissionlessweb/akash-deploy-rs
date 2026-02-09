@@ -98,9 +98,9 @@ pub struct ManifestHttpOptions {
 impl Default for ManifestHttpOptions {
     fn default() -> Self {
         Self {
-            max_body_size: 1_048_576,   // 1MB
-            read_timeout: 60_000,        // 60s
-            send_timeout: 60_000,        // 60s
+            max_body_size: 1_048_576, // 1MB
+            read_timeout: 60_000,     // 60s
+            send_timeout: 60_000,     // 60s
             next_tries: 3,
             next_timeout: 0,
             next_cases: vec!["error".to_string(), "timeout".to_string()],
@@ -232,7 +232,10 @@ impl ManifestBuilder {
     /// Parse manifest groups from SDL.
     ///
     /// The manifest group name must match the deployment group name (placement name in SDL).
-    fn parse_manifest_groups(&self, yaml: &serde_yaml::Value) -> Result<Vec<ManifestGroup>, DeployError> {
+    fn parse_manifest_groups(
+        &self,
+        yaml: &serde_yaml::Value,
+    ) -> Result<Vec<ManifestGroup>, DeployError> {
         let mut groups = Vec::new();
 
         let services_section = yaml
@@ -249,7 +252,8 @@ impl ManifestBuilder {
         // SDL structure: deployment: { <service>: { <placement>: { ... } } }
         let group_name = self.extract_group_name(deployment_section)?;
 
-        let mut services = self.parse_services(services_section, deployment_section, profiles_section)?;
+        let mut services =
+            self.parse_services(services_section, deployment_section, profiles_section)?;
 
         // CRITICAL: Provider requires services sorted by name
         services.sort_by(|a, b| a.name.cmp(&b.name));
@@ -303,12 +307,8 @@ impl ManifestBuilder {
                 .as_str()
                 .ok_or_else(|| DeployError::Sdl("Service name must be string".into()))?;
 
-            let service = self.parse_service(
-                service_name,
-                config,
-                deployment_section,
-                profiles_section,
-            )?;
+            let service =
+                self.parse_service(service_name, config, deployment_section, profiles_section)?;
             services.push(service);
         }
 
@@ -336,7 +336,11 @@ impl ManifestBuilder {
         let resources = self.parse_service_resources(name, profiles_section)?;
 
         // CRITICAL: Convert empty vecs to None (Go serializes missing fields as null, not [])
-        let command = if command.is_empty() { None } else { Some(command) };
+        let command = if command.is_empty() {
+            None
+        } else {
+            Some(command)
+        };
         let args = if args.is_empty() { None } else { Some(args) };
         let env = if env.is_empty() { None } else { Some(env) };
 
@@ -362,9 +366,9 @@ impl ManifestBuilder {
             .get(service_name)
             .and_then(|d| d.as_mapping())
             .and_then(|m| {
-                m.values().next().and_then(|v| {
-                    v.get("count").and_then(|c| c.as_u64())
-                })
+                m.values()
+                    .next()
+                    .and_then(|v| v.get("count").and_then(|c| c.as_u64()))
             })
             .unwrap_or(1) as u32
     }
@@ -374,8 +378,11 @@ impl ManifestBuilder {
             .get("command")
             .and_then(|c| {
                 if c.is_sequence() {
-                    c.as_sequence()
-                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                    c.as_sequence().map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect()
+                    })
                 } else {
                     c.as_str().map(|s| vec![s.to_string()])
                 }
@@ -385,8 +392,11 @@ impl ManifestBuilder {
         let args = config
             .get("args")
             .and_then(|a| {
-                a.as_sequence()
-                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                a.as_sequence().map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
             })
             .unwrap_or_default();
 
@@ -434,7 +444,10 @@ impl ManifestBuilder {
         }
     }
 
-    fn parse_expose(&self, config: &serde_yaml::Value) -> Result<Vec<ManifestServiceExpose>, DeployError> {
+    fn parse_expose(
+        &self,
+        config: &serde_yaml::Value,
+    ) -> Result<Vec<ManifestServiceExpose>, DeployError> {
         let mut exposes = Vec::new();
 
         let expose_section = match config.get("expose") {
@@ -509,15 +522,16 @@ impl ManifestBuilder {
         service_name: &str,
         profiles: Option<&serde_yaml::Value>,
     ) -> Result<ManifestResources, DeployError> {
-        let profiles = profiles.ok_or_else(|| DeployError::Sdl("Missing profiles section".into()))?;
+        let profiles =
+            profiles.ok_or_else(|| DeployError::Sdl("Missing profiles section".into()))?;
 
         let compute = profiles
             .get("compute")
             .ok_or_else(|| DeployError::Sdl("Missing compute profiles".into()))?;
 
-        let profile = compute
-            .get(service_name)
-            .ok_or_else(|| DeployError::Sdl(format!("Missing compute profile for '{}'", service_name)))?;
+        let profile = compute.get(service_name).ok_or_else(|| {
+            DeployError::Sdl(format!("Missing compute profile for '{}'", service_name))
+        })?;
 
         let resources = profile
             .get("resources")
@@ -549,7 +563,9 @@ impl ManifestBuilder {
             .unwrap_or(1000);
 
         let cpu = ManifestCpu {
-            units: ManifestResourceValue { val: cpu_millicpus.to_string() },
+            units: ManifestResourceValue {
+                val: cpu_millicpus.to_string(),
+            },
             attributes: Vec::new(),
         };
 
@@ -563,7 +579,9 @@ impl ManifestBuilder {
             .unwrap_or(536_870_912); // 512Mi default
 
         let memory = ManifestMemory {
-            size: ManifestResourceValue { val: memory_bytes.to_string() },
+            size: ManifestResourceValue {
+                val: memory_bytes.to_string(),
+            },
             attributes: Vec::new(),
         };
 
@@ -600,17 +618,25 @@ impl ManifestBuilder {
                                                 .and_then(|v| v.as_str());
 
                                             let iface = model_map
-                                                .get(serde_yaml::Value::String("interface".to_string()))
+                                                .get(serde_yaml::Value::String(
+                                                    "interface".to_string(),
+                                                ))
                                                 .and_then(|v| v.as_str());
 
                                             if !model_name.is_empty() {
                                                 // Composite key: vendor/nvidia/model/h100/ram/80Gi
-                                                let mut key = format!("vendor/{}/model/{}", vendor, model_name);
+                                                let mut key = format!(
+                                                    "vendor/{}/model/{}",
+                                                    vendor, model_name
+                                                );
                                                 if let Some(ram_value) = ram {
                                                     key.push_str(&format!("/ram/{}", ram_value));
                                                 }
                                                 if let Some(iface_value) = iface {
-                                                    key.push_str(&format!("/interface/{}", iface_value));
+                                                    key.push_str(&format!(
+                                                        "/interface/{}",
+                                                        iface_value
+                                                    ));
                                                 }
                                                 gpu_attributes.push(serde_json::json!({
                                                     "key": key,
@@ -628,7 +654,9 @@ impl ManifestBuilder {
         }
 
         let gpu = ManifestGpu {
-            units: ManifestResourceValue { val: gpu_units.to_string() },
+            units: ManifestResourceValue {
+                val: gpu_units.to_string(),
+            },
             attributes: gpu_attributes,
         };
 
@@ -642,7 +670,10 @@ impl ManifestBuilder {
         })
     }
 
-    fn parse_storage_resources(&self, resources: &serde_yaml::Value) -> Result<Vec<ManifestStorage>, DeployError> {
+    fn parse_storage_resources(
+        &self,
+        resources: &serde_yaml::Value,
+    ) -> Result<Vec<ManifestStorage>, DeployError> {
         let mut storage_list = Vec::new();
 
         let storage_section = match resources.get("storage") {
@@ -651,7 +682,9 @@ impl ManifestBuilder {
                 // Default 1Gi storage
                 storage_list.push(ManifestStorage {
                     name: "default".to_string(),
-                    size: ManifestResourceValue { val: "1073741824".to_string() },
+                    size: ManifestResourceValue {
+                        val: "1073741824".to_string(),
+                    },
                     attributes: Vec::new(),
                 });
                 return Ok(storage_list);
@@ -709,7 +742,9 @@ impl ManifestBuilder {
 
             storage_list.push(ManifestStorage {
                 name,
-                size: ManifestResourceValue { val: size_bytes.to_string() },
+                size: ManifestResourceValue {
+                    val: size_bytes.to_string(),
+                },
                 attributes: storage_attrs,
             });
         }
@@ -862,9 +897,11 @@ deployment:
         assert_eq!(opts.max_body_size, 1_048_576);
         assert_eq!(opts.read_timeout, 60_000);
         assert_eq!(opts.next_tries, 3);
-        assert_eq!(opts.next_cases, vec!["error".to_string(), "timeout".to_string()]);
+        assert_eq!(
+            opts.next_cases,
+            vec!["error".to_string(), "timeout".to_string()]
+        );
     }
-
 
     #[test]
     fn test_build_from_sdl_simple() {

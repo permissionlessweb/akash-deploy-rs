@@ -22,8 +22,7 @@ pub fn to_canonical_json<T: serde::Serialize + ?Sized>(value: &T) -> Result<Stri
     let json_value = serde_json::to_value(value)
         .map_err(|e| DeployError::Manifest(format!("json error: {}", e)))?;
     let sorted = sort_json_value(json_value);
-    serde_json::to_string(&sorted)
-        .map_err(|e| DeployError::Manifest(format!("json error: {}", e)))
+    serde_json::to_string(&sorted).map_err(|e| DeployError::Manifest(format!("json error: {}", e)))
 }
 
 /// Recursively sort all object keys alphabetically.
