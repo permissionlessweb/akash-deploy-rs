@@ -20,7 +20,7 @@ Build, authenticate, and deploy applications to Akash using a trait-based state 
 - **Workflow Engine** — State machine for full deployment lifecycle
 - **Backend Agnostic** — Single `AkashBackend` trait, you implement persistence/transport
 - **SDL Templates** — Variable substitution for reusable deployment configs (default)
-- **Default Client** — Integrated layer-climb client with file-backed storage (default)
+- **Default Client** — Integrated layer-climb client with file-backed storage (opt-in)
 
 ---
 
@@ -307,11 +307,11 @@ let manifest = builder.build_from_sdl(&processed_sdl)?;
 
 ## Default Client & Storage
 
-The library includes a complete, integrated client implementation (enabled by default):
+The library includes a complete, integrated client implementation (NOT enabled by default):
 
 ```toml
 [dependencies]
-akash-deploy-rs = "0.0.2"  # Includes default-client feature
+akash-deploy-rs {version = "0.0.4", features = ["default-client"]}# Includes default-client feature
 ```
 
 ### Quick Start with Default Client
@@ -430,7 +430,7 @@ To use only the core workflow engine without the integrated client:
 
 ```toml
 [dependencies]
-akash-deploy-rs = { version = "0.0.2", default-features = false, features = ["sdl-templates"] }
+akash-deploy-rs = { version = "0.0.3" }
 ```
 
 Then implement `AkashBackend` yourself as shown in the architecture section.
@@ -465,6 +465,57 @@ The `tests/` directory contains a complete integration test suite that validates
 - **`test.sh`** — End-to-end test: Rust generates → Go validates
 
 This ensures byte-for-byte compatibility with Akash provider expectations.
+
+---
+
+## Development with Claude Code
+
+This repository includes a specialized Claude skill that provides deep expertise in Akash manifest serialization and provider validation.
+
+### Installing the Skill
+
+The `akash-manifest-spec` skill contains:
+- 7 critical serialization rules for manifest generation
+- Provider validation procedures using actual Go code
+- Debugging decision trees for hash mismatches
+- Task-specific implementation checklists
+
+**To install:**
+
+```bash
+# Clone the skill to your Claude skills directory
+git clone https://github.com/permissionlessweb/akash-deploy-rs.git
+ln -s "$(pwd)/akash-deploy-rs/.claude/skills/akash-manifest-spec" ~/.claude/skills/
+
+# Or copy it directly
+cp -r .claude/skills/akash-manifest-spec ~/.claude/skills/
+```
+
+**When to use:**
+
+The skill activates automatically when you mention:
+- "manifest serialization"
+- "provider validation"
+- "hash mismatch"
+- "canonical JSON"
+- Akash deployment debugging
+
+It provides structured guidance for:
+- Implementing new manifest features while maintaining provider compatibility
+- Debugging manifest hash mismatches with actual provider validation code
+- Understanding the 7 critical rules (camelCase, null arrays, string numbers, sorting)
+- Verifying Rust output matches Go provider expectations byte-for-byte
+
+### Manifest Validation Testing
+
+The skill references the integration test suite in `tests/`:
+
+```bash
+cd tests
+just test  # Run all SDL test cases through provider validation
+```
+
+This validates that your Rust code produces **identical** output to Go providers, ensuring deployments will succeed.
 
 ---
 
