@@ -660,7 +660,7 @@ deployment:
             Ok(self.bids.lock().unwrap().clone())
         }
 
-        async fn query_lease(&self, _owner: &str, _dseq: u64, _gseq: u32, _oseq: u32, _provider: &str) -> Result<LeaseInfo, DeployError> {
+        async fn query_lease(&self, _owner: &str, _dseq: u64, _gseq: u32, _oseq: u32, _bseq: u32, _provider: &str) -> Result<LeaseInfo, DeployError> {
             Ok(LeaseInfo {
                 state: LeaseState::Active,
                 price_uakt: 1000,

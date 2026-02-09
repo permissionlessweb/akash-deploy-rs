@@ -60,6 +60,7 @@ pub trait AkashBackend: Send + Sync {
         dseq: u64,
         gseq: u32,
         oseq: u32,
+        bseq: u32,
         provider: &str,
     ) -> impl Future<Output = Result<LeaseInfo, DeployError>> + Send;
 

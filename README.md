@@ -19,7 +19,8 @@ Build, authenticate, and deploy applications to Akash using a trait-based state 
 - **Certificate Generation** — TLS certs with encrypted private key storage
 - **Workflow Engine** — State machine for full deployment lifecycle
 - **Backend Agnostic** — Single `AkashBackend` trait, you implement persistence/transport
-- **SDL Templates** *(optional)* — Variable substitution for reusable deployment configs
+- **SDL Templates** — Variable substitution for reusable deployment configs (default)
+- **Default Client** — Integrated layer-climb client with file-backed storage (default)
 
 ---
 
@@ -304,6 +305,138 @@ let manifest = builder.build_from_sdl(&processed_sdl)?;
 
 ---
 
+## Default Client & Storage
+
+The library includes a complete, integrated client implementation (enabled by default):
+
+```toml
+[dependencies]
+akash-deploy-rs = "0.0.2"  # Includes default-client feature
+```
+
+### Quick Start with Default Client
+
+```rust
+use akash_deploy_rs::{AkashClient, DeploymentWorkflow, DeploymentState};
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Create client with mnemonic and RPC endpoint
+let client = AkashClient::new_from_mnemonic(
+    "your twelve word mnemonic phrase here",
+    "https://rpc.akashnet.net:443"
+).await?;
+
+// Create workflow
+let workflow = DeploymentWorkflow::new(
+    &client,
+    client.signer(),
+    Default::default()
+);
+
+// Deploy
+let mut state = DeploymentState::new("my-app", client.address())
+    .with_sdl(sdl_content);
+
+workflow.run_to_completion(&mut state).await?;
+# Ok(())
+# }
+```
+
+### Storage System
+
+The default client uses a **memory + file** persistence strategy:
+
+**Storage Layout:**
+
+```
+~/.akash-deploy/
+  sessions/
+    my-app.json         # Deployment state
+    production.json
+  certs/
+    akash1xxx.key       # Encrypted private keys
+  providers.json        # Provider cache
+  certificates.json     # Certificate cache
+```
+
+**Key Features:**
+
+- **In-Memory Cache**: Fast access to active sessions
+- **File Persistence**: Durable storage survives restarts
+- **Export/Import**: Backup and restore sessions
+- **Generic Design**: Swap storage backends via traits
+
+### Session Management
+
+```rust
+// List all sessions
+let sessions = client.storage().list_sessions().await?;
+
+// Load a previous session
+let state = client.storage().load_session("my-app").await?;
+
+// Export sessions for backup
+export_sessions(&client, "/path/to/backup").await?;
+
+// Import sessions from backup
+import_sessions(&mut client, "/path/to/backup").await?;
+```
+
+### Custom Storage Implementation
+
+Implement the `SessionStorage` trait for custom backends:
+
+```rust
+use akash_deploy_rs::storage::SessionStorage;
+use async_trait::async_trait;
+
+struct DatabaseStorage {
+    pool: sqlx::PgPool,
+}
+
+#[async_trait]
+impl SessionStorage for DatabaseStorage {
+    async fn save_session(&mut self, session: &DeploymentState) -> Result<(), DeployError> {
+        sqlx::query!("INSERT INTO sessions (id, data) VALUES ($1, $2)")
+            .bind(&session.session_id)
+            .bind(serde_json::to_value(session)?)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    async fn load_session(&self, session_id: &str) -> Result<Option<DeploymentState>, DeployError> {
+        let row = sqlx::query!("SELECT data FROM sessions WHERE id = $1", session_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        Ok(row.map(|r| serde_json::from_value(r.data).unwrap()))
+    }
+
+    // ... implement other methods
+}
+
+// Use custom storage
+let client = AkashClient::with_storage(
+    layer_climb_client,
+    DatabaseStorage { pool },
+    address
+);
+```
+
+### Opt Out of Default Client
+
+To use only the core workflow engine without the integrated client:
+
+```toml
+[dependencies]
+akash-deploy-rs = { version = "0.0.2", default-features = false, features = ["sdl-templates"] }
+```
+
+Then implement `AkashBackend` yourself as shown in the architecture section.
+
+---
+
 ## Testing
 
 Unit tests for manifest building and JWT generation:
@@ -337,6 +470,6 @@ This ensures byte-for-byte compatibility with Akash provider expectations.
 
 ## TODO
 
-- [ ] Wire in chain-sdk-rs types for protobuf messages
 - [ ] Add more SDL parsing examples
+- [ ] Implement Storage Write And Load To File For Deployment Instances
 - [ ] Document AkashBackend trait methods in detail

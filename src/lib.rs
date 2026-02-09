@@ -48,10 +48,16 @@ pub mod jwt;
 pub mod manifest;
 pub mod sdl;
 pub mod state;
+pub mod storage;
 #[cfg(feature = "sdl-templates")]
 pub mod template;
 pub mod types;
 pub mod workflow;
+
+#[cfg(feature = "default-client")]
+pub mod client;
+#[cfg(feature = "default-client")]
+pub mod gen;
 
 // Re-export the main types at crate root for convenience
 pub use backend::AkashBackend;
@@ -66,6 +72,9 @@ pub use manifest::{
     ManifestStorageParams,
 };
 pub use state::{DeploymentState, Step};
+pub use storage::SessionStorage;
+#[cfg(feature = "default-client")]
+pub use storage::FileBackedStorage;
 #[cfg(feature = "sdl-templates")]
 pub use template::{
     apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,
@@ -73,3 +82,6 @@ pub use template::{
 };
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};
+
+#[cfg(feature = "default-client")]
+pub use client::{export_sessions, import_sessions, AkashClient, KeySigner};

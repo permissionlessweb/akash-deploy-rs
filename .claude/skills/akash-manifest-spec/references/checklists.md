@@ -121,7 +121,7 @@ When `./provider-validate manifest` reports hash mismatch:
 3. **Byte-level comparison:**
    ```bash
    # Tool shows first byte difference
-   ./provider-validate manifest output/manifest.json <expected-hash>
+   ./provider-validate manifest output/manifest.json <expected-hash>-
    ```
    Output like `First diff at byte 42: expected 'e', got 'E'` points to exact issue.
 

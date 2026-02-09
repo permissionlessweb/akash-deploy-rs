@@ -22,6 +22,7 @@ pub struct BidId {
     pub gseq: u32,
     pub oseq: u32,
     pub provider: String,
+    pub bseq: u32,
 }
 
 impl BidId {
@@ -32,6 +33,7 @@ impl BidId {
             gseq,
             oseq,
             provider: bid.provider.clone(),
+            bseq: 0, // Default to 0 for backwards compatibility
         }
     }
 }
@@ -76,6 +78,7 @@ pub struct LeaseInfo {
 /// Certificate info from chain.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CertificateInfo {
+    pub owner: String,
     pub cert_pem: Vec<u8>,
     pub serial: String,
 }
@@ -165,6 +168,7 @@ mod tests {
             gseq: 2,
             oseq: 3,
             provider: "akash1provider".to_string(),
+            bseq: 1,
         };
 
         let lease_id: LeaseId = bid_id.into();

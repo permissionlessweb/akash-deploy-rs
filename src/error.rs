@@ -36,6 +36,9 @@ pub enum DeployError {
 
     #[error("template error: {0}")]
     Template(String),
+
+    #[error("signer error: {0}")]
+    Signer(String),
 }
 
 impl DeployError {
