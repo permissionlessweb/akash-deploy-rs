@@ -363,6 +363,22 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             DeployError::InvalidState("sdl_content missing at SendManifest".into())
         })?;
 
+        // Process template if feature enabled and is_template flag set
+        #[cfg(feature = "sdl-templates")]
+        let processed_sdl = if state.is_template {
+            let template = crate::template::SdlTemplate::new(sdl)?;
+            let empty_vars = std::collections::HashMap::new();
+            let empty_defaults = std::collections::HashMap::new();
+            let variables = state.template_variables.as_ref().unwrap_or(&empty_vars);
+            let defaults = state.template_defaults.as_ref().unwrap_or(&empty_defaults);
+            template.process(variables, defaults)?
+        } else {
+            sdl.clone()
+        };
+
+        #[cfg(not(feature = "sdl-templates"))]
+        let processed_sdl = sdl.clone();
+
         // Get provider URI
         let provider_info = self
             .backend
@@ -371,7 +387,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .ok_or_else(|| DeployError::Provider("provider not found".into()))?;
 
         // Build manifest from SDL using the actual ManifestBuilder
-        let manifest = build_manifest(&state.owner, sdl, lease.dseq)?;
+        let manifest = build_manifest(&state.owner, &processed_sdl, lease.dseq)?;
 
         self.backend
             .send_manifest(&provider_info.host_uri, lease, &manifest, cert, key)

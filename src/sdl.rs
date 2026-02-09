@@ -150,4 +150,58 @@ deployment:
         let version = get_version(VALID_SDL).unwrap();
         assert_eq!(version, "2.0");
     }
+
+    #[test]
+    fn test_validate_missing_services() {
+        let sdl = r#"
+version: "2.0"
+profiles: {}
+deployment: {}
+"#;
+        let err = validate_sdl(sdl).unwrap_err();
+        assert!(err.to_string().contains("services"));
+    }
+
+    #[test]
+    fn test_validate_missing_profiles() {
+        let sdl = r#"
+version: "2.0"
+services:
+  web:
+    image: nginx
+deployment: {}
+"#;
+        let err = validate_sdl(sdl).unwrap_err();
+        assert!(err.to_string().contains("profiles"));
+    }
+
+    #[test]
+    fn test_validate_missing_deployment() {
+        let sdl = r#"
+version: "2.0"
+services:
+  web:
+    image: nginx
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 0.5
+"#;
+        let err = validate_sdl(sdl).unwrap_err();
+        assert!(err.to_string().contains("deployment"));
+    }
+
+    #[test]
+    fn test_extract_service_names_empty() {
+        let sdl = r#"
+version: "2.0"
+services: {}
+profiles: {}
+deployment: {}
+"#;
+        let err = extract_service_names(sdl).unwrap_err();
+        assert!(err.to_string().contains("no services defined"));
+    }
 }

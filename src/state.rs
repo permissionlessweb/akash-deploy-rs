@@ -68,6 +68,22 @@ pub struct DeploymentState {
     // Populated as workflow progresses
     /// SDL content (YAML).
     pub sdl_content: Option<String>,
+
+    // Template support (feature-gated)
+    #[cfg(feature = "sdl-templates")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Template variable overrides.
+    pub template_variables: Option<std::collections::HashMap<String, String>>,
+
+    #[cfg(feature = "sdl-templates")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Template default values.
+    pub template_defaults: Option<std::collections::HashMap<String, String>>,
+
+    #[cfg(feature = "sdl-templates")]
+    #[serde(default)]
+    /// Whether the SDL content is a template.
+    pub is_template: bool,
     /// Deposit amount in uakt.
     pub deposit_uakt: u64,
     /// Deployment sequence number (from chain).
@@ -128,6 +144,12 @@ impl DeploymentState {
             created_at: now,
             updated_at: now,
             tx_hashes: Vec::new(),
+            #[cfg(feature = "sdl-templates")]
+            template_variables: None,
+            #[cfg(feature = "sdl-templates")]
+            template_defaults: None,
+            #[cfg(feature = "sdl-templates")]
+            is_template: false,
         }
     }
 
@@ -146,6 +168,24 @@ impl DeploymentState {
     /// Set the deposit amount.
     pub fn with_deposit(mut self, deposit_uakt: u64) -> Self {
         self.deposit_uakt = deposit_uakt;
+        self
+    }
+
+    /// Set template defaults and mark as template.
+    #[cfg(feature = "sdl-templates")]
+    pub fn with_template(mut self, defaults: std::collections::HashMap<String, String>) -> Self {
+        self.is_template = true;
+        self.template_defaults = Some(defaults);
+        self
+    }
+
+    /// Set template variable overrides.
+    #[cfg(feature = "sdl-templates")]
+    pub fn with_variables(
+        mut self,
+        variables: std::collections::HashMap<String, String>,
+    ) -> Self {
+        self.template_variables = Some(variables);
         self
     }
 
@@ -230,5 +270,34 @@ mod tests {
         state.fail("something broke", true);
         assert!(state.is_terminal());
         assert!(state.is_failed());
+    }
+
+    #[test]
+    fn test_step_names() {
+        // Test all step name() variants
+        assert_eq!(Step::Init.name(), "init");
+        assert_eq!(Step::CheckBalance.name(), "check_balance");
+        assert_eq!(Step::EnsureCertificate.name(), "ensure_certificate");
+        assert_eq!(Step::CreateDeployment.name(), "create_deployment");
+        assert_eq!(
+            Step::WaitForBids { waited_blocks: 0 }.name(),
+            "wait_for_bids"
+        );
+        assert_eq!(Step::SelectProvider.name(), "select_provider");
+        assert_eq!(Step::CreateLease.name(), "create_lease");
+        assert_eq!(Step::SendManifest.name(), "send_manifest");
+        assert_eq!(
+            Step::WaitForEndpoints { attempts: 0 }.name(),
+            "wait_for_endpoints"
+        );
+        assert_eq!(Step::Complete.name(), "complete");
+        assert_eq!(
+            Step::Failed {
+                reason: "test".to_string(),
+                recoverable: false
+            }
+            .name(),
+            "failed"
+        );
     }
 }

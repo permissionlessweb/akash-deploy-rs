@@ -48,6 +48,8 @@ pub mod jwt;
 pub mod manifest;
 pub mod sdl;
 pub mod state;
+#[cfg(feature = "sdl-templates")]
+pub mod template;
 pub mod types;
 pub mod workflow;
 
@@ -64,5 +66,10 @@ pub use manifest::{
     ManifestStorageParams,
 };
 pub use state::{DeploymentState, Step};
+#[cfg(feature = "sdl-templates")]
+pub use template::{
+    apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,
+    TemplateVariables,
+};
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};

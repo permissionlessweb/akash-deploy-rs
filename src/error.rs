@@ -33,6 +33,9 @@ pub enum DeployError {
 
     #[error("timeout: {0}")]
     Timeout(String),
+
+    #[error("template error: {0}")]
+    Template(String),
 }
 
 impl DeployError {
@@ -86,6 +89,9 @@ mod tests {
 
         let err = DeployError::Timeout("30s".to_string());
         assert_eq!(err.to_string(), "timeout: 30s");
+
+        let err = DeployError::Template("missing variable".to_string());
+        assert_eq!(err.to_string(), "template error: missing variable");
     }
 
     #[test]
@@ -99,5 +105,6 @@ mod tests {
         assert!(!DeployError::InvalidState("test".to_string()).is_recoverable());
         assert!(!DeployError::Certificate("test".to_string()).is_recoverable());
         assert!(!DeployError::Jwt("test".to_string()).is_recoverable());
+        assert!(!DeployError::Template("test".to_string()).is_recoverable());
     }
 }

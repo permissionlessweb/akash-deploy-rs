@@ -19,6 +19,7 @@ Build, authenticate, and deploy applications to Akash using a trait-based state 
 - **Certificate Generation** — TLS certs with encrypted private key storage
 - **Workflow Engine** — State machine for full deployment lifecycle
 - **Backend Agnostic** — Single `AkashBackend` trait, you implement persistence/transport
+- **SDL Templates** *(optional)* — Variable substitution for reusable deployment configs
 
 ---
 
@@ -194,6 +195,112 @@ Provider JSON API has strict requirements. `ManifestBuilder` handles these corre
 3. **State Machine Focused** — Workflow orchestrates, you implement primitives
 4. **Explicit Errors** — `DeployError` covers all failure modes
 5. **Type Safety** — Correct manifest serialization enforced at compile time
+
+---
+
+## SDL Templates (Optional Feature)
+
+Enable with the `sdl-templates` feature flag:
+
+```toml
+[dependencies]
+akash-deploy-rs = { version = "0.0.1", features = ["sdl-templates"] }
+```
+
+SDL templates allow you to create reusable deployment configurations with variable placeholders using `${VAR}` syntax:
+
+```yaml
+version: "2.0"
+services:
+  web:
+    image: ${IMAGE}:${VERSION}
+    expose:
+      - port: ${PORT}
+        as: ${PORT}
+        to:
+          - global: true
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: ${CPU_UNITS}
+        memory:
+          size: ${MEMORY_SIZE}
+        storage:
+          size: ${STORAGE_SIZE}
+  placement:
+    dcloud:
+      pricing:
+        web:
+          denom: uakt
+          amount: ${PRICE}
+deployment:
+  web:
+    dcloud:
+      profile: web
+      count: ${COUNT}
+```
+
+### Usage
+
+```rust
+use akash_deploy_rs::{DeploymentState, SdlTemplate, TemplateVariables, TemplateDefaults};
+use std::collections::HashMap;
+
+// Define defaults
+let mut defaults = TemplateDefaults::new();
+defaults.insert("IMAGE".to_string(), "nginx".to_string());
+defaults.insert("VERSION".to_string(), "1.25".to_string());
+defaults.insert("PORT".to_string(), "80".to_string());
+defaults.insert("CPU_UNITS".to_string(), "100m".to_string());
+defaults.insert("MEMORY_SIZE".to_string(), "128Mi".to_string());
+defaults.insert("STORAGE_SIZE".to_string(), "1Gi".to_string());
+defaults.insert("PRICE".to_string(), "100".to_string());
+defaults.insert("COUNT".to_string(), "1".to_string());
+
+// User overrides (optional)
+let mut variables = TemplateVariables::new();
+variables.insert("VERSION".to_string(), "1.26".to_string());
+variables.insert("PORT".to_string(), "8080".to_string());
+
+// Create deployment with template
+let state = DeploymentState::new("session-1", "akash1owner...")
+    .with_sdl(template_content)
+    .with_template(defaults)
+    .with_variables(variables);
+
+// Workflow processes template automatically at SendManifest step
+workflow.run_to_completion(&mut state).await?;
+```
+
+### Template Features
+
+- **Variable Syntax**: `${VARIABLE_NAME}` — alphanumeric characters and underscores only
+- **Strict Validation**: All variables must have defaults (enforced at processing time)
+- **Priority**: User variables override defaults
+- **YAML-Aware**: Preserves document structure during substitution
+- **Error Handling**: Clear error messages for missing defaults, unclosed placeholders, invalid variable names
+
+### Direct Template Processing
+
+You can also process templates directly without the workflow:
+
+```rust
+use akash_deploy_rs::{SdlTemplate, ManifestBuilder};
+
+let template = SdlTemplate::new(template_content)?;
+
+// Validate all variables have defaults
+template.validate(&defaults)?;
+
+// Process with overrides
+let processed_sdl = template.process(&variables, &defaults)?;
+
+// Build manifest from processed SDL
+let builder = ManifestBuilder::new("akash1owner", 123);
+let manifest = builder.build_from_sdl(&processed_sdl)?;
+```
 
 ---
 

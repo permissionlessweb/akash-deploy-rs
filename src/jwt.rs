@@ -455,4 +455,101 @@ mod tests {
         let parts: Vec<&str> = jwt.split('.').collect();
         assert_eq!(parts.len(), 3);
     }
+
+    #[test]
+    fn test_jwt_claims_with_jti() {
+        let claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z")
+            .with_jti("unique-id-12345");
+        assert_eq!(claims.jti, Some("unique-id-12345".to_string()));
+    }
+
+    #[test]
+    fn test_jwt_claims_with_access() {
+        let claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z")
+            .with_access("scoped");
+        assert_eq!(claims.leases.access, "scoped");
+    }
+
+    #[test]
+    fn test_jwt_claims_with_expiry_secs() {
+        let claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z")
+            .with_expiry_secs(7200);
+        assert_eq!(claims.exp, claims.iat + 7200);
+    }
+
+    #[test]
+    fn test_jwt_validate_nbf_greater_than_iat() {
+        let mut claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z");
+        claims.nbf = claims.iat + 100; // nbf in future
+        let result = claims.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("nbf"));
+    }
+
+    #[test]
+    fn test_jwt_validate_iat_greater_than_exp() {
+        let mut claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z");
+        claims.exp = claims.iat - 100; // exp in past
+        let result = claims.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("iat"));
+    }
+
+    #[test]
+    fn test_jwt_validate_expired() {
+        let mut claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z");
+        // Set expiration to 1 second ago
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        claims.exp = now - 1;
+        claims.iat = now - 100;
+        claims.nbf = now - 100;
+        let result = claims.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("expired"));
+    }
+
+    #[test]
+    fn test_jwt_validate_not_yet_valid() {
+        let mut claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z");
+        // Set nbf to far future
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        claims.nbf = now + 1000;
+        claims.iat = now + 1000;
+        claims.exp = now + 5000;
+        let result = claims.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not yet valid"));
+    }
+
+    #[test]
+    fn test_jwt_validate_invalid_version() {
+        let mut claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z");
+        claims.version = "v2".to_string();
+        let result = claims.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("version"));
+    }
+
+    #[test]
+    fn test_jwt_builder_invalid_signature_length_via_build_and_sign() {
+        let claims = JwtClaims::new("akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5nue2z");
+        let builder = JwtBuilder::new();
+
+        // Mock signer that returns wrong length
+        let result = builder.build_and_sign(&claims, |_msg| -> Result<Vec<u8>, &str> {
+            Ok(vec![0u8; 32]) // Wrong length
+        });
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("invalid signature length"));
+    }
 }

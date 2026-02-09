@@ -100,13 +100,9 @@ fn generate_serial(address: &str) -> String {
 /// For P-256, SPKI structure is:
 /// - 26 bytes: Algorithm identifier (OID for ecPublicKey + P-256 curve)
 /// - Remaining: The actual EC point (65 bytes: 0x04 || X || Y)
-fn convert_spki_to_sec1_pem(key_pair: &KeyPair) -> Result<Vec<u8>, DeployError> {
-    // Get raw public key bytes (DER-encoded SPKI)
-    let spki_der = key_pair.public_key_der();
-
+#[cfg(test)]
+pub(crate) fn convert_spki_to_sec1_pem_from_der(spki_der: Vec<u8>) -> Result<Vec<u8>, DeployError> {
     // SPKI for P-256 has a fixed 26-byte header before the EC point
-    // Structure: SEQUENCE { SEQUENCE { OID, OID }, BIT STRING { EC point } }
-    // The EC point starts at offset 26 for P-256
     const P256_SPKI_HEADER_LEN: usize = 26;
     const P256_EC_POINT_LEN: usize = 65; // 0x04 || 32-byte X || 32-byte Y
 
@@ -128,21 +124,6 @@ fn convert_spki_to_sec1_pem(key_pair: &KeyPair) -> Result<Vec<u8>, DeployError> 
         ));
     }
 
-    // Build SEC1 EC PUBLIC KEY structure
-    // This is just the raw EC point wrapped in a BIT STRING, no algorithm OID
-    // Format: 30 <len> 03 <len> 00 <ec_point>
-    // But actually, looking at Akash's expected format, it's the SubjectPublicKeyInfo
-    // with just the EC point part re-wrapped
-
-    // Actually, examining the working example more closely:
-    // The "EC PUBLIC KEY" format Akash uses is the same as SPKI but with different header text
-    // Let me check the actual bytes...
-
-    // Looking at the working pubkey from Akash:
-    // MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...
-    // This decodes to SPKI structure! So Akash just wants the same DER bytes
-    // but with "EC PUBLIC KEY" PEM label instead of "PUBLIC KEY"
-
     // Encode as PEM with "EC PUBLIC KEY" header
     let b64 = BASE64.encode(&spki_der);
     let mut pem = String::with_capacity(b64.len() + 60);
@@ -158,15 +139,57 @@ fn convert_spki_to_sec1_pem(key_pair: &KeyPair) -> Result<Vec<u8>, DeployError> 
     Ok(pem.into_bytes())
 }
 
+fn convert_spki_to_sec1_pem(key_pair: &KeyPair) -> Result<Vec<u8>, DeployError> {
+    // Get raw public key bytes (DER-encoded SPKI) and use test helper
+    let spki_der = key_pair.public_key_der();
+
+    #[cfg(test)]
+    return convert_spki_to_sec1_pem_from_der(spki_der);
+
+    #[cfg(not(test))]
+    {
+        // SPKI for P-256 has a fixed 26-byte header before the EC point
+        const P256_SPKI_HEADER_LEN: usize = 26;
+        const P256_EC_POINT_LEN: usize = 65;
+
+        if spki_der.len() < P256_SPKI_HEADER_LEN + P256_EC_POINT_LEN {
+            return Err(DeployError::Certificate(format!(
+                "unexpected SPKI length: {} (expected at least {})",
+                spki_der.len(),
+                P256_SPKI_HEADER_LEN + P256_EC_POINT_LEN
+            )));
+        }
+
+        let ec_point = &spki_der[P256_SPKI_HEADER_LEN..];
+        if ec_point.first() != Some(&0x04) {
+            return Err(DeployError::Certificate(
+                "expected uncompressed EC point (0x04 prefix)".into(),
+            ));
+        }
+
+        let b64 = BASE64.encode(&spki_der);
+        let mut pem = String::with_capacity(b64.len() + 60);
+        pem.push_str("-----BEGIN EC PUBLIC KEY-----\n");
+
+        for chunk in b64.as_bytes().chunks(64) {
+            pem.push_str(std::str::from_utf8(chunk).unwrap());
+            pem.push('\n');
+        }
+        pem.push_str("-----END EC PUBLIC KEY-----\n");
+
+        Ok(pem.into_bytes())
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // PRIVATE KEY ENCRYPTION (optional utilities)
 // ═══════════════════════════════════════════════════════════════════
 
+use argon2::Argon2;
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Key, Nonce,
 };
-use argon2::Argon2;
 
 const KEY_SIZE: usize = 32;
 const NONCE_SIZE: usize = 12;
@@ -270,7 +293,10 @@ mod tests {
         assert!(cert_str.contains("BEGIN CERTIFICATE"));
         assert!(key_str.contains("BEGIN PRIVATE KEY"));
         // Akash requires "EC PUBLIC KEY" format, not "PUBLIC KEY"
-        assert!(pub_str.contains("BEGIN EC PUBLIC KEY"), "pubkey should be EC PUBLIC KEY format");
+        assert!(
+            pub_str.contains("BEGIN EC PUBLIC KEY"),
+            "pubkey should be EC PUBLIC KEY format"
+        );
     }
 
     #[test]
@@ -312,5 +338,34 @@ mod tests {
 
         // Serials should differ (random component)
         assert_ne!(cert1.serial, cert2.serial);
+    }
+
+    #[test]
+    fn test_convert_spki_invalid_length() {
+        // Test the actual production code path with invalid length
+        let short_spki = vec![0u8; 20]; // Less than 91 bytes minimum
+        let result = convert_spki_to_sec1_pem_from_der(short_spki);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("unexpected SPKI length"));
+    }
+
+    #[test]
+    fn test_convert_spki_not_uncompressed() {
+        // Test the actual production code path with wrong EC point prefix
+        let mut invalid_spki = vec![0u8; 91];
+        // Set byte at position 26 to something other than 0x04
+        invalid_spki[26] = 0x03; // Compressed point prefix instead of 0x04
+
+        let result = convert_spki_to_sec1_pem_from_der(invalid_spki);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("uncompressed EC point"));
     }
 }
