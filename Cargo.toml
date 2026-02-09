@@ -1,6 +1,6 @@
 [package]
 name = "akash-deploy-rs"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 authors = ["PermissionlesWeb <permissionlessweb@proton.me"]
 license = "MIT OR Apache-2.0"
@@ -32,6 +32,10 @@ base64 = "0.22.1"
 # Private key encryption (optional but useful)
 chacha20poly1305 = { version = "0.10.1" }
 argon2 = "0.5"
+
+[features]
+default = ["sdl-templates"]
+sdl-templates = []
 
 [dev-dependencies]
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }

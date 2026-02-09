@@ -198,13 +198,13 @@ Provider JSON API has strict requirements. `ManifestBuilder` handles these corre
 
 ---
 
-## SDL Templates (Optional Feature)
+## SDL Templates
 
-Enable with the `sdl-templates` feature flag:
+SDL templates are enabled by default. To opt out, disable default features:
 
 ```toml
 [dependencies]
-akash-deploy-rs = { version = "0.0.1", features = ["sdl-templates"] }
+akash-deploy-rs = { version = "0.0.1", default-features = false }
 ```
 
 SDL templates allow you to create reusable deployment configurations with variable placeholders using `${VAR}` syntax:
