@@ -19,7 +19,7 @@
 
 use crate::error::DeployError;
 use crate::state::DeploymentState;
-use crate::storage::SessionStorage;
+use crate::store::SessionStorage;
 use crate::types::{CertificateInfo, ProviderInfo};
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -399,6 +399,272 @@ mod tests {
         assert!(loaded.is_none());
 
         // Cleanup
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_provider_cache_lifecycle() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+        let mut storage = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+
+        let provider = ProviderInfo {
+            address: "akash1provider".to_string(),
+            host_uri: "https://provider.example.com".to_string(),
+            email: "test@example.com".to_string(),
+            website: "https://example.com".to_string(),
+            attributes: vec![("region".to_string(), "us-west".to_string())],
+            cached_at: 1000,
+        };
+
+        // Cache provider
+        storage.cache_provider(&provider).await.unwrap();
+
+        // Load from memory
+        let loaded = storage
+            .load_cached_provider("akash1provider")
+            .await
+            .unwrap();
+        assert!(loaded.is_some());
+        let loaded = loaded.unwrap();
+        assert_eq!(loaded.address, "akash1provider");
+        assert_eq!(loaded.host_uri, "https://provider.example.com");
+
+        // Load non-existent
+        let missing = storage.load_cached_provider("akash1missing").await.unwrap();
+        assert!(missing.is_none());
+
+        // Verify persisted to disk — create new storage from same dir
+        let storage2 = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+        let reloaded = storage2
+            .load_cached_provider("akash1provider")
+            .await
+            .unwrap();
+        assert!(reloaded.is_some());
+        assert_eq!(reloaded.unwrap().host_uri, "https://provider.example.com");
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_certificate_cache_lifecycle() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+        let mut storage = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+
+        let cert_info = CertificateInfo {
+            owner: "akash1owner".to_string(),
+            cert_pem: b"-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----".to_vec(),
+            serial: "abc123".to_string(),
+        };
+
+        // Cache certificate
+        storage.cache_certificate(&cert_info).await.unwrap();
+
+        // Load from memory
+        let loaded = storage
+            .load_cached_certificate("akash1owner")
+            .await
+            .unwrap();
+        assert!(loaded.is_some());
+        assert_eq!(loaded.unwrap().serial, "abc123");
+
+        // Load non-existent
+        let missing = storage
+            .load_cached_certificate("akash1missing")
+            .await
+            .unwrap();
+        assert!(missing.is_none());
+
+        // Verify persisted — create new storage from same dir
+        let storage2 = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+        let reloaded = storage2
+            .load_cached_certificate("akash1owner")
+            .await
+            .unwrap();
+        assert!(reloaded.is_some());
+        assert_eq!(reloaded.unwrap().serial, "abc123");
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_sessions_persist_across_instances() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+
+        // Save sessions in first instance
+        {
+            let mut storage = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+            let s1 = DeploymentState::new("persist-1", "akash1a");
+            let s2 = DeploymentState::new("persist-2", "akash1b");
+            storage.save_session(&s1).await.unwrap();
+            storage.save_session(&s2).await.unwrap();
+        }
+
+        // New instance should load them from disk
+        let storage2 = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+        let sessions = storage2.list_sessions().await.unwrap();
+        assert_eq!(sessions.len(), 2);
+
+        let loaded = storage2.load_session("persist-1").await.unwrap();
+        assert!(loaded.is_some());
+        assert_eq!(loaded.unwrap().owner, "akash1a");
+
+        let loaded = storage2.load_session("persist-2").await.unwrap();
+        assert!(loaded.is_some());
+        assert_eq!(loaded.unwrap().owner, "akash1b");
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_load_session_from_disk_fallback() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+
+        // Write a session file directly to disk (bypassing memory cache)
+        let sessions_dir = temp_dir.join("sessions");
+        tokio::fs::create_dir_all(&sessions_dir).await.unwrap();
+        let certs_dir = temp_dir.join("certs");
+        tokio::fs::create_dir_all(&certs_dir).await.unwrap();
+
+        let state = DeploymentState::new("disk-only", "akash1disk");
+        let json = serde_json::to_string_pretty(&state).unwrap();
+        tokio::fs::write(sessions_dir.join("disk-only.json"), &json)
+            .await
+            .unwrap();
+
+        // Create storage (will load into memory via load_sessions_from_disk)
+        let storage = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+        let loaded = storage.load_session("disk-only").await.unwrap();
+        assert!(loaded.is_some());
+        assert_eq!(loaded.unwrap().owner, "akash1disk");
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_delete_session_idempotent() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+        let mut storage = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+
+        // Delete non-existent session should succeed
+        storage.delete_session("nonexistent").await.unwrap();
+
+        // Delete cert key that doesn't exist
+        storage.delete_cert_key("akash1nobody").await.unwrap();
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_load_session_disk_fallback_bypassing_memory() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+        let storage = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+
+        // Write a session file AFTER storage creation so it's not in memory
+        let state = DeploymentState::new("late-add", "akash1late");
+        let json = serde_json::to_string_pretty(&state).unwrap();
+        tokio::fs::write(temp_dir.join("sessions").join("late-add.json"), &json)
+            .await
+            .unwrap();
+
+        // load_session should miss memory and fall back to disk read+parse
+        let loaded = storage.load_session("late-add").await.unwrap();
+        assert!(loaded.is_some());
+        assert_eq!(loaded.unwrap().owner, "akash1late");
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_load_sessions_skips_invalid_json() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+
+        // Pre-populate sessions dir with bad files before creating storage
+        let sessions_dir = temp_dir.join("sessions");
+        tokio::fs::create_dir_all(&sessions_dir).await.unwrap();
+        tokio::fs::create_dir_all(temp_dir.join("certs"))
+            .await
+            .unwrap();
+
+        // Valid session
+        let state = DeploymentState::new("good", "akash1good");
+        let json = serde_json::to_string_pretty(&state).unwrap();
+        tokio::fs::write(sessions_dir.join("good.json"), &json)
+            .await
+            .unwrap();
+
+        // Invalid JSON in a .json file (covers lines 140 failure → 142-143)
+        tokio::fs::write(sessions_dir.join("bad.json"), "not valid json {{{")
+            .await
+            .unwrap();
+
+        // Non-.json file (covers line 138 else → 144)
+        tokio::fs::write(sessions_dir.join("readme.txt"), "ignore me")
+            .await
+            .unwrap();
+
+        // Storage should load only the valid session, silently skipping bad ones
+        let storage = FileBackedStorage::new(temp_dir.clone()).await.unwrap();
+        let sessions = storage.list_sessions().await.unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert!(sessions.contains(&"good".to_string()));
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_invalid_certificates_json_fails() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+
+        // Set up dir structure manually
+        tokio::fs::create_dir_all(temp_dir.join("sessions"))
+            .await
+            .unwrap();
+        tokio::fs::create_dir_all(temp_dir.join("certs"))
+            .await
+            .unwrap();
+
+        // Write invalid certificates.json (covers lines 175-177)
+        tokio::fs::write(temp_dir.join("certificates.json"), "broken!")
+            .await
+            .unwrap();
+
+        match FileBackedStorage::new(temp_dir.clone()).await {
+            Ok(_) => panic!("expected error for invalid certificates.json"),
+            Err(e) => assert!(
+                e.to_string().contains("failed to parse certificates"),
+                "unexpected error: {}",
+                e
+            ),
+        }
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_invalid_providers_json_fails() {
+        let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
+
+        tokio::fs::create_dir_all(temp_dir.join("sessions"))
+            .await
+            .unwrap();
+        tokio::fs::create_dir_all(temp_dir.join("certs"))
+            .await
+            .unwrap();
+
+        // Write invalid providers.json (covers lines 159-160)
+        tokio::fs::write(temp_dir.join("providers.json"), "{bad json")
+            .await
+            .unwrap();
+
+        match FileBackedStorage::new(temp_dir.clone()).await {
+            Ok(_) => panic!("expected error for invalid providers.json"),
+            Err(e) => assert!(
+                e.to_string().contains("failed to parse providers"),
+                "unexpected error: {}",
+                e
+            ),
+        }
+
         let _ = tokio::fs::remove_dir_all(temp_dir).await;
     }
 }
