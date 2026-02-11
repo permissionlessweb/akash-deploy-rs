@@ -164,3 +164,168 @@ When you implement a new feature:
 - [ ] Run: `just test` to validate your Rust implementation matches
 
 The golden reference is THE source of truth - your Rust code must produce identical JSON.
+
+## Implementing Multi-Service Deployments
+
+When adding support for deployments with multiple services in the same placement group:
+
+### Service Grouping Logic
+
+- [ ] **Parse all services** from deployment section, not just first one
+- [ ] **Extract placement group** name for each service (key in deployment config)
+- [ ] **Group services** by placement group using HashMap
+- [ ] **Store tuple** of (service_name, profile_name, count, placement_group)
+
+Example:
+```rust
+// Iterate all services in deployment
+for (service_name, service_deployment) in deployment_map {
+    for (placement_name, placement_config) in service_deployment.as_mapping() {
+        let group_name = placement_name.as_str();
+        let count = placement_config.get("count");
+        let profile = placement_config.get("profile");
+        service_infos.push((service_name, profile, count, group_name));
+        break; // Only first placement per service
+    }
+}
+
+// Group by placement
+let mut groups_map: HashMap<String, Vec<_>> = HashMap::new();
+for (service, profile, count, group) in service_infos {
+    groups_map.entry(group).or_default().push((service, profile, count));
+}
+```
+
+### Critical: Service Ordering
+
+**Provider validation matches services to ResourceUnits BY POSITION, not by name.**
+
+- [ ] **Sort in manifest.rs** before creating ManifestGroup:
+  ```rust
+  let mut groups: Vec<ManifestGroup> = groups_map
+      .into_iter()
+      .map(|(name, mut services)| {
+          // CRITICAL: Sort services alphabetically
+          services.sort_by(|a, b| a.name.cmp(&b.name));
+          ManifestGroup { name, services }
+      })
+      .collect();
+  ```
+
+- [ ] **Sort in groupspec.rs** before creating ResourceUnits:
+  ```rust
+  for (group_name, mut services) in groups_map {
+      // CRITICAL: Sort to match manifest service order
+      services.sort_by(|a, b| a.0.cmp(&b.0));
+
+      for (service_name, profile_name, count) in services {
+          resources.push(ResourceUnit { ... });
+      }
+  }
+  ```
+
+- [ ] **DO NOT rely on HashMap iteration order** - it's non-deterministic
+- [ ] **Both builders must sort** - sorting only one causes position mismatch
+
+### Validation Logic
+
+Provider validates like this:
+
+```go
+// Simplified provider logic
+for i, service := range manifest.Services {
+    if i >= len(group.Resources) {
+        return fmt.Errorf("service %q: over-utilized replicas (%d) > group spec resources count (%d)",
+            service.Name, service.Count, len(group.Resources))
+    }
+
+    resourceUnit := group.Resources[i]  // Match by INDEX, not name!
+
+    if service.Count > resourceUnit.Count {
+        return fmt.Errorf("service count exceeds resource unit count")
+    }
+}
+```
+
+**Key insight:** Provider uses `i` to index into `group.Resources`, not service name lookup.
+
+### Common Errors
+
+**Error: "over-utilized replicas (1) > group spec resources count (0)"**
+
+This means:
+- Manifest has service at position N
+- GroupSpec has < N ResourceUnits OR
+- GroupSpec ResourceUnit order doesn't match manifest service order
+
+Debug:
+```bash
+# Check manifest service order
+jq '.[] | .services | map(.name)' manifest.json
+
+# Check on-chain ResourceUnit order
+akash query deployment group <owner> <dseq> <gseq>
+
+# They MUST be in same order!
+```
+
+### Testing Multi-Service
+
+- [ ] Create test SDL with 2+ services in same placement group
+- [ ] Add to `tests/testdata/multi-service.yaml`
+- [ ] Services should have different:
+  - Names (alphabetically ordered: glm-flash, qwen-coder)
+  - Images
+  - Exposed ports
+  - But SAME placement group
+- [ ] Run: `cd tests && just test`
+- [ ] Verify both services appear in manifest
+- [ ] Verify ResourceUnits match service count (2 services = 2 ResourceUnits)
+- [ ] Verify ordering: `jq '.[] | .services | map(.name)'` shows alphabetical order
+
+### Implementation Checklist
+
+- [ ] Parse all services from deployment (not just first)
+- [ ] Group services by placement group
+- [ ] Sort services alphabetically in manifest builder
+- [ ] Sort services alphabetically in groupspec builder
+- [ ] Create one ResourceUnit per service
+- [ ] Verify ResourceUnit count = service count in group
+- [ ] Test with multi-service SDL
+- [ ] Verify provider validation passes
+- [ ] Check debug output shows correct ordering:
+  ```
+  DEBUG: Grouping service 'glm-flash' into group 'dcloud'
+  DEBUG: Grouping service 'qwen-coder' into group 'dcloud'
+  DEBUG: Building GroupSpec for group 'dcloud' with 2 services
+  DEBUG:   Creating ResourceUnit for service 'glm-flash'
+  DEBUG:   Creating ResourceUnit for service 'qwen-coder'
+  DEBUG: GroupSpec 'dcloud' final has 2 ResourceUnits
+  ```
+
+### Files to Modify
+
+When implementing multi-service support:
+
+1. **`src/groupspec.rs`**
+   - Parse all services from deployment section
+   - Group by placement
+   - Sort before creating ResourceUnits
+   - Create one ResourceUnit per service
+
+2. **`src/manifest.rs`**
+   - Parse all services
+   - Group by placement
+   - Sort before creating ManifestGroup
+   - Ensure service order matches GroupSpec
+
+3. **`tests/testdata/multi-service.yaml`**
+   - Add test case with 2+ services
+   - Same placement group
+   - Different service names (alphabetical)
+
+4. **Run validation:**
+   ```bash
+   cd tests
+   just test  # Must pass for all SDLs including multi-service
+   ```

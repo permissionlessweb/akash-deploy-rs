@@ -51,11 +51,11 @@
 //! );
 //! ```
 
-use crate::backend::AkashBackend;
+use crate::traits::AkashBackend;
 use crate::error::DeployError;
 use crate::r#gen::akash::escrow::id::v1::Scope;
 use crate::state::DeploymentState;
-use crate::storage::{FileBackedStorage, SessionStorage};
+use crate::store::{FileBackedStorage, SessionStorage};
 use crate::types::*;
 
 use layer_climb::prelude::*;
@@ -64,6 +64,17 @@ use std::io::Cursor;
 // Import Akash proto types
 use crate::gen::akash::{deployment::v1beta4 as akash_deployment, market::v1beta5 as akash_market};
 use prost::{Message as ProstMessage, Name as ProstName};
+
+/// Convert a prost message into a `layer_climb::proto::Any` for broadcasting.
+///
+/// This avoids version mismatch with layer-climb's prost dependency by using
+/// prost's `encode_to_vec` and `type_url` directly.
+fn to_any<M: ProstMessage + ProstName>(msg: &M) -> layer_climb::proto::Any {
+    layer_climb::proto::Any {
+        type_url: M::type_url(),
+        value: msg.encode_to_vec(),
+    }
+}
 
 /// Reusable gRPC query clients for Akash modules.
 ///
@@ -625,25 +636,14 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     ) -> Result<TxResult, DeployError> {
         use crate::gen::akash::cert::v1 as akash_cert;
 
-        // Create the message
-        let msg = akash_cert::MsgCreateCertificate {
-            owner: owner.to_string(),
-            cert: cert_pem.to_vec(),
-            pubkey: pubkey_pem.to_vec(),
-        };
-
-        // Convert message to Any for broadcasting using prost directly
-        // This avoids version mismatch with layer-climb's prost dependency
-        let any_msg = layer_climb::proto::Any {
-            type_url: akash_cert::MsgCreateCertificate::type_url(),
-            value: msg.encode_to_vec(),
-        };
-
-        // Broadcast transaction
         let response = self
             .client
             .tx_builder()
-            .broadcast([any_msg])
+            .broadcast([to_any(&akash_cert::MsgCreateCertificate {
+                owner: owner.to_string(),
+                cert: cert_pem.to_vec(),
+                pubkey: pubkey_pem.to_vec(),
+            })])
             .await
             .map_err(|e| DeployError::Transaction {
                 code: 1,
@@ -670,28 +670,14 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         use sha2::{Digest, Sha256};
 
         // Validate SDL and build groups from it
-        crate::sdl::validate_sdl(sdl_content)?;
-
+        crate::sdl::sdl::validate_sdl(sdl_content)?;
         // Build GroupSpecs from SDL (groups services by placement)
-        let groups = crate::groupspec::build_groupspecs_from_sdl(sdl_content)?;
-
-        eprintln!(
-            "DEBUG create_deployment: Sending {} GroupSpecs:",
-            groups.len()
-        );
+        let groups = crate::sdl::groupspec::build_groupspecs_from_sdl(sdl_content)?;
         for g in &groups {
-            eprintln!(
-                "DEBUG:   - Group '{}': {} ResourceUnits",
-                g.name,
-                g.resources.len()
-            );
             for (idx, ru) in g.resources.iter().enumerate() {
                 eprintln!("DEBUG:     ResourceUnit[{}]: count={}", idx, ru.count);
             }
         }
-
-        // Compute SDL hash (32 bytes)
-        let sdl_hash = Sha256::digest(sdl_content.as_bytes()).to_vec();
 
         // Build deployment ID (dseq will be 0, assigned by chain)
         let deployment_id = akash_deployment_v1::DeploymentId {
@@ -699,7 +685,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             dseq: 0,
         };
 
-        // Build deposit
+        let sdl_hash = Sha256::digest(sdl_content.as_bytes()).to_vec();
         let deposit = akash_deposit::Deposit {
             amount: Some(crate::gen::cosmos::base::v1beta1::Coin {
                 denom: "uakt".to_string(),
@@ -708,25 +694,15 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             sources: vec![akash_deposit::Source::Balance as i32],
         };
 
-        // Create the message with properly grouped services
-        let msg = akash_deployment::MsgCreateDeployment {
-            id: Some(deployment_id),
-            groups,
-            hash: sdl_hash,
-            deposit: Some(deposit),
-        };
-
-        // Convert message to Any for broadcasting using prost directly
-        // This avoids version mismatch with layer-climb's prost dependency
-        let type_url = akash_deployment::MsgCreateDeployment::type_url();
-        let value = msg.encode_to_vec();
-        let any_msg = layer_climb::proto::Any { type_url, value };
-
-        // Broadcast transaction
         let response = self
             .client
             .tx_builder()
-            .broadcast([any_msg])
+            .broadcast([to_any(&akash_deployment::MsgCreateDeployment {
+                id: Some(deployment_id),
+                groups,
+                hash: sdl_hash,
+                deposit: Some(deposit),
+            })])
             .await
             .map_err(|e| DeployError::Transaction {
                 code: 1,
@@ -772,22 +748,12 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             bseq: bid.bseq,
         };
 
-        // Create the message (v1beta5 uses v1 BidId)
-        let msg = akash_market::MsgCreateLease {
-            bid_id: Some(bid_id),
-        };
-
-        // Convert message to Any for broadcasting using prost directly
-        // This avoids version mismatch with layer-climb's prost dependency
-        let type_url = akash_market::MsgCreateLease::type_url();
-        let value = msg.encode_to_vec();
-        let any_msg = layer_climb::proto::Any { type_url, value };
-
-        // Broadcast transaction
         let response = self
             .client
             .tx_builder()
-            .broadcast([any_msg])
+            .broadcast([to_any(&akash_market::MsgCreateLease {
+                bid_id: Some(bid_id),
+            })])
             .await
             .map_err(|e| DeployError::Transaction {
                 code: 1,
@@ -819,7 +785,6 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             xid: format!("{}/{}", owner, dseq),
         };
 
-        // Build deposit
         let deposit = akash_deposit::Deposit {
             amount: Some(crate::gen::cosmos::base::v1beta1::Coin {
                 denom: "uakt".to_string(),
@@ -828,24 +793,14 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             sources: vec![akash_deposit::Source::Balance as i32],
         };
 
-        // Create the message
-        let msg = akash_escrow::MsgAccountDeposit {
-            signer: owner.to_string(),
-            id: Some(account_id),
-            deposit: Some(deposit),
-        };
-
-        // Convert message to Any for broadcasting using prost directly
-        // This avoids version mismatch with layer-climb's prost dependency
-        let type_url = akash_escrow::MsgAccountDeposit::type_url();
-        let value = msg.encode_to_vec();
-        let any_msg = layer_climb::proto::Any { type_url, value };
-
-        // Broadcast transaction
         let response = self
             .client
             .tx_builder()
-            .broadcast([any_msg])
+            .broadcast([to_any(&akash_escrow::MsgAccountDeposit {
+                signer: owner.to_string(),
+                id: Some(account_id),
+                deposit: Some(deposit),
+            })])
             .await
             .map_err(|e| DeployError::Transaction {
                 code: 1,
@@ -874,22 +829,13 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             dseq,
         };
 
-        // Create the message
-        let msg = akash_deployment::MsgCloseDeployment {
-            id: Some(deployment_id),
-        };
-
-        // Convert message to Any for broadcasting using prost directly
-        // This avoids version mismatch with layer-climb's prost dependency
-        let type_url = akash_deployment::MsgCloseDeployment::type_url();
-        let value = msg.encode_to_vec();
-        let any_msg = layer_climb::proto::Any { type_url, value };
-
         // Broadcast transaction
         let response = self
             .client
             .tx_builder()
-            .broadcast([any_msg])
+            .broadcast([to_any(&akash_deployment::MsgCloseDeployment {
+                id: Some(deployment_id),
+            })])
             .await
             .map_err(|e| DeployError::Transaction {
                 code: 1,

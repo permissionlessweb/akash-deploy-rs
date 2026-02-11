@@ -1,6 +1,6 @@
 #![cfg(feature = "sdl-templates")]
 
-use akash_deploy_rs::template::{
+use akash_deploy_rs::sdl::template::{
     apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,
     TemplateVariables,
 };

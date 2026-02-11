@@ -4,7 +4,7 @@
 //! transitions between steps and calls the backend. No storage,
 //! no signing, no transport. Just logic.
 
-use crate::backend::AkashBackend;
+use crate::traits::AkashBackend;
 use crate::error::DeployError;
 use crate::state::{DeploymentState, Step};
 use crate::types::{Bid, BidId};
@@ -362,7 +362,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         // Process template if feature enabled and is_template flag set
         #[cfg(feature = "sdl-templates")]
         let processed_sdl = if state.is_template {
-            let template = crate::template::SdlTemplate::new(sdl)?;
+            let template = crate::sdl::template::SdlTemplate::new(sdl)?;
             let empty_vars = std::collections::HashMap::new();
             let empty_defaults = std::collections::HashMap::new();
             let variables = state.template_variables.as_ref().unwrap_or(&empty_vars);
@@ -485,7 +485,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
 /// Generate a self-signed certificate for Akash mTLS.
 /// Returns (cert_pem, private_key_pem, public_key_pem).
 fn generate_certificate(owner: &str) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), DeployError> {
-    let cert = crate::certificate::generate_certificate(owner)?;
+    let cert = crate::auth::certificate::generate_certificate(owner)?;
     Ok((cert.cert_pem, cert.privkey_pem, cert.pubkey_pem))
 }
 
@@ -500,11 +500,11 @@ fn build_manifest(owner: &str, sdl: &str, dseq: u64) -> Result<Vec<u8>, DeployEr
     }
 
     // Use the actual ManifestBuilder to parse SDL
-    let builder = crate::manifest::ManifestBuilder::new(owner, dseq);
+    let builder = crate::manifest::manifest::ManifestBuilder::new(owner, dseq);
     let manifest_groups = builder.build_from_sdl(sdl)?;
 
     // Serialize to canonical JSON (deterministic, matches Go's encoding/json)
-    let canonical_json = crate::canonical::to_canonical_json(&manifest_groups)?;
+    let canonical_json = crate::manifest::canonical::to_canonical_json(&manifest_groups)?;
 
     Ok(canonical_json.into_bytes())
 }

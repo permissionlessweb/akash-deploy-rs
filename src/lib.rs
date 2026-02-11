@@ -40,19 +40,14 @@
 //! }
 //! ```
 
-pub mod backend;
-pub mod canonical;
-pub mod certificate;
+pub mod auth;
 pub mod error;
 pub mod gen;
-pub mod groupspec;
-pub mod jwt;
 pub mod manifest;
 pub mod sdl;
 pub mod state;
-pub mod storage;
-#[cfg(feature = "sdl-templates")]
-pub mod template;
+pub mod store;
+pub mod traits;
 pub mod types;
 pub mod workflow;
 
@@ -60,25 +55,28 @@ pub mod workflow;
 pub mod client;
 
 // Re-export the main types at crate root for convenience
-pub use backend::AkashBackend;
-pub use canonical::to_canonical_json;
-pub use certificate::{decrypt_key, encrypt_key, generate_certificate, GeneratedCertificate};
+pub use auth::certificate::{decrypt_key, encrypt_key, generate_certificate, GeneratedCertificate};
+pub use auth::jwt::{CachedJwt, JwtBuilder, JwtClaims, JwtLeases};
 pub use error::DeployError;
-pub use jwt::{CachedJwt, JwtBuilder, JwtClaims, JwtLeases};
-pub use manifest::{
+pub use manifest::canonical::to_canonical_json;
+pub use manifest::manifest::{
     ManifestBuilder, ManifestCpu, ManifestCredentials, ManifestGpu, ManifestGroup,
     ManifestHttpOptions, ManifestMemory, ManifestResourceValue, ManifestResources, ManifestService,
     ManifestServiceExpose, ManifestServiceParams, ManifestStorage, ManifestStorageParams,
 };
 pub use state::{DeploymentState, Step};
-#[cfg(feature = "default-client")]
-pub use storage::FileBackedStorage;
-pub use storage::SessionStorage;
+#[cfg(feature = "file-storage")]
+pub use store::FileBackedStorage;
+pub use store::SessionStorage;
+#[cfg(feature = "file-storage")]
+pub use store::FileDeploymentStore;
+pub use store::{DeploymentRecord, DeploymentStore};
 #[cfg(feature = "sdl-templates")]
-pub use template::{
+pub use sdl::template::{
     apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,
     TemplateVariables,
 };
+pub use traits::AkashBackend;
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};
 

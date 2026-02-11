@@ -201,6 +201,121 @@ Sorted JSON (what gets hashed):
 4. Ensure version is "v1"
 5. Validate access type ("full", "scoped", "granular")
 
+### "over-utilized replicas (N) > group spec resources count (M)"
+
+**Cause:** Service count in manifest doesn't match ResourceUnits in on-chain GroupSpec
+
+**Root Issue:** Provider validates by matching services to ResourceUnits **by position/index**, not by name. If ordering doesn't match, validation fails.
+
+**Example Error:**
+
+```
+group "dcloud": service "qwen-coder": over-utilized replicas (1) > group spec resources count (0)
+```
+
+**What This Means:**
+
+- Manifest has service "qwen-coder" with count=1
+- Provider tried to find a matching ResourceUnit but failed
+- The GroupSpec actually HAS ResourceUnits, but ordering is wrong
+
+**Debug Steps:**
+
+1. **Check service ordering in manifest:**
+
+   ```bash
+   jq '.[] | .services | map(.name)' manifest.json
+   # Should be alphabetically sorted: ["glm-flash", "qwen-coder"]
+   ```
+
+2. **Check ResourceUnit order in GroupSpec:**
+
+   ```bash
+   # Query on-chain GroupSpec
+   akash query deployment group <owner> <dseq> <gseq>
+   # ResourceUnits must be in same order as manifest services
+   ```
+
+3. **Verify both are sorted alphabetically:**
+
+   The manifest builder sorts services by name (line 288 in `manifest.rs`):
+
+   ```rust
+   // CRITICAL: Provider requires services sorted by name within each group
+   services.sort_by(|a, b| a.name.cmp(&b.name));
+   ```
+
+   The GroupSpec builder MUST also sort services (line 100 in `groupspec.rs`):
+
+   ```rust
+   // CRITICAL: Sort services by name to match manifest service order
+   // The manifest builder sorts services alphabetically, so GroupSpec must too
+   services.sort_by(|a, b| a.0.cmp(&b.0));
+   ```
+
+**Why This Happens:**
+
+Provider validation logic matches services to ResourceUnits by position:
+
+```go
+// Provider code (simplified)
+for i, service := range manifest.Services {
+    if i >= len(group.Resources) {
+        return error("over-utilized replicas")
+    }
+    resourceUnit := group.Resources[i]
+    // Validate service against resourceUnit
+}
+```
+
+**The Fix:**
+
+Both manifest and GroupSpec must sort services alphabetically BEFORE creating their respective data structures:
+
+```rust
+// In groupspec.rs - BEFORE creating ResourceUnits
+for (group_name, mut services) in groups_map {
+    // Sort services by name to match manifest order
+    services.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (service_name, profile_name, count) in services {
+        // Create ResourceUnit in sorted order
+        resources.push(ResourceUnit { ... });
+    }
+}
+
+// In manifest.rs - BEFORE creating ManifestGroup
+let mut groups: Vec<ManifestGroup> = groups_map
+    .into_iter()
+    .map(|(name, mut services)| {
+        // Sort services by name
+        services.sort_by(|a, b| a.name.cmp(&b.name));
+        ManifestGroup { name, services }
+    })
+    .collect();
+```
+
+**Common Mistake:**
+
+Using HashMap iteration order without sorting:
+
+```rust
+// ❌ WRONG - HashMap iteration order is non-deterministic
+for (group_name, services) in groups_map {
+    for service in services {
+        // ResourceUnits created in random order!
+    }
+}
+
+// ✅ CORRECT - Explicitly sort before creating ResourceUnits
+for (group_name, mut services) in groups_map {
+    services.sort_by(|a, b| a.0.cmp(&b.0));  // Sort first!
+    for service in services {
+        // ResourceUnits now in consistent order
+    }
+}
+```
+
 ## Fixture Generation
 
 Generate golden reference fixtures from SDL:
@@ -324,7 +439,9 @@ pub fn compute_hash(manifest: &[ManifestGroup]) -> Result<Vec<u8>, Error> {
 
 Before deploying:
 
-- [ ] Services sorted alphabetically by name
+- [ ] Services sorted alphabetically by name **within each group**
+- [ ] GroupSpec ResourceUnits sorted in **same order** as manifest services
+- [ ] Multi-service: Both manifest.rs and groupspec.rs sort before creating structures
 - [ ] Attributes sorted alphabetically by key
 - [ ] All object keys sorted (canonical JSON)
 - [ ] Empty command/args/env are `null`, not `[]`
@@ -335,3 +452,16 @@ Before deploying:
 - [ ] httpOptions present on all expose entries
 - [ ] Memory/storage use `size` field, not `quantity`
 - [ ] Hash matches: `hex::encode(computed_hash) == expected_hash`
+
+### Multi-Service Deployment Checklist
+
+For deployments with multiple services in the same placement group:
+
+- [ ] **Service Parsing**: All services extracted from SDL deployment section
+- [ ] **Grouping Logic**: Services correctly grouped by placement group name
+- [ ] **Sorting in Manifest**: Services sorted alphabetically before creating ManifestGroup
+- [ ] **Sorting in GroupSpec**: Services sorted alphabetically before creating ResourceUnits
+- [ ] **Order Verification**: Manifest service order matches GroupSpec ResourceUnit order
+- [ ] **Count Matching**: Each service's count matches its corresponding ResourceUnit count
+- [ ] **Resource Matching**: Each service's resources match its corresponding ResourceUnit resources
+- [ ] **Integration Test**: Run `cd tests && just test` to validate with provider code

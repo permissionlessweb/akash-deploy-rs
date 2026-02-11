@@ -475,6 +475,7 @@ This repository includes a specialized Claude skill that provides deep expertise
 ### Installing the Skill
 
 The `akash-manifest-spec` skill contains:
+
 - 7 critical serialization rules for manifest generation
 - Provider validation procedures using actual Go code
 - Debugging decision trees for hash mismatches
@@ -494,6 +495,7 @@ cp -r .claude/skills/akash-manifest-spec ~/.claude/skills/
 **When to use:**
 
 The skill activates automatically when you mention:
+
 - "manifest serialization"
 - "provider validation"
 - "hash mismatch"
@@ -501,6 +503,7 @@ The skill activates automatically when you mention:
 - Akash deployment debugging
 
 It provides structured guidance for:
+
 - Implementing new manifest features while maintaining provider compatibility
 - Debugging manifest hash mismatches with actual provider validation code
 - Understanding the 7 critical rules (camelCase, null arrays, string numbers, sorting)
