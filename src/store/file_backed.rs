@@ -3,8 +3,8 @@
 //! Stores each deployment record as `{dseq}/status.json` under
 //! `~/.akash-deploy/deployments/`.
 
-use crate::store::{DeploymentRecord, DeploymentStore};
 use crate::error::DeployError;
+use crate::store::{DeploymentRecord, DeploymentStore};
 use async_trait::async_trait;
 use std::path::PathBuf;
 
@@ -87,9 +87,7 @@ impl DeploymentStore for FileDeploymentStore {
 
         let mut entries = tokio::fs::read_dir(&self.deployments_dir)
             .await
-            .map_err(|e| {
-                DeployError::Storage(format!("failed to read deployments dir: {}", e))
-            })?;
+            .map_err(|e| DeployError::Storage(format!("failed to read deployments dir: {}", e)))?;
 
         while let Some(entry) = entries
             .next_entry()

@@ -1,7 +1,7 @@
 //! [`DeploymentStore`] trait definition.
 
-use crate::store::DeploymentRecord;
 use crate::error::DeployError;
+use crate::store::DeploymentRecord;
 use async_trait::async_trait;
 
 /// Trait for persisting deployment records indexed by dseq.

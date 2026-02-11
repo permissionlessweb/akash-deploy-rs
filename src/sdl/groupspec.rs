@@ -859,7 +859,8 @@ deployment:
 
     #[test]
     fn test_missing_profiles_section() {
-        let sdl = "version: \"2.0\"\ndeployment:\n  web:\n    dc:\n      profile: web\n      count: 1";
+        let sdl =
+            "version: \"2.0\"\ndeployment:\n  web:\n    dc:\n      profile: web\n      count: 1";
         let result = build_groupspecs_from_sdl(sdl);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("profiles"));

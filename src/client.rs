@@ -51,11 +51,11 @@
 //! );
 //! ```
 
-use crate::traits::AkashBackend;
 use crate::error::DeployError;
 use crate::r#gen::akash::escrow::id::v1::Scope;
 use crate::state::DeploymentState;
 use crate::store::{FileBackedStorage, SessionStorage};
+use crate::traits::AkashBackend;
 use crate::types::*;
 
 use layer_climb::prelude::*;

@@ -6,8 +6,7 @@ fn make_test_state() -> DeploymentState {
         .with_label("my-deploy")
         .with_sdl("version: \"2.0\"");
     state.dseq = Some(12345);
-    state.cert_pem =
-        Some(b"-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----".to_vec());
+    state.cert_pem = Some(b"-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----".to_vec());
     state.key_pem =
         Some(b"-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----".to_vec());
     state.transition(Step::Complete);

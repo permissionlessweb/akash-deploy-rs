@@ -4,9 +4,9 @@
 //! transitions between steps and calls the backend. No storage,
 //! no signing, no transport. Just logic.
 
-use crate::traits::AkashBackend;
 use crate::error::DeployError;
 use crate::state::{DeploymentState, Step};
+use crate::traits::AkashBackend;
 use crate::types::{Bid, BidId};
 
 /// Workflow configuration.

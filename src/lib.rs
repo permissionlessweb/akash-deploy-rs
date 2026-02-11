@@ -64,18 +64,18 @@ pub use manifest::manifest::{
     ManifestHttpOptions, ManifestMemory, ManifestResourceValue, ManifestResources, ManifestService,
     ManifestServiceExpose, ManifestServiceParams, ManifestStorage, ManifestStorageParams,
 };
-pub use state::{DeploymentState, Step};
-#[cfg(feature = "file-storage")]
-pub use store::FileBackedStorage;
-pub use store::SessionStorage;
-#[cfg(feature = "file-storage")]
-pub use store::FileDeploymentStore;
-pub use store::{DeploymentRecord, DeploymentStore};
 #[cfg(feature = "sdl-templates")]
 pub use sdl::template::{
     apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,
     TemplateVariables,
 };
+pub use state::{DeploymentState, Step};
+#[cfg(feature = "file-storage")]
+pub use store::FileBackedStorage;
+#[cfg(feature = "file-storage")]
+pub use store::FileDeploymentStore;
+pub use store::SessionStorage;
+pub use store::{DeploymentRecord, DeploymentStore};
 pub use traits::AkashBackend;
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};

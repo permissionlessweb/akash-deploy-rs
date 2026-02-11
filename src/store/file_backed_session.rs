@@ -420,7 +420,10 @@ mod tests {
         storage.cache_provider(&provider).await.unwrap();
 
         // Load from memory
-        let loaded = storage.load_cached_provider("akash1provider").await.unwrap();
+        let loaded = storage
+            .load_cached_provider("akash1provider")
+            .await
+            .unwrap();
         assert!(loaded.is_some());
         let loaded = loaded.unwrap();
         assert_eq!(loaded.address, "akash1provider");
@@ -559,12 +562,9 @@ mod tests {
         // Write a session file AFTER storage creation so it's not in memory
         let state = DeploymentState::new("late-add", "akash1late");
         let json = serde_json::to_string_pretty(&state).unwrap();
-        tokio::fs::write(
-            temp_dir.join("sessions").join("late-add.json"),
-            &json,
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(temp_dir.join("sessions").join("late-add.json"), &json)
+            .await
+            .unwrap();
 
         // load_session should miss memory and fall back to disk read+parse
         let loaded = storage.load_session("late-add").await.unwrap();
@@ -581,7 +581,9 @@ mod tests {
         // Pre-populate sessions dir with bad files before creating storage
         let sessions_dir = temp_dir.join("sessions");
         tokio::fs::create_dir_all(&sessions_dir).await.unwrap();
-        tokio::fs::create_dir_all(temp_dir.join("certs")).await.unwrap();
+        tokio::fs::create_dir_all(temp_dir.join("certs"))
+            .await
+            .unwrap();
 
         // Valid session
         let state = DeploymentState::new("good", "akash1good");
@@ -614,8 +616,12 @@ mod tests {
         let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
 
         // Set up dir structure manually
-        tokio::fs::create_dir_all(temp_dir.join("sessions")).await.unwrap();
-        tokio::fs::create_dir_all(temp_dir.join("certs")).await.unwrap();
+        tokio::fs::create_dir_all(temp_dir.join("sessions"))
+            .await
+            .unwrap();
+        tokio::fs::create_dir_all(temp_dir.join("certs"))
+            .await
+            .unwrap();
 
         // Write invalid certificates.json (covers lines 175-177)
         tokio::fs::write(temp_dir.join("certificates.json"), "broken!")
@@ -638,8 +644,12 @@ mod tests {
     async fn test_invalid_providers_json_fails() {
         let temp_dir = std::env::temp_dir().join(format!("akash-test-{}", rand::random::<u32>()));
 
-        tokio::fs::create_dir_all(temp_dir.join("sessions")).await.unwrap();
-        tokio::fs::create_dir_all(temp_dir.join("certs")).await.unwrap();
+        tokio::fs::create_dir_all(temp_dir.join("sessions"))
+            .await
+            .unwrap();
+        tokio::fs::create_dir_all(temp_dir.join("certs"))
+            .await
+            .unwrap();
 
         // Write invalid providers.json (covers lines 159-160)
         tokio::fs::write(temp_dir.join("providers.json"), "{bad json")
