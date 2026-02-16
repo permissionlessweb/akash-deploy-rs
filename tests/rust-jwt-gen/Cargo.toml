@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Use local package (relative path from tests/examples/rust-jwt-gen)
-akash-deploy-rs = { path = "../../.." }
+# Use local package (relative path from tests/rust-jwt-gen)
+akash-deploy-rs = { path = "../.." }
 
 # Minimal deps for JWT + manifest generation
 base64 = "0.22"

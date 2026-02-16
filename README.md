@@ -22,54 +22,163 @@ Build, authenticate, and deploy applications to Akash using a trait-based state 
 - **SDL Templates** — Variable substitution for reusable deployment configs (default)
 - **Default Client** — Integrated layer-climb client with file-backed storage (opt-in)
 
+## Design Principles
+
+1. **Single Trait** — `AkashBackend` is the only interface
+2. **Bring Your Own Infrastructure** — No storage, HTTP, or signing coupling
+3. **State Machine Focused** — Workflow orchestrates, you implement primitives
+4. **Explicit Errors** — `DeployError` covers all failure modes
+5. **Type Safety** — Correct manifest serialization enforced at compile time
+
 ---
 
 ## Quick Start
 
+### Opt Out of Default Client
+
+To use only the core workflow engine without the integrated client:
+
+```toml
+[dependencies]
+akash-deploy-rs = { version = "0.0.5" }
+```
+
+### Opt-Into Deploy with Default Client
+
+The fastest path to a working deployment. Requires the `default-client` feature (disabled by default).
+
+```toml
+[dependencies]
+akash-deploy-rs = { version = "0.0.5", features = ["default-client"] }
+```
+
+Then implement `AkashBackend` yourself as shown in the architecture section.
+
+```rust
+use akash_deploy_rs::{
+    AkashClient, AkashBackend, DeploymentState, DeploymentWorkflow,
+    InputRequired, KeySigner, StepResult, WorkflowConfig,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mnemonic = std::env::var("TEST_MNEMONIC")?;
+
+    // 1. Create client (derives address, sets up RPC + gRPC)
+    let client = AkashClient::new_from_mnemonic(
+        &mnemonic,
+        "https://rpc.akashnet.net:443",
+        "https://grpc.akashnet.net:443",
+    ).await?;
+
+    // 2. Create signer (for transaction signing + JWT generation)
+    let signer = KeySigner::new_mnemonic_str(&mnemonic, None)
+        .map_err(|e| format!("signer: {e:?}"))?;
+
+    // 3. Configure workflow
+    let config = WorkflowConfig {
+        auto_select_cheapest_bid: false, // prompt for provider selection
+        ..Default::default()
+    };
+    let workflow = DeploymentWorkflow::new(&client, &signer, config);
+
+    // 4. Create deployment state with SDL
+    let sdl = std::fs::read_to_string(sdl_file)?;
+    let mut state = DeploymentState::new("oline-sentries", client.address())
+        .with_sdl(&sdl)
+        .with_label("oline-sentries");
+
+    // 5. Drive the workflow
+    loop {
+        match workflow.advance(&mut state).await? {
+            StepResult::Continue => continue,
+            StepResult::NeedsInput(InputRequired::SelectProvider { bids }) => {
+                // Pick a provider (or auto-select with config flag)
+                let provider = &bids[0].provider;
+                DeploymentWorkflow::<AkashClient>::select_provider(&mut state, provider)?;
+            }
+            StepResult::Complete => {
+                println!("Deployed! Endpoints:");
+                for ep in &state.endpoints {
+                    println!("  {} -> {}:{}", ep.uri, ep.service, ep.port);
+                }
+                break;
+            }
+            StepResult::Failed(reason) => return Err(reason.into()),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+```
+
+### JWT Authentication (How It Works)
+
+Akash providers authenticate requests using **self-attested ES256K JWTs**. There is no challenge-response or registration — each request is independently validated.
+
+**Flow:**
+
+1. Client builds JWT claims with `iss` = account address, timestamps, and `"full"` lease access
+2. Client signs the JWT with their secp256k1 private key (same key that signs transactions)
+3. Client sends JWT in `Authorization: Bearer <token>` header
+4. Provider fetches the issuer's public key from on-chain account state and verifies the signature
+
+The workflow handles this automatically during the `EnsureAuth` step. For standalone use:
+
+```rust
+use akash_deploy_rs::{JwtBuilder, JwtClaims};
+
+// Build claims (valid 15 minutes)
+let claims = JwtClaims::new("akash1youraddress...");
+
+// Sign with your secp256k1 key (ES256K)
+let jwt = JwtBuilder::new().build_and_sign(&claims, |message| {
+    // Your signing function — return DER-encoded signature
+    my_keypair.sign(message)
+})?;
+
+// Use in provider requests
+client.put(url)
+    .header("Authorization", format!("Bearer {}", jwt))
+    .send().await?;
+```
+
+### Manifest Building Only
+
+If you only need SDL parsing without the full workflow:
+
 ```rust
 use akash_deploy_rs::{ManifestBuilder, to_canonical_json};
 
-// 1. Parse SDL to manifest
-let manifest_builder = akash_deploy_rs::ManifestBuilder::new(&owner, dseq);
-let manifest_groups = manifest_builder.build_from_sdl(sdl_yaml)
+let builder = ManifestBuilder::new(&owner, dseq);
+let groups = builder.build_from_sdl(sdl_yaml)?;
+let canonical_json = to_canonical_json(&groups)?;
 
-// 2. Serialize to canonical JSON (for hash matching)
-let canonical_json = to_canonical_json(&manifest_groups)?;
-
-// 3. Compute hash (matches provider validation)
+// Hash matches what provider computes for validation
 use sha2::{Digest, Sha256};
 let hash = Sha256::digest(canonical_json.as_bytes());
 ```
 
-### Full Workflow Example
+### Custom Backend
+
+Implement the `AkashBackend` trait to bring your own infrastructure:
 
 ```rust
 use akash_deploy_rs::{AkashBackend, DeploymentWorkflow, DeploymentState};
 
-// Implement the backend trait with your infrastructure
 struct MyBackend { /* your storage, HTTP client, etc. */ }
 
 impl AkashBackend for MyBackend {
-    async fn query_balance(&self, address: &str) -> Result<u64, DeployError> {
-        // Your chain query implementation
-    }
-    // ... other methods
+    type Signer = MySigner;
+    // Implement query_balance, broadcast_create_deployment, send_manifest, etc.
 }
 
-// Run deployment workflow
-let backend = MyBackend::new();
-let signer = MySigner::new();
 let workflow = DeploymentWorkflow::new(&backend, &signer, Default::default());
-
 let mut state = DeploymentState::new("session-1", "akash1owner...")
     .with_sdl(sdl_content)
     .with_label("my-app");
 
-match workflow.run_to_completion(&mut state).await? {
-    StepResult::Complete => println!("Deployed!"),
-    StepResult::NeedsInput(input) => { /* handle user decisions */ }
-    _ => {}
-}
+// Same advance() loop as above
 ```
 
 ---
@@ -178,26 +287,16 @@ Provider JSON API has strict requirements. `ManifestBuilder` handles these corre
 | Requirement | Implementation |
 |-------------|----------------|
 | CPU units | STRING millicores: `"1000"` not `1.0` |
-| Memory/storage | STRING bytes: `"536870912"` not int |
+| Memory/storage sizes | STRING bytes: `"536870912"` not int |
+| Memory/storage field name | `"size"` (Go JSON tag), **not** `"quantity"` (proto field name) |
 | Empty arrays | `null` not `[]` for command/args/env |
-| Field names | camelCase: `externalPort` not `external_port` |
+| Field names | camelCase: `externalPort`, `httpOptions`, `readOnly`, `endpointSequenceNumber` |
 | GPU attributes | Composite keys: `vendor/nvidia/model/h100/ram/80Gi` |
 | Storage attributes | Sorted by key |
 | Services | Sorted by name |
+| Resource endpoints | Only global exposes; GroupSpec `kind = 0` (SHARED_HTTP) |
 
 **Canonical JSON is required** — Go's `encoding/json` sorts keys, we must match for hash validation.
-
----
-
-## Design Principles
-
-1. **Single Trait** — `AkashBackend` is the only interface
-2. **Bring Your Own Infrastructure** — No storage, HTTP, or signing coupling
-3. **State Machine Focused** — Workflow orchestrates, you implement primitives
-4. **Explicit Errors** — `DeployError` covers all failure modes
-5. **Type Safety** — Correct manifest serialization enforced at compile time
-
----
 
 ## SDL Templates
 
@@ -205,7 +304,7 @@ SDL templates are enabled by default. To opt out, disable default features:
 
 ```toml
 [dependencies]
-akash-deploy-rs = { version = "0.0.1", default-features = false }
+akash-deploy-rs = { version = "0.0.5", default-features = false }
 ```
 
 SDL templates allow you to create reusable deployment configurations with variable placeholders using `${VAR}` syntax:
@@ -305,43 +404,6 @@ let manifest = builder.build_from_sdl(&processed_sdl)?;
 
 ---
 
-## Default Client & Storage
-
-The library includes a complete, integrated client implementation (NOT enabled by default):
-
-```toml
-[dependencies]
-akash-deploy-rs {version = "0.0.4", features = ["default-client"]}# Includes default-client feature
-```
-
-### Quick Start with Default Client
-
-```rust
-use akash_deploy_rs::{AkashClient, DeploymentWorkflow, DeploymentState};
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Create client with mnemonic and RPC endpoint
-let client = AkashClient::new_from_mnemonic(
-    "your twelve word mnemonic phrase here",
-    "https://rpc.akashnet.net:443"
-).await?;
-
-// Create workflow
-let workflow = DeploymentWorkflow::new(
-    &client,
-    client.signer(),
-    Default::default()
-);
-
-// Deploy
-let mut state = DeploymentState::new("my-app", client.address())
-    .with_sdl(sdl_content);
-
-workflow.run_to_completion(&mut state).await?;
-# Ok(())
-# }
-```
-
 ### Storage System
 
 The default client uses a **memory + file** persistence strategy:
@@ -424,51 +486,61 @@ let client = AkashClient::with_storage(
 );
 ```
 
-### Opt Out of Default Client
-
-To use only the core workflow engine without the integrated client:
-
-```toml
-[dependencies]
-akash-deploy-rs = { version = "0.0.3" }
-```
-
-Then implement `AkashBackend` yourself as shown in the architecture section.
-
 ---
 
 ## Testing
 
-Unit tests for manifest building and JWT generation:
+| Command | What it runs | Requires |
+|---------|-------------|----------|
+| `just test` | All tests (unit + e2e) | Go toolchain |
+| `just test-unit` | Unit tests only (`cargo test`) | — |
+| `just test-verbose` | Unit tests with stdout (`--nocapture`) | — |
+| `just test-e2e` | E2E: Rust manifest/JWT vs Go provider validation | Go toolchain |
+| `just test-jwt` | JWT signing verified by Go `AuthProcess()` | Go toolchain |
+| `just test-manifest` | Manifest hash verified by Go `Manifest.Version` | Go toolchain |
+| `just test-one <file>` | Single SDL through provider validation | Go toolchain |
+| `just test-live` | Full deployment on live Akash network (`examples/deploy.rs`) | `TEST_MNEMONIC` |
+| `just coverage` | Unit tests with coverage report (via `cargo-tarpaulin`) | `cargo-tarpaulin` |
+
+### Unit test modules
+
+| Module | Source | Covers |
+|--------|--------|--------|
+| `manifest::manifest` | `src/manifest/manifest.rs` | SDL parsing, resource types, size parsing, GPU attributes |
+| `manifest::canonical` | `src/manifest/canonical.rs` | Deterministic JSON serialization, key sorting |
+| `sdl::groupspec` | `src/sdl/groupspec.rs` | GroupSpec construction, endpoints, pricing, multi-service |
+| `sdl::sdl` | `src/sdl/sdl.rs` | SDL validation |
+| `sdl::template` | `src/sdl/template.rs` | Variable extraction, substitution, defaults |
+| `auth::jwt` | `src/auth/jwt.rs` | Claims, ES256K signing, base64url, expiry |
+| `auth::certificate` | `src/auth/certificate.rs` | TLS cert generation, key extraction |
+| `workflow` | `src/workflow.rs` | State machine steps, mock backend, error paths |
+| `state` | `src/state.rs` | State transitions, serialization |
+| `types` | `src/types.rs` | Wire format golden tests, boundary conditions |
+| `store` | `src/store/` | File-backed storage, session persistence |
+| `template_tests` | `tests/template_tests.rs` | Integration: full SDL template processing |
+| `test_client_live` | `tests/test_client_live.rs` | Live network: balance query, full deployment workflow |
+
+### Environment for live tests
+
+Copy `tests/.env.example` to `tests/.env`:
 
 ```bash
-cargo test -p akash-deploy
+TEST_MNEMONIC=your twelve word mnemonic phrase here
+TEST_RPC_ENDPOINT=https://rpc.akashnet.net:443     # optional, has default
+TEST_GRPC_ENDPOINT=https://grpc.akashnet.net:443    # optional, has default
 ```
 
-Integration tests against real Go provider validation:
+## Live E2E Demo
+
+We can flex the client integration by testing deploying a mimimal instance to the live akash network. To perform this test:
 
 ```bash
-cd tests
-just test
+just demo
 ```
 
 ---
 
-## E2E Testing
-
-The `tests/` directory contains a complete integration test suite that validates manifest generation against the actual Akash provider validation code:
-
-- **`provider-validate`** — Go binary using exact provider logic (ES256K JWT + manifest validation)
-- **`fixtures/`** — Known-good JWT/manifest/hash test cases
-- **`testdata/`** — SDL YAML files for testing
-- **`examples/rust-jwt-gen/`** — Rust example that generates JWTs using `akash-deploy`
-- **`test.sh`** — End-to-end test: Rust generates → Go validates
-
-This ensures byte-for-byte compatibility with Akash provider expectations.
-
----
-
-## Development with Claude Code
+## Development with Agents
 
 This repository includes a specialized Claude skill that provides deep expertise in Akash manifest serialization and provider validation.
 

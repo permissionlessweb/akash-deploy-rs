@@ -111,6 +111,7 @@ impl DeploymentRecord {
             dseq: Some(self.dseq),
             gseq: self.gseq,
             oseq: self.oseq,
+            jwt_token: None,
             cert_pem: self.cert_pem,
             key_pem,
             bids: self.bids,

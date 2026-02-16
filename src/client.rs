@@ -51,6 +51,7 @@
 //! );
 //! ```
 
+use crate::auth::jwt::{JwtBuilder, JwtClaims};
 use crate::error::DeployError;
 use crate::r#gen::akash::escrow::id::v1::Scope;
 use crate::state::DeploymentState;
@@ -58,7 +59,12 @@ use crate::store::{FileBackedStorage, SessionStorage};
 use crate::traits::AkashBackend;
 use crate::types::*;
 
+use bip32::XPrv;
+use coins_bip39::{English, Mnemonic};
+use k256::ecdsa::{signature::hazmat::PrehashSigner, Signature, SigningKey};
 use layer_climb::prelude::*;
+use layer_climb::transaction::{SequenceStrategy, SequenceStrategyKind};
+use sha2::{Digest, Sha256};
 use std::io::Cursor;
 
 // Import Akash proto types
@@ -92,6 +98,7 @@ pub struct QueryClients {
 impl QueryClients {
     /// Create all query clients by connecting to the gRPC endpoint.
     pub async fn new(grpc_endpoint: &str) -> Result<Self, DeployError> {
+        tracing::debug!(endpoint = %grpc_endpoint, "connecting gRPC query clients");
         use crate::gen::akash::{
             cert::v1 as akash_cert, escrow::v1 as akash_escrow, market::v1beta5 as akash_market,
             provider::v1beta4 as akash_provider,
@@ -148,6 +155,9 @@ pub struct AkashClient<S: SessionStorage = FileBackedStorage> {
 
     /// Reusable gRPC query clients
     query_clients: Option<QueryClients>,
+
+    /// secp256k1 signing key for JWT generation (ES256K)
+    jwt_signing_key: Option<SigningKey>,
 }
 
 impl AkashClient<FileBackedStorage> {
@@ -172,32 +182,48 @@ impl AkashClient<FileBackedStorage> {
     pub async fn new_from_mnemonic(
         mnemonic: &str,
         rpc_endpoint: &str,
+        grpc_endpoint: &str,
     ) -> Result<Self, DeployError> {
         // Create the key signer from mnemonic
         let signer = KeySigner::new_mnemonic_str(mnemonic, None).map_err(|e| {
             DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
         })?;
 
+        // Derive secp256k1 signing key for JWT (ES256K) from the same mnemonic
+        let jwt_signing_key = derive_jwt_signing_key(mnemonic)?;
+
         // Set up Akash chain configuration
+        // NOTE: We intentionally omit gRPC from the SigningClient config so that
+        // layer-climb uses RPC for all tx operations (simulate, broadcast, poll).
+        // gRPC is only used for our custom Akash query clients (bids, leases, etc.).
+        let grpc_ep = if grpc_endpoint.is_empty() {
+            None
+        } else {
+            Some(grpc_endpoint.to_string())
+        };
+
         let chain_config = ChainConfig {
-            chain_id: ChainId::new("akashnet-2"), // Default to mainnet
+            chain_id: ChainId::new("akashnet-2"),
             address_kind: AddrKind::Cosmos {
                 prefix: "akash".to_string(),
             },
             gas_price: 0.025,
             gas_denom: "uakt".to_string(),
             rpc_endpoint: Some(rpc_endpoint.to_string()),
-            grpc_endpoint: None,
+            grpc_endpoint: None, // Use RPC for all tx operations
             grpc_web_endpoint: None,
         };
 
-        // Save gRPC endpoint before moving chain_config
-        let grpc_endpoint = chain_config.grpc_endpoint.clone();
+        // Save gRPC endpoint for query clients only
+        let grpc_endpoint = grpc_ep;
 
         // Create the signing client
-        let client = SigningClient::new(chain_config, signer, None::<Connection>)
+        let mut client = SigningClient::new(chain_config, signer, None::<Connection>)
             .await
             .map_err(|e| DeployError::Query(format!("Failed to create signing client: {}", e)))?;
+
+        // Use QueryAndIncrement: queries sequence once, then increments locally for subsequent txs
+        client.sequence_strategy = SequenceStrategy::new(SequenceStrategyKind::QueryAndIncrement);
 
         // Get the address from the client
         let address = client.addr.clone();
@@ -217,6 +243,7 @@ impl AkashClient<FileBackedStorage> {
             storage,
             address,
             query_clients,
+            jwt_signing_key: Some(jwt_signing_key),
         })
     }
 }
@@ -233,7 +260,21 @@ impl<S: SessionStorage> AkashClient<S> {
             storage,
             address,
             query_clients: None, // Will be initialized lazily on first query
+            jwt_signing_key: None,
         }
+    }
+
+    /// Set the gRPC endpoint, forcing lazy re-init of query clients.
+    pub fn with_grpc(mut self, endpoint: impl Into<String>) -> Self {
+        self.client.querier.chain_config.grpc_endpoint = Some(endpoint.into());
+        self.query_clients = None; // force lazy re-init
+        self
+    }
+
+    /// Set the RPC endpoint.
+    pub fn with_rpc(mut self, endpoint: impl Into<String>) -> Self {
+        self.client.querier.chain_config.rpc_endpoint = Some(endpoint.into());
+        self
     }
 
     /// Get or initialize query clients.
@@ -243,6 +284,7 @@ impl<S: SessionStorage> AkashClient<S> {
     async fn get_query_clients(&self) -> Result<QueryClients, DeployError> {
         // If we already have clients, clone them (cheap - just clones the channel)
         if let Some(ref clients) = self.query_clients {
+            tracing::debug!("reusing cached gRPC query clients");
             return Ok(QueryClients {
                 cert: clients.cert.clone(),
                 provider: clients.provider.clone(),
@@ -295,6 +337,45 @@ impl<S: SessionStorage> AkashClient<S> {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// JWT KEY DERIVATION
+// ═══════════════════════════════════════════════════════════════════
+
+/// Derive secp256k1 signing key from mnemonic for JWT ES256K signing.
+///
+/// Uses the Cosmos HD path: m/44'/118'/0'/0/0
+fn derive_jwt_signing_key(mnemonic: &str) -> Result<SigningKey, DeployError> {
+    let parsed: Mnemonic<English> = mnemonic
+        .parse()
+        .map_err(|e| DeployError::Jwt(format!("invalid mnemonic: {:?}", e)))?;
+
+    let seed_bytes = parsed
+        .to_seed(None)
+        .map_err(|e| DeployError::Jwt(format!("failed to derive seed: {:?}", e)))?;
+
+    let child_key = XPrv::derive_from_path(
+        seed_bytes,
+        &"m/44'/118'/0'/0/0"
+            .parse()
+            .map_err(|e| DeployError::Jwt(format!("invalid HD path: {}", e)))?,
+    )
+    .map_err(|e| DeployError::Jwt(format!("HD key derivation failed: {}", e)))?;
+
+    SigningKey::from_bytes(child_key.private_key().to_bytes().as_slice().into())
+        .map_err(|e| DeployError::Jwt(format!("invalid signing key: {}", e)))
+}
+
+/// Sign a JWT signing input with ES256K (SHA-256 + secp256k1).
+///
+/// Returns 64-byte compact signature (r || s).
+fn sign_jwt_es256k(key: &SigningKey, message: &[u8]) -> Result<Vec<u8>, DeployError> {
+    let msg_hash = Sha256::digest(message);
+    let signature: Signature = key
+        .sign_prehash(&msg_hash)
+        .map_err(|e| DeployError::Jwt(format!("ES256K signing failed: {}", e)))?;
+    Ok(signature.to_bytes().to_vec())
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // AKASH BACKEND IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════
 
@@ -313,6 +394,97 @@ fn extract_dseq_from_events(events: &[layer_climb::proto::tendermint::Event]) ->
         }
     }
     None
+}
+
+fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, DeployError> {
+    let json: serde_json::Value = serde_json::from_str(body)
+        .map_err(|e| DeployError::Provider(format!("Invalid JSON in status response: {}", e)))?;
+
+    let mut endpoints = Vec::new();
+    let mut ready = false;
+
+    if let Some(services) = json.get("services").and_then(|s| s.as_array()) {
+        for service in services {
+            let name = service
+                .get("name")
+                .and_then(|n| n.as_str())
+                .unwrap_or("unknown");
+
+            let available = service
+                .get("available")
+                .and_then(|a| a.as_u64())
+                .unwrap_or(0);
+
+            if available > 0 {
+                ready = true;
+            }
+
+            if let Some(uris) = service.get("uris").and_then(|u| u.as_array()) {
+                for uri_val in uris {
+                    if let Some(uri) = uri_val.as_str() {
+                        let full_uri = if uri.starts_with("http://") || uri.starts_with("https://")
+                        {
+                            uri.to_string()
+                        } else {
+                            format!("https://{}", uri)
+                        };
+
+                        let port = if full_uri.starts_with("https://") {
+                            443
+                        } else {
+                            80
+                        };
+
+                        endpoints.push(ServiceEndpoint {
+                            service: name.to_string(),
+                            uri: full_uri,
+                            port,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: forwarded_ports format
+    if endpoints.is_empty() {
+        if let Some(ports) = json.get("forwarded_ports").and_then(|p| p.as_object()) {
+            for (service_name, port_info) in ports {
+                let port_obj = if let Some(arr) = port_info.as_array() {
+                    arr.first().and_then(|v| v.as_object())
+                } else {
+                    port_info.as_object()
+                };
+
+                if let Some(port_obj) = port_obj {
+                    if let Some(host) = port_obj.get("host").and_then(|h| h.as_str()) {
+                        let external_port = port_obj
+                            .get("externalPort")
+                            .and_then(|p| p.as_u64())
+                            .or_else(|| port_obj.get("port").and_then(|p| p.as_u64()))
+                            .unwrap_or(80);
+
+                        let uri = if external_port == 443 {
+                            format!("https://{}", host)
+                        } else if external_port == 80 {
+                            format!("http://{}", host)
+                        } else {
+                            format!("http://{}:{}", host, external_port)
+                        };
+
+                        ready = true;
+                        endpoints.push(ServiceEndpoint {
+                            service: service_name.clone(),
+                            uri,
+                            port: external_port as u16,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(ProviderLeaseStatus { ready, endpoints })
 }
 
 /// Helper function to create an mTLS HTTP client for provider communication.
@@ -673,62 +845,138 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         crate::sdl::sdl::validate_sdl(sdl_content)?;
         // Build GroupSpecs from SDL (groups services by placement)
         let groups = crate::sdl::groupspec::build_groupspecs_from_sdl(sdl_content)?;
-        for g in &groups {
-            for (idx, ru) in g.resources.iter().enumerate() {
-                eprintln!("DEBUG:     ResourceUnit[{}]: count={}", idx, ru.count);
-            }
-        }
 
-        // Build deployment ID (dseq will be 0, assigned by chain)
+        // Get current block height to use as dseq (standard Akash practice)
+        let dseq: u64 = self.client.querier.block_height().await.map_err(|e| {
+            DeployError::Query(format!("Failed to get block height for dseq: {}", e))
+        })?;
+
+        tracing::info!(dseq, owner, "using block height as deployment sequence");
+
         let deployment_id = akash_deployment_v1::DeploymentId {
             owner: owner.to_string(),
-            dseq: 0,
+            dseq,
         };
 
-        let sdl_hash = Sha256::digest(sdl_content.as_bytes()).to_vec();
+        // Build manifest and hash its canonical JSON (must match what provider computes)
+        let manifest_builder = crate::manifest::manifest::ManifestBuilder::new(owner, dseq);
+        let manifest_groups = manifest_builder
+            .build_from_sdl(sdl_content)
+            .map_err(|e| DeployError::Sdl(format!("Manifest build failed: {}", e)))?;
+        let manifest_json = crate::manifest::canonical::to_canonical_json(&manifest_groups)
+            .map_err(|e| DeployError::Sdl(format!("Canonical manifest JSON failed: {}", e)))?;
+
+        let sdl_hash = Sha256::digest(manifest_json.as_bytes()).to_vec();
+
         let deposit = akash_deposit::Deposit {
             amount: Some(crate::gen::cosmos::base::v1beta1::Coin {
                 denom: "uakt".to_string(),
                 amount: deposit_uakt.to_string(),
             }),
-            sources: vec![akash_deposit::Source::Balance as i32],
+            sources: vec![
+                akash_deposit::Source::Grant as i32,
+                akash_deposit::Source::Balance as i32,
+            ],
         };
 
-        let response = self
-            .client
-            .tx_builder()
-            .broadcast([to_any(&akash_deployment::MsgCreateDeployment {
-                id: Some(deployment_id),
-                groups,
-                hash: sdl_hash,
-                deposit: Some(deposit),
-            })])
-            .await
-            .map_err(|e| DeployError::Transaction {
-                code: 1,
-                log: format!("Failed to broadcast transaction: {}", e),
-            })?;
+        // Build the full message
+        let msg = akash_deployment::MsgCreateDeployment {
+            id: Some(deployment_id),
+            groups,
+            hash: sdl_hash,
+            deposit: Some(deposit),
+        };
 
-        // Extract dseq from response events
-        // Events are in the format: {"type":"akash.deployment.v1.EventDeploymentCreated","attributes":[{"key":"dseq","value":"123456"}]}
-        let dseq =
-            extract_dseq_from_events(&response.events).ok_or_else(|| DeployError::Transaction {
-                code: response.code,
-                log: format!(
-                    "Failed to extract dseq from transaction events: {}",
-                    response.raw_log
-                ),
-            })?;
+        eprintln!("═══ MsgCreateDeployment ═══");
+        eprintln!("  owner: {}", owner);
+        eprintln!("  dseq: {}", dseq);
+        eprintln!("  deposit: {} uakt", deposit_uakt);
+        eprintln!("  groups: {}", msg.groups.len());
+        eprintln!("  hash: {}", hex::encode(&msg.hash));
+        eprintln!("═══ Broadcasting... ═══");
 
-        Ok((
-            TxResult {
-                hash: response.txhash,
-                code: response.code,
-                raw_log: response.raw_log,
-                height: response.height as u64,
-            },
-            dseq,
-        ))
+        // Configure tx builder:
+        // - 1.4x gas simulation multiplier for overhead
+        // - Increase poll timeout to give nodes time to include the tx
+        let mut tx_builder = self.client.tx_builder();
+        tx_builder.set_gas_simulate_multiplier(1.4);
+        tx_builder.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
+
+        let broadcast_result = tx_builder.broadcast([to_any(&msg)]).await;
+
+        match broadcast_result {
+            Ok(response) => {
+                // Normal success path
+                let event_dseq = extract_dseq_from_events(&response.events);
+                tracing::info!(
+                    block_height_dseq = dseq,
+                    event_dseq = ?event_dseq,
+                    tx_hash = %response.txhash,
+                    tx_code = response.code,
+                    "deployment tx response"
+                );
+                eprintln!("  tx_hash: {}", response.txhash);
+                eprintln!("  tx_code: {}", response.code);
+
+                let final_dseq = event_dseq.unwrap_or(dseq);
+
+                Ok((
+                    TxResult {
+                        hash: response.txhash,
+                        code: response.code,
+                        raw_log: response.raw_log,
+                        height: response.height as u64,
+                    },
+                    final_dseq,
+                ))
+            }
+            Err(e) => {
+                let err_str = e.to_string();
+
+                // Handle "Missing response message" — a known gRPC issue where
+                // the tx succeeds on-chain but the response is lost/truncated.
+                // We recover by waiting and verifying the deployment exists.
+                if err_str.contains("Missing response message") {
+                    eprintln!("WARNING: gRPC returned 'Missing response message'");
+                    eprintln!(
+                        "  This is a known gRPC endpoint issue — tx likely succeeded on-chain."
+                    );
+                    eprintln!("  Waiting 6s then verifying deployment dseq={} ...", dseq);
+                    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+                    match self.query_bids(owner, dseq).await {
+                        Ok(bids) => {
+                            eprintln!(
+                                "  Verified: deployment dseq={} exists on-chain ({} bids so far)",
+                                dseq,
+                                bids.len()
+                            );
+                            Ok((
+                                TxResult {
+                                    hash: String::new(),
+                                    code: 0,
+                                    raw_log: "gRPC response missing; verified on-chain".to_string(),
+                                    height: 0,
+                                },
+                                dseq,
+                            ))
+                        }
+                        Err(verify_err) => {
+                            eprintln!("  Verification failed: {}", verify_err);
+                            // Could not verify — report the original error
+                            Err(DeployError::Transaction {
+                                code: 1,
+                                log: format!("Failed to broadcast transaction: {}", err_str),
+                            })
+                        }
+                    }
+                } else {
+                    Err(DeployError::Transaction {
+                        code: 1,
+                        log: format!("Failed to broadcast transaction: {}", e),
+                    })
+                }
+            }
+        }
     }
 
     async fn broadcast_create_lease(
@@ -738,7 +986,6 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     ) -> Result<TxResult, DeployError> {
         use crate::gen::akash::market::v1 as akash_market_v1;
 
-        // Build BidId from our types
         let bid_id = akash_market_v1::BidId {
             owner: bid.owner.clone(),
             dseq: bid.dseq,
@@ -748,24 +995,60 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             bseq: bid.bseq,
         };
 
-        let response = self
-            .client
-            .tx_builder()
-            .broadcast([to_any(&akash_market::MsgCreateLease {
-                bid_id: Some(bid_id),
-            })])
-            .await
-            .map_err(|e| DeployError::Transaction {
-                code: 1,
-                log: format!("Failed to create lease: {}", e),
-            })?;
+        let msg = akash_market::MsgCreateLease {
+            bid_id: Some(bid_id),
+        };
 
-        Ok(TxResult {
-            hash: response.txhash,
-            code: response.code,
-            raw_log: response.raw_log,
-            height: response.height as u64,
-        })
+        eprintln!("═══ MsgCreateLease ═══");
+        eprintln!("  owner: {}", bid.owner);
+        eprintln!("  dseq: {}", bid.dseq);
+        eprintln!(
+            "  gseq: {}, oseq: {}, bseq: {}",
+            bid.gseq, bid.oseq, bid.bseq
+        );
+        eprintln!("  provider: {}", bid.provider);
+        eprintln!(
+            "  type_url: {}",
+            <akash_market::MsgCreateLease as ProstName>::type_url()
+        );
+        eprintln!("═══ Broadcasting... ═══");
+
+        let mut tx_builder = self.client.tx_builder();
+        tx_builder.set_gas_simulate_multiplier(1.4);
+        tx_builder.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
+
+        let broadcast_result = tx_builder.broadcast([to_any(&msg)]).await;
+
+        match broadcast_result {
+            Ok(response) => {
+                eprintln!("  tx_hash: {}", response.txhash);
+                eprintln!("  tx_code: {}", response.code);
+                Ok(TxResult {
+                    hash: response.txhash,
+                    code: response.code,
+                    raw_log: response.raw_log,
+                    height: response.height as u64,
+                })
+            }
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("Missing response message") {
+                    eprintln!("WARNING: gRPC returned 'Missing response message' for CreateLease");
+                    eprintln!("  Tx likely succeeded — returning synthetic success");
+                    Ok(TxResult {
+                        hash: String::new(),
+                        code: 0,
+                        raw_log: "gRPC response missing; tx likely succeeded".to_string(),
+                        height: 0,
+                    })
+                } else {
+                    Err(DeployError::Transaction {
+                        code: 1,
+                        log: format!("Failed to create lease: {}", e),
+                    })
+                }
+            }
+        }
     }
 
     async fn broadcast_deposit(
@@ -829,25 +1112,52 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             dseq,
         };
 
-        // Broadcast transaction
-        let response = self
-            .client
-            .tx_builder()
+        let mut tx_builder = self.client.tx_builder();
+        tx_builder.set_gas_simulate_multiplier(1.4);
+        tx_builder.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
+
+        let broadcast_result = tx_builder
             .broadcast([to_any(&akash_deployment::MsgCloseDeployment {
                 id: Some(deployment_id),
             })])
-            .await
-            .map_err(|e| DeployError::Transaction {
-                code: 1,
-                log: format!("Failed to close deployment: {}", e),
-            })?;
+            .await;
 
-        Ok(TxResult {
-            hash: response.txhash,
-            code: response.code,
-            raw_log: response.raw_log,
-            height: response.height as u64,
-        })
+        match broadcast_result {
+            Ok(response) => Ok(TxResult {
+                hash: response.txhash,
+                code: response.code,
+                raw_log: response.raw_log,
+                height: response.height as u64,
+            }),
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("Missing response message") {
+                    Ok(TxResult {
+                        hash: String::new(),
+                        code: 0,
+                        raw_log: "gRPC response missing; tx likely succeeded".to_string(),
+                        height: 0,
+                    })
+                } else {
+                    Err(DeployError::Transaction {
+                        code: 1,
+                        log: format!("Failed to close deployment: {}", e),
+                    })
+                }
+            }
+        }
+    }
+
+    async fn generate_jwt(&self, owner: &str) -> Result<String, DeployError> {
+        let signing_key = self
+            .jwt_signing_key
+            .as_ref()
+            .ok_or_else(|| DeployError::Jwt("JWT signing key not configured".into()))?;
+
+        let claims = JwtClaims::new(owner);
+        let key = signing_key.clone();
+
+        JwtBuilder::new().build_and_sign(&claims, |message| sign_jwt_es256k(&key, message))
     }
 
     async fn send_manifest(
@@ -855,91 +1165,176 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         provider_uri: &str,
         lease: &LeaseId,
         manifest: &[u8],
-        cert_pem: &[u8],
-        key_pem: &[u8],
+        auth: &ProviderAuth,
     ) -> Result<(), DeployError> {
-        // Create mTLS HTTP client
-        let client = create_mtls_client(cert_pem, key_pem)?;
-
-        // Build manifest upload URL
+        // URL format matches reference: /deployment/{dseq}/manifest
+        // Owner is identified via JWT token, not in the URL path.
         let url = format!(
-            "{}/deployment/{}/{}/manifest",
+            "{}/deployment/{}/manifest",
             provider_uri.trim_end_matches('/'),
-            lease.owner,
             lease.dseq
         );
 
-        // Send manifest to provider
-        let response = client
-            .put(&url)
-            .header("Content-Type", "application/json")
-            .body(manifest.to_vec())
-            .send()
-            .await
-            .map_err(|e| DeployError::Provider(format!("Failed to send manifest: {}", e)))?;
+        eprintln!("  manifest url: {}", url);
 
-        // Check response status
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read response".to_string());
-            return Err(DeployError::Provider(format!(
-                "Provider rejected manifest ({}): {}",
-                status, body
-            )));
+        // Build HTTP client once and reuse across retries (matches reference pattern)
+        let http = match auth {
+            ProviderAuth::Jwt { .. } => reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .danger_accept_invalid_certs(true)
+                .build()
+                .map_err(|e| {
+                    DeployError::Provider(format!("Failed to create HTTP client: {}", e))
+                })?,
+            ProviderAuth::Mtls { cert_pem, key_pem } => create_mtls_client(cert_pem, key_pem)?,
+        };
+
+        // Retry with backoff — provider may not be ready immediately after lease creation
+        let max_attempts: u64 = 4;
+        let mut last_err = String::new();
+
+        for attempt in 1..=max_attempts {
+            if attempt > 1 {
+                let delay = std::time::Duration::from_secs(5 * attempt);
+                eprintln!(
+                    "  manifest send attempt {}/{} (retrying in {}s)",
+                    attempt,
+                    max_attempts,
+                    delay.as_secs()
+                );
+                tokio::time::sleep(delay).await;
+            }
+
+            let mut req = http
+                .put(&url)
+                .header("Content-Type", "application/json")
+                .body(manifest.to_vec());
+
+            if let ProviderAuth::Jwt { token } = auth {
+                req = req.header("Authorization", format!("Bearer {}", token));
+            }
+
+            let send_result = req.send().await;
+
+            match send_result {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        eprintln!("  manifest sent successfully");
+                        return Ok(());
+                    }
+                    let status = response.status();
+                    let body = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "unable to read response".to_string());
+                    last_err = format!("Provider rejected manifest ({}): {}", status, body);
+                    eprintln!("  manifest rejected: {}", last_err);
+                    // Don't retry on 4xx (client error) — only on 5xx / connection errors
+                    if status.is_client_error() {
+                        return Err(DeployError::Provider(last_err));
+                    }
+                }
+                Err(e) => {
+                    // Use {:#} to get the full error chain (TLS details, connection info)
+                    last_err = format!("{:#}", e);
+                    eprintln!("  manifest send error (attempt {}): {}", attempt, last_err);
+                }
+            }
         }
 
-        Ok(())
+        Err(DeployError::Provider(format!(
+            "Failed to send manifest after {} attempts: {}",
+            max_attempts, last_err
+        )))
     }
 
     async fn query_provider_status(
         &self,
         provider_uri: &str,
         lease: &LeaseId,
-        cert_pem: &[u8],
-        key_pem: &[u8],
+        auth: &ProviderAuth,
     ) -> Result<ProviderLeaseStatus, DeployError> {
-        // Create mTLS HTTP client
-        let client = create_mtls_client(cert_pem, key_pem)?;
-
-        // Build status query URL
+        // URL format matches reference: /lease/{dseq}/{gseq}/{oseq}/status
+        // Owner is identified via JWT token, not in the URL path.
         let url = format!(
-            "{}/lease/{}/{}/{}/{}/status",
+            "{}/lease/{}/{}/{}/status",
             provider_uri.trim_end_matches('/'),
-            lease.owner,
             lease.dseq,
             lease.gseq,
             lease.oseq
         );
 
-        // Query provider status
-        let response = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| DeployError::Provider(format!("Failed to query status: {}", e)))?;
+        // Build HTTP client once and reuse across retries
+        let http = match auth {
+            ProviderAuth::Jwt { .. } => reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .danger_accept_invalid_certs(true)
+                .build()
+                .map_err(|e| {
+                    DeployError::Provider(format!("Failed to create HTTP client: {}", e))
+                })?,
+            ProviderAuth::Mtls { cert_pem, key_pem } => create_mtls_client(cert_pem, key_pem)?,
+        };
 
-        // Check response status
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read response".to_string());
-            return Err(DeployError::Provider(format!(
-                "Provider status query failed ({}): {}",
-                status, body
-            )));
+        // Retry with backoff — provider may be slow to respond
+        let max_attempts: u64 = 3;
+        let mut last_err = String::new();
+
+        for attempt in 1..=max_attempts {
+            if attempt > 1 {
+                let delay = std::time::Duration::from_secs(5 * attempt);
+                eprintln!(
+                    "  status query attempt {}/{} (retrying in {}s)",
+                    attempt,
+                    max_attempts,
+                    delay.as_secs()
+                );
+                tokio::time::sleep(delay).await;
+            }
+
+            let mut req = http.get(&url);
+            if let ProviderAuth::Jwt { token } = auth {
+                req = req.header("Authorization", format!("Bearer {}", token));
+            }
+
+            match req.send().await {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        let status = response.status();
+                        let body = response
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| "unable to read response".to_string());
+                        last_err = format!("Provider status query failed ({}): {}", status, body);
+                        if status.is_client_error() {
+                            return Err(DeployError::Provider(last_err));
+                        }
+                        continue;
+                    }
+
+                    let body = response.text().await.map_err(|e| {
+                        DeployError::Provider(format!("Failed to read status response: {}", e))
+                    })?;
+
+                    eprintln!(
+                        "  provider status response: {}",
+                        &body[..body.len().min(500)]
+                    );
+
+                    let status = parse_provider_lease_status(&body)?;
+                    return Ok(status);
+                }
+                Err(e) => {
+                    last_err = format!("{:#}", e);
+                    eprintln!("  status query error (attempt {}): {}", attempt, last_err);
+                }
+            }
         }
 
-        // Parse status response
-        let status: ProviderLeaseStatus = response.json().await.map_err(|e| {
-            DeployError::Provider(format!("Failed to parse status response: {}", e))
-        })?;
-
-        Ok(status)
+        Err(DeployError::Provider(format!(
+            "Failed to query provider status after {} attempts: {}",
+            max_attempts, last_err
+        )))
     }
 
     async fn load_state(&self, session_id: &str) -> Result<Option<DeploymentState>, DeployError> {

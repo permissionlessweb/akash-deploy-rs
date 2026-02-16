@@ -14,8 +14,8 @@ pub enum Step {
     Init,
     /// Check account has enough AKT.
     CheckBalance,
-    /// Ensure mTLS certificate exists on chain.
-    EnsureCertificate,
+    /// Ensure provider auth is configured (JWT token or mTLS certificate).
+    EnsureAuth,
     /// Create the deployment on chain.
     CreateDeployment,
     /// Wait for provider bids.
@@ -40,7 +40,7 @@ impl Step {
         match self {
             Step::Init => "init",
             Step::CheckBalance => "check_balance",
-            Step::EnsureCertificate => "ensure_certificate",
+            Step::EnsureAuth => "ensure_auth",
             Step::CreateDeployment => "create_deployment",
             Step::WaitForBids { .. } => "wait_for_bids",
             Step::SelectProvider => "select_provider",
@@ -93,10 +93,12 @@ pub struct DeploymentState {
     /// Order sequence (usually 1).
     pub oseq: u32,
 
-    // Certificate for mTLS
-    /// Certificate PEM (public).
+    // Provider authentication
+    /// JWT token for provider communication (default auth mode).
+    pub jwt_token: Option<String>,
+    /// Certificate PEM (public) - used for mTLS auth mode.
     pub cert_pem: Option<Vec<u8>>,
-    /// Private key PEM (encrypted or plaintext depending on backend).
+    /// Private key PEM - used for mTLS auth mode.
     pub key_pem: Option<Vec<u8>>,
 
     // Bids and selection
@@ -131,10 +133,11 @@ impl DeploymentState {
             owner: owner.into(),
             label: String::new(),
             sdl_content: None,
-            deposit_uakt: 5_000_000, // 5 AKT default
+            deposit_uakt: 500_000, // 0.5 AKT default (minimum deposit)
             dseq: None,
             gseq: 1,
             oseq: 1,
+            jwt_token: None,
             cert_pem: None,
             key_pem: None,
             bids: Vec::new(),
@@ -274,7 +277,7 @@ mod tests {
         // Test all step name() variants
         assert_eq!(Step::Init.name(), "init");
         assert_eq!(Step::CheckBalance.name(), "check_balance");
-        assert_eq!(Step::EnsureCertificate.name(), "ensure_certificate");
+        assert_eq!(Step::EnsureAuth.name(), "ensure_auth");
         assert_eq!(Step::CreateDeployment.name(), "create_deployment");
         assert_eq!(
             Step::WaitForBids { waited_blocks: 0 }.name(),

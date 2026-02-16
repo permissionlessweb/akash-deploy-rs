@@ -8,7 +8,7 @@ Use these checklists when implementing specific features in the akash-deploy cra
 - [ ] Add `#[serde(rename = "camelCase")]` if multi-word field
 - [ ] Add `#[serde(skip_serializing_if = "Option::is_none")]` if optional
 - [ ] If array type: convert empty `Vec` to `None` before serialization
-- [ ] Update test fixture in `tests/fixtures/`
+- [ ] Update test fixture in `tests/testdata/fixtures/`
 - [ ] Run validation: `just test` in jwt-verify directory
 - [ ] Verify hash matches: `./provider-validate manifest <file> <hash>`
 
@@ -19,7 +19,7 @@ Use these checklists when implementing specific features in the akash-deploy cra
 - [ ] Format: `vendor/{vendor}/model/{model}[/ram/{size}][/interface/{iface}]`
 - [ ] Sort attributes by key alphabetically
 - [ ] Always include GPU in resources even if units = "0"
-- [ ] Test with gpu fixture: `just test-one fixtures/gpu/input.yaml`
+- [ ] Test with gpu fixture: `just test-one testdata/fixtures/gpu/input.yaml`
 
 ## Adding Storage Attributes
 
@@ -156,10 +156,10 @@ If ANY test fails:
 When you implement a new feature:
 
 - [ ] Create SDL in `tests/testdata/`
-- [ ] Generate golden reference: `./provider-validate gen-fixture new.yaml fixtures/new/`
+- [ ] Generate golden reference: `./provider-validate gen-fixture new.yaml testdata/fixtures/new/`
 - [ ] This creates:
-  - `fixtures/new/manifest.json` (provider-generated)
-  - `fixtures/new/manifest-hash.txt` (expected hash)
+  - `testdata/fixtures/new/manifest.json` (provider-generated)
+  - `testdata/fixtures/new/manifest-hash.txt` (expected hash)
 - [ ] Add to test suite in `justfile`
 - [ ] Run: `just test` to validate your Rust implementation matches
 

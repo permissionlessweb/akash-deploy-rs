@@ -509,7 +509,7 @@ services:
 fn test_template_to_manifest_pipeline() {
     use akash_deploy_rs::ManifestBuilder;
 
-    let template_content = include_str!("template_testdata/template_simple.yaml");
+    let template_content = include_str!("testdata/template_simple.yaml");
     let template = SdlTemplate::new(template_content).unwrap();
 
     let mut defaults = HashMap::new();
@@ -540,7 +540,7 @@ fn test_template_to_manifest_pipeline() {
 fn test_template_fixture_with_overrides() {
     use akash_deploy_rs::ManifestBuilder;
 
-    let template_content = include_str!("template_testdata/template_simple.yaml");
+    let template_content = include_str!("testdata/template_simple.yaml");
     let template = SdlTemplate::new(template_content).unwrap();
 
     let mut defaults = HashMap::new();

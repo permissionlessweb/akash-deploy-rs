@@ -344,7 +344,18 @@ impl ManifestBuilder {
         let (command, args) = self.parse_command_args(config);
         let env = self.parse_env(config);
         let expose = self.parse_expose(config)?;
-        let resources = self.parse_service_resources(name, profiles_section)?;
+        let mut resources = self.parse_service_resources(name, profiles_section)?;
+
+        // Populate resource endpoints for global exposes only.
+        // On-chain GroupSpec allocates SHARED_HTTP endpoints for global exposes.
+        // The provider cross-validates manifest resource endpoints match on-chain allocation.
+        for exp in &expose {
+            if exp.global {
+                resources.endpoints.push(serde_json::json!({
+                    "sequence_number": exp.endpoint_sequence_number
+                }));
+            }
+        }
 
         // CRITICAL: Convert empty vecs to None (Go serializes missing fields as null, not [])
         let command = if command.is_empty() {
@@ -470,7 +481,7 @@ impl ManifestBuilder {
             .as_sequence()
             .ok_or_else(|| DeployError::Sdl("'expose' must be an array".into()))?;
 
-        for expose_config in expose_arr {
+        for (idx, expose_config) in expose_arr.iter().enumerate() {
             let port = expose_config
                 .get("port")
                 .and_then(|p| p.as_u64())
@@ -521,7 +532,7 @@ impl ManifestBuilder {
                 hosts,
                 http_options: ManifestHttpOptions::default(),
                 ip: String::new(),
-                endpoint_sequence_number: 0,
+                endpoint_sequence_number: idx as u32,
             });
         }
 
