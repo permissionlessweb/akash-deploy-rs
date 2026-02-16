@@ -55,14 +55,20 @@ pub mod workflow;
 pub mod client;
 
 // Re-export the main types at crate root for convenience
-pub use auth::certificate::{decrypt_key, encrypt_key, generate_certificate, GeneratedCertificate};
-pub use auth::jwt::{CachedJwt, JwtBuilder, JwtClaims, JwtLeases};
+pub use auth::{
+    certificate::{decrypt_key, encrypt_key, generate_certificate, GeneratedCertificate},
+    jwt::{CachedJwt, JwtBuilder, JwtClaims, JwtLeases},
+    AuthMode,
+};
 pub use error::DeployError;
-pub use manifest::canonical::to_canonical_json;
-pub use manifest::manifest::{
-    ManifestBuilder, ManifestCpu, ManifestCredentials, ManifestGpu, ManifestGroup,
-    ManifestHttpOptions, ManifestMemory, ManifestResourceValue, ManifestResources, ManifestService,
-    ManifestServiceExpose, ManifestServiceParams, ManifestStorage, ManifestStorageParams,
+pub use manifest::{
+    canonical::to_canonical_json,
+    manifest::{
+        ManifestBuilder, ManifestCpu, ManifestCredentials, ManifestGpu, ManifestGroup,
+        ManifestHttpOptions, ManifestMemory, ManifestResourceValue, ManifestResources,
+        ManifestService, ManifestServiceExpose, ManifestServiceParams, ManifestStorage,
+        ManifestStorageParams,
+    },
 };
 #[cfg(feature = "sdl-templates")]
 pub use sdl::template::{
@@ -74,8 +80,7 @@ pub use state::{DeploymentState, Step};
 pub use store::FileBackedStorage;
 #[cfg(feature = "file-storage")]
 pub use store::FileDeploymentStore;
-pub use store::SessionStorage;
-pub use store::{DeploymentRecord, DeploymentStore};
+pub use store::{DeploymentRecord, DeploymentStore, SessionStorage};
 pub use traits::AkashBackend;
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};

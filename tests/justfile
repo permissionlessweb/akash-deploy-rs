@@ -31,7 +31,7 @@ test: build-rust build-go test-jwt-only test-sdl
 # Build the Rust test binary (JWT + manifest generator)
 build-rust:
     @echo "🦀 Building Rust client..."
-    cd examples/rust-jwt-gen && cargo build
+    cd rust-jwt-gen && cargo build
 
 # Build the Go provider validator (requires akash provider source)
 # The pre-built binary is already included, so this is optional
@@ -53,10 +53,10 @@ test-jwt-only:
     echo "══════════════════════════════════════════"
     # Generate JWT (use any SDL, just need key material)
     SDL_PATH="$(cd testdata && pwd)/simple.yaml"
-    FIXTURES_DIR="$(pwd)/fixtures/jwt-test"
-    cd examples/rust-jwt-gen
+    FIXTURES_DIR="$(pwd)/testdata/fixtures/jwt-test"
+    cd rust-jwt-gen
     OUTPUT=$(cargo run --quiet -- "$SDL_PATH" "$FIXTURES_DIR")
-    cd ../..
+    cd ..
     JWT=$(cat "$FIXTURES_DIR/jwt.txt")
     PUBKEY=$(cat "$FIXTURES_DIR/pubkey.txt")
     echo "  🔍 Verifying Rust JWT with provider AuthProcess()..."
@@ -84,17 +84,17 @@ test-sdl:
         echo ""
         echo "  ── $NAME ──"
         SDL_PATH="$(cd "$(dirname "$sdl")" && pwd)/$(basename "$sdl")"
-        FIXTURES_DIR="$(pwd)/fixtures/$NAME"
+        FIXTURES_DIR="$(pwd)/testdata/fixtures/$NAME"
         # Generate manifest + hash with Rust engine
-        cd examples/rust-jwt-gen
+        cd rust-jwt-gen
         if ! cargo run --quiet -- "$SDL_PATH" "$FIXTURES_DIR"; then
             echo "  ❌ Rust generation failed for $NAME"
             FAIL=$((FAIL + 1))
             FAILED_FILES="$FAILED_FILES $NAME"
-            cd ../..
+            cd ..
             continue
         fi
-        cd ../..
+        cd ..
         # Verify with Go provider logic
         HASH=$(cat "$FIXTURES_DIR/manifest-hash.txt" | tr -d '[:space:]')
         if ./provider-validate manifest "$FIXTURES_DIR/manifest.json" "$HASH"; then
@@ -123,18 +123,18 @@ test-one SDL: build-rust
     #!/usr/bin/env bash
     set -e
     SDL_PATH="$(cd "$(dirname "{{SDL}}")" && pwd)/$(basename "{{SDL}}")"
-    FIXTURES_DIR="$(pwd)/fixtures/single-test"
-    cd examples/rust-jwt-gen
+    FIXTURES_DIR="$(pwd)/testdata/fixtures/single-test"
+    cd rust-jwt-gen
     cargo run --quiet -- "$SDL_PATH" "$FIXTURES_DIR"
-    cd ../..
+    cd ..
     HASH=$(cat "$FIXTURES_DIR/manifest-hash.txt" | tr -d '[:space:]')
     ./provider-validate manifest "$FIXTURES_DIR/manifest.json" "$HASH"
 
 # Clean build artifacts and fixtures
 clean:
     rm -f provider-validate jwt-verify
-    rm -rf fixtures/
-    cd examples/rust-jwt-gen && cargo clean
+    rm -rf testdata/fixtures
+    cd rust-jwt-gen && cargo clean
 
 # Quick check of Go code
 check:

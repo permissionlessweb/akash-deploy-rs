@@ -7,7 +7,8 @@
 use crate::error::DeployError;
 use crate::state::{DeploymentState, Step};
 use crate::traits::AkashBackend;
-use crate::types::{Bid, BidId};
+use crate::types::{Bid, BidId, ProviderAuth};
+use crate::AuthMode;
 
 /// Workflow configuration.
 #[derive(Debug, Clone)]
@@ -24,17 +25,20 @@ pub struct WorkflowConfig {
     pub auto_select_cheapest_bid: bool,
     /// Trusted providers to prefer.
     pub trusted_providers: Vec<String>,
+    /// Provider authentication mode (JWT or mTLS).
+    pub auth_mode: AuthMode,
 }
 
 impl Default for WorkflowConfig {
     fn default() -> Self {
         Self {
-            min_balance_uakt: 5_000_000, // 5 AKT
+            min_balance_uakt: 1_000_000, // 1 AKT
             bid_wait_seconds: 12,        // ~2 blocks
             max_bid_wait_attempts: 10,
             max_endpoint_wait_attempts: 30,
             auto_select_cheapest_bid: false,
             trusted_providers: Vec::new(),
+            auth_mode: AuthMode::default(),
         }
     }
 }
@@ -80,15 +84,17 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         }
     }
 
-    /// Advance the workflow by one step.
+    /// ### Advance the workflow by one step.
     ///
-    /// Each step does ONE thing — query or broadcast — then transitions.
+    /// Each step does **ONE** thing — query or broadcast — then transitions.
     /// Call this in a loop until you get Complete, Failed, or NeedsInput.
     pub async fn advance(&self, state: &mut DeploymentState) -> Result<StepResult, DeployError> {
+        tracing::info!(step = %state.step.name(), session = %state.session_id, "advancing workflow");
+
         let result = match &state.step {
             Step::Init => self.step_init(state).await,
             Step::CheckBalance => self.step_check_balance(state).await,
-            Step::EnsureCertificate => self.step_ensure_certificate(state).await,
+            Step::EnsureAuth => self.step_ensure_auth(state).await,
             Step::CreateDeployment => self.step_create_deployment(state).await,
             Step::WaitForBids { waited_blocks } => {
                 self.step_wait_for_bids(state, *waited_blocks).await
@@ -156,11 +162,33 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             )));
         }
 
-        state.transition(Step::EnsureCertificate);
+        state.transition(Step::EnsureAuth);
         Ok(StepResult::Continue)
     }
 
-    async fn step_ensure_certificate(
+    async fn step_ensure_auth(
+        &self,
+        state: &mut DeploymentState,
+    ) -> Result<StepResult, DeployError> {
+        match self.config.auth_mode {
+            AuthMode::Jwt => self.step_ensure_auth_jwt(state).await,
+            AuthMode::Mtls => self.step_ensure_auth_mtls(state).await,
+        }
+    }
+
+    async fn step_ensure_auth_jwt(
+        &self,
+        state: &mut DeploymentState,
+    ) -> Result<StepResult, DeployError> {
+        tracing::info!("generating JWT for provider authentication");
+
+        let token = self.backend.generate_jwt(&state.owner).await?;
+        state.jwt_token = Some(token);
+        state.transition(Step::CreateDeployment);
+        Ok(StepResult::Continue)
+    }
+
+    async fn step_ensure_auth_mtls(
         &self,
         state: &mut DeploymentState,
     ) -> Result<StepResult, DeployError> {
@@ -336,6 +364,24 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         Ok(StepResult::Continue)
     }
 
+    /// Build `ProviderAuth` from the current state.
+    fn build_provider_auth(state: &DeploymentState) -> Result<ProviderAuth, DeployError> {
+        if let Some(ref token) = state.jwt_token {
+            return Ok(ProviderAuth::Jwt {
+                token: token.clone(),
+            });
+        }
+        if let (Some(ref cert), Some(ref key)) = (&state.cert_pem, &state.key_pem) {
+            return Ok(ProviderAuth::Mtls {
+                cert_pem: cert.clone(),
+                key_pem: key.clone(),
+            });
+        }
+        Err(DeployError::InvalidState(
+            "no provider auth configured (need JWT token or mTLS cert/key)".into(),
+        ))
+    }
+
     async fn step_send_manifest(
         &self,
         state: &mut DeploymentState,
@@ -345,15 +391,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .as_ref()
             .ok_or_else(|| DeployError::InvalidState("lease_id missing at SendManifest".into()))?;
 
-        let cert = state
-            .cert_pem
-            .as_ref()
-            .ok_or_else(|| DeployError::InvalidState("cert_pem missing at SendManifest".into()))?;
-
-        let key = state
-            .key_pem
-            .as_ref()
-            .ok_or_else(|| DeployError::InvalidState("key_pem missing at SendManifest".into()))?;
+        let auth = Self::build_provider_auth(state)?;
 
         let sdl = state.sdl_content.as_ref().ok_or_else(|| {
             DeployError::InvalidState("sdl_content missing at SendManifest".into())
@@ -386,7 +424,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         let manifest = build_manifest(&state.owner, &processed_sdl, lease.dseq)?;
 
         self.backend
-            .send_manifest(&provider_info.host_uri, lease, &manifest, cert, key)
+            .send_manifest(&provider_info.host_uri, lease, &manifest, &auth)
             .await?;
 
         state.transition(Step::WaitForEndpoints { attempts: 0 });
@@ -402,13 +440,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             DeployError::InvalidState("lease_id missing at WaitForEndpoints".into())
         })?;
 
-        let cert = state.cert_pem.as_ref().ok_or_else(|| {
-            DeployError::InvalidState("cert_pem missing at WaitForEndpoints".into())
-        })?;
-
-        let key = state.key_pem.as_ref().ok_or_else(|| {
-            DeployError::InvalidState("key_pem missing at WaitForEndpoints".into())
-        })?;
+        let auth = Self::build_provider_auth(state)?;
 
         let provider_info = self
             .backend
@@ -418,7 +450,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
 
         let status = self
             .backend
-            .query_provider_status(&provider_info.host_uri, lease, cert, key)
+            .query_provider_status(&provider_info.host_uri, lease, &auth)
             .await?;
 
         if status.ready && !status.endpoints.is_empty() {
@@ -791,13 +823,16 @@ deployment:
             })
         }
 
+        async fn generate_jwt(&self, _owner: &str) -> Result<String, DeployError> {
+            Ok("mock-jwt-token".to_string())
+        }
+
         async fn send_manifest(
             &self,
             _provider_uri: &str,
             _lease: &LeaseId,
             _manifest: &[u8],
-            _cert_pem: &[u8],
-            _key_pem: &[u8],
+            _auth: &ProviderAuth,
         ) -> Result<(), DeployError> {
             self.call_counts.lock().unwrap().send_manifest += 1;
             Ok(())
@@ -807,8 +842,7 @@ deployment:
             &self,
             _provider_uri: &str,
             _lease: &LeaseId,
-            _cert_pem: &[u8],
-            _key_pem: &[u8],
+            _auth: &ProviderAuth,
         ) -> Result<ProviderLeaseStatus, DeployError> {
             self.call_counts.lock().unwrap().query_provider_status += 1;
             self.provider_status
@@ -860,7 +894,7 @@ deployment:
     #[test]
     fn test_default_config() {
         let config = WorkflowConfig::default();
-        assert_eq!(config.min_balance_uakt, 5_000_000);
+        assert_eq!(config.min_balance_uakt, 1_000_000);
         assert!(!config.auto_select_cheapest_bid);
     }
 
@@ -900,6 +934,7 @@ deployment:
         state.step = Step::CheckBalance;
 
         let result = workflow.advance(&mut state).await.unwrap();
+        println!("{:#?}",result);
         assert!(matches!(result, StepResult::Failed(_)));
     }
 
@@ -981,8 +1016,7 @@ deployment:
             oseq: 1,
             provider: "akash1provider".to_string(),
         });
-        state.cert_pem = Some(vec![1, 2, 3]); // Mock cert
-        state.key_pem = Some(vec![4, 5, 6]); // Mock key
+        state.jwt_token = Some("mock-jwt-token".to_string());
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Complete));
@@ -1145,8 +1179,7 @@ deployment:
         state.step = Step::SendManifest;
         state.dseq = Some(123456);
         state.selected_provider = Some("akash1provider".to_string());
-        state.cert_pem = Some(vec![1, 2, 3]);
-        state.key_pem = Some(vec![4, 5, 6]);
+        state.jwt_token = Some("mock-jwt-token".to_string());
         // No SDL content
 
         let result = workflow.advance(&mut state).await;
@@ -1164,8 +1197,7 @@ deployment:
         state.step = Step::WaitForEndpoints { attempts: 0 };
         state.dseq = Some(123456);
         state.selected_provider = Some("akash1provider".to_string());
-        state.cert_pem = Some(vec![1, 2, 3]);
-        state.key_pem = Some(vec![4, 5, 6]);
+        state.jwt_token = Some("mock-jwt-token".to_string());
         // No lease_id
 
         let result = workflow.advance(&mut state).await;
@@ -1173,7 +1205,7 @@ deployment:
     }
 
     #[tokio::test]
-    async fn test_step_wait_for_endpoints_missing_cert() {
+    async fn test_step_wait_for_endpoints_missing_auth() {
         let backend = MockBackend::new();
         let signer = MockSigner;
         let config = WorkflowConfig::default();
@@ -1190,7 +1222,7 @@ deployment:
             oseq: 1,
             provider: "akash1provider".to_string(),
         });
-        // No cert_pem or key_pem
+        // No jwt_token or cert_pem/key_pem
 
         let result = workflow.advance(&mut state).await;
         assert!(result.is_err());
@@ -1282,7 +1314,7 @@ deployment:
         let mut state = DeploymentState::new("test", "akash1owner");
         state.sdl_content = Some(SIMPLE_SDL.to_string());
 
-        // Run through Init -> CheckBalance -> EnsureCertificate -> CreateDeployment -> WaitForBids
+        // Run through Init -> CheckBalance -> EnsureAuth -> CreateDeployment -> WaitForBids
         let mut steps = 0;
         loop {
             let result = workflow.advance(&mut state).await.unwrap();
@@ -1491,8 +1523,7 @@ deployment:
 
         let mut state = DeploymentState::new("test", "akash1owner");
         state.step = Step::SendManifest;
-        state.cert_pem = Some(vec![1, 2, 3]);
-        state.key_pem = Some(vec![4, 5, 6]);
+        state.jwt_token = Some("mock-jwt-token".to_string());
         state.sdl_content = Some(SIMPLE_SDL.to_string());
         // Missing lease_id
 
@@ -1501,7 +1532,7 @@ deployment:
     }
 
     #[tokio::test]
-    async fn test_workflow_send_manifest_missing_cert() {
+    async fn test_workflow_send_manifest_missing_auth() {
         let backend = MockBackend::new();
         let signer = MockSigner;
         let config = WorkflowConfig::default();
@@ -1517,31 +1548,7 @@ deployment:
             provider: "akash1provider".to_string(),
         });
         state.sdl_content = Some(SIMPLE_SDL.to_string());
-        // Missing cert and key
-
-        let result = workflow.advance(&mut state).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_workflow_send_manifest_missing_key() {
-        let backend = MockBackend::new();
-        let signer = MockSigner;
-        let config = WorkflowConfig::default();
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SendManifest;
-        state.lease_id = Some(LeaseId {
-            owner: "akash1owner".to_string(),
-            dseq: 123456,
-            gseq: 1,
-            oseq: 1,
-            provider: "akash1provider".to_string(),
-        });
-        state.cert_pem = Some(vec![1, 2, 3]);
-        state.sdl_content = Some(SIMPLE_SDL.to_string());
-        // Missing key
+        // Missing jwt_token and cert/key
 
         let result = workflow.advance(&mut state).await;
         assert!(result.is_err());
@@ -1563,32 +1570,8 @@ deployment:
             oseq: 1,
             provider: "akash1provider".to_string(),
         });
-        state.cert_pem = Some(vec![1, 2, 3]);
-        state.key_pem = Some(vec![4, 5, 6]);
+        state.jwt_token = Some("mock-jwt-token".to_string());
         // Missing SDL
-
-        let result = workflow.advance(&mut state).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_workflow_wait_for_endpoints_missing_key() {
-        let backend = MockBackend::new();
-        let signer = MockSigner;
-        let config = WorkflowConfig::default();
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::WaitForEndpoints { attempts: 0 };
-        state.lease_id = Some(LeaseId {
-            owner: "akash1owner".to_string(),
-            dseq: 123456,
-            gseq: 1,
-            oseq: 1,
-            provider: "akash1provider".to_string(),
-        });
-        state.cert_pem = Some(vec![1, 2, 3]);
-        // Missing key
 
         let result = workflow.advance(&mut state).await;
         assert!(result.is_err());
@@ -1617,8 +1600,7 @@ deployment:
             oseq: 1,
             provider: "akash1provider".to_string(),
         });
-        state.cert_pem = Some(vec![1, 2, 3]);
-        state.key_pem = Some(vec![4, 5, 6]);
+        state.jwt_token = Some("mock-jwt-token".to_string());
 
         // First attempt - not ready, should retry
         let result = workflow.advance(&mut state).await.unwrap();

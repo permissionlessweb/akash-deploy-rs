@@ -1,3 +1,6 @@
+# Environment
+.env
+
 # Rust
 /target
 **/target
@@ -17,4 +20,5 @@ proto/*
 *.iml
 vendor
 provider-validate
-tests/fixtures/**
+reviews
+tests/testdata/fixtures

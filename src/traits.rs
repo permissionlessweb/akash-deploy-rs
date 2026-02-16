@@ -118,8 +118,14 @@ pub trait AkashBackend: Send + Sync {
     ) -> impl Future<Output = Result<TxResult, DeployError>> + Send;
 
     // ═══════════════════════════════════════════════════════════════
-    // PROVIDER COMMUNICATION (mTLS)
+    // PROVIDER COMMUNICATION (JWT or mTLS)
     // ═══════════════════════════════════════════════════════════════
+
+    /// Generate a JWT token for provider authentication.
+    ///
+    /// The implementation should derive the secp256k1 key from the wallet
+    /// and sign with ES256K (SHA-256 + secp256k1).
+    fn generate_jwt(&self, owner: &str) -> impl Future<Output = Result<String, DeployError>> + Send;
 
     /// Send manifest to provider.
     fn send_manifest(
@@ -127,8 +133,7 @@ pub trait AkashBackend: Send + Sync {
         provider_uri: &str,
         lease: &LeaseId,
         manifest: &[u8],
-        cert_pem: &[u8],
-        key_pem: &[u8],
+        auth: &ProviderAuth,
     ) -> impl Future<Output = Result<(), DeployError>> + Send;
 
     /// Query provider for lease status.
@@ -136,8 +141,7 @@ pub trait AkashBackend: Send + Sync {
         &self,
         provider_uri: &str,
         lease: &LeaseId,
-        cert_pem: &[u8],
-        key_pem: &[u8],
+        auth: &ProviderAuth,
     ) -> impl Future<Output = Result<ProviderLeaseStatus, DeployError>> + Send;
 
     // ═══════════════════════════════════════════════════════════════

@@ -131,6 +131,20 @@ pub struct ProviderLeaseStatus {
     pub endpoints: Vec<ServiceEndpoint>,
 }
 
+/// Authentication method for provider communication.
+///
+/// Providers accept either mTLS certificates (legacy) or JWT Bearer tokens (default).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ProviderAuth {
+    /// mTLS certificate-based authentication (legacy).
+    Mtls {
+        cert_pem: Vec<u8>,
+        key_pem: Vec<u8>,
+    },
+    /// JWT Bearer token authentication (default).
+    Jwt { token: String },
+}
+
 /// Resource allocation.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Resources {

@@ -41,8 +41,8 @@ go build -o provider-validate .
 **Example:**
 
 ```bash
-./provider-validate manifest fixtures/simple/manifest.json \
-  $(cat fixtures/simple/manifest-hash.txt)
+./provider-validate manifest testdata/fixtures/simple/manifest.json \
+  $(cat testdata/fixtures/simple/manifest-hash.txt)
 ```
 
 ### 2. Validate JWT
@@ -333,10 +333,10 @@ Use these as reference for Rust implementation.
 
 ## Test Fixtures
 
-Pre-validated fixtures at: `tests/fixtures/`
+Pre-validated fixtures at: `tests/testdata/fixtures/`
 
 ```sh
-fixtures/
+testdata/fixtures/
 ├── simple/          - Basic nginx service
 │   ├── manifest.json
 │   └── manifest-hash.txt

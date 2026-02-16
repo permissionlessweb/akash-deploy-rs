@@ -36,7 +36,7 @@ go build -o provider-validate . || {
 # ── RUST GENERATION ─────────────────────────────────────────────
 
 echo "🦀 Generating JWT + manifest with Rust engine..."
-cd "$SCRIPT_DIR/examples/rust-jwt-gen"
+cd "$SCRIPT_DIR/rust-jwt-gen"
 
 OUTPUT=$(cargo run --quiet -- "$SDL_FILE" 2>/dev/null) || {
     echo "❌ Rust generation failed"
@@ -72,9 +72,9 @@ echo "   Hash:   ${MANIFEST_HASH:0:16}..."
 echo ""
 
 # Write Rust-generated fixtures for Go to verify
-mkdir -p "$SCRIPT_DIR/fixtures"
-echo "$MANIFEST_JSON" > "$SCRIPT_DIR/fixtures/manifest.json"
-echo -n "$MANIFEST_HASH" > "$SCRIPT_DIR/fixtures/manifest-hash.txt"
+mkdir -p "$SCRIPT_DIR/testdata/fixtures"
+echo "$MANIFEST_JSON" > "$SCRIPT_DIR/testdata/fixtures/manifest.json"
+echo -n "$MANIFEST_HASH" > "$SCRIPT_DIR/testdata/fixtures/manifest-hash.txt"
 
 # ── JWT TEST ─────────────────────────────────────────────────────
 
@@ -91,7 +91,7 @@ echo ""
 # ── MANIFEST TEST ─────────────────────────────────────────────────
 
 echo "🔍 Verifying Rust manifest hash with provider Manifest.Version()..."
-"$BINARY" manifest "$SCRIPT_DIR/fixtures/manifest.json" "$MANIFEST_HASH" || {
+"$BINARY" manifest "$SCRIPT_DIR/testdata/fixtures/manifest.json" "$MANIFEST_HASH" || {
     echo ""
     echo "❌ MANIFEST HASH VERIFICATION FAILED"
     echo "   Rust manifest hash doesn't match provider Manifest.Version()"

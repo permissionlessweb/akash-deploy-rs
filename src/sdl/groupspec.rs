@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use crate::gen::akash::{
     base::{
         attributes::v1::{Attribute, PlacementRequirements, SignedBy},
-        resources::v1beta4::{Cpu, Gpu, Memory, Resources, Storage},
+        resources::v1beta4::{Cpu, Endpoint, Gpu, Memory, Resources, Storage},
     },
     deployment::v1beta4::{GroupSpec, ResourceUnit},
 };
@@ -75,9 +75,9 @@ pub fn build_groupspecs_from_sdl(sdl_yaml: &str) -> Result<Vec<GroupSpec>, Deplo
     // Group services by placement group
     let mut groups_map: HashMap<String, Vec<(String, String, u32)>> = HashMap::new();
     for (service, profile, count, group) in service_infos {
-        eprintln!(
-            "DEBUG: Grouping service '{}' (profile: {}, count: {}) into group '{}'",
-            service, profile, count, group
+        tracing::debug!(
+            service = %service, profile = %profile, count = count, group = %group,
+            "grouping service into placement group"
         );
         groups_map
             .entry(group)
@@ -89,10 +89,9 @@ pub fn build_groupspecs_from_sdl(sdl_yaml: &str) -> Result<Vec<GroupSpec>, Deplo
     let mut groups: Vec<GroupSpec> = Vec::new();
 
     for (group_name, mut services) in groups_map {
-        eprintln!(
-            "DEBUG: Building GroupSpec for group '{}' with {} services",
-            group_name,
-            services.len()
+        tracing::debug!(
+            group = %group_name, service_count = services.len(),
+            "building GroupSpec"
         );
 
         // CRITICAL: Sort services by name to match manifest service order
@@ -105,31 +104,33 @@ pub fn build_groupspecs_from_sdl(sdl_yaml: &str) -> Result<Vec<GroupSpec>, Deplo
         // Create ResourceUnits for each service
         let mut resources: Vec<ResourceUnit> = Vec::new();
 
-        for (service_name, profile_name, count) in services {
-            eprintln!(
-                "DEBUG:   Creating ResourceUnit for service '{}' (profile: {}, count: {})",
-                service_name, profile_name, count
+        for (idx, (service_name, profile_name, count)) in services.iter().enumerate() {
+            tracing::debug!(
+                service = %service_name, profile = %profile_name, count = count,
+                "creating ResourceUnit"
             );
 
             // Parse resources from profile
-            let resource = parse_resources_from_profile(profiles_section, &profile_name)?;
+            let mut resource =
+                parse_resources_from_profile(profiles_section, profile_name, &yaml, service_name)?;
+            // Assign sequential 1-indexed resource ID (matches manifest service order)
+            resource.id = (idx + 1) as u32;
 
             // Get price for this service
-            let price = pricing_map.get(&service_name).cloned().ok_or_else(|| {
+            let price = pricing_map.get(service_name).cloned().ok_or_else(|| {
                 DeployError::Sdl(format!("Missing price for service {}", service_name))
             })?;
 
             resources.push(ResourceUnit {
                 resource: Some(resource),
-                count,
+                count: *count,
                 price: Some(price),
             });
         }
 
-        eprintln!(
-            "DEBUG: GroupSpec '{}' final has {} ResourceUnits",
-            group_name,
-            resources.len()
+        tracing::debug!(
+            group = %group_name, resource_units = resources.len(),
+            "GroupSpec finalized"
         );
 
         groups.push(GroupSpec {
@@ -142,13 +143,9 @@ pub fn build_groupspecs_from_sdl(sdl_yaml: &str) -> Result<Vec<GroupSpec>, Deplo
     // Sort groups by name for deterministic output
     groups.sort_by(|a, b| a.name.cmp(&b.name));
 
-    eprintln!("DEBUG: Final GroupSpec list has {} groups:", groups.len());
+    tracing::debug!(group_count = groups.len(), "final GroupSpec list");
     for g in &groups {
-        eprintln!(
-            "DEBUG:   - Group '{}': {} ResourceUnits",
-            g.name,
-            g.resources.len()
-        );
+        tracing::debug!(group = %g.name, resource_units = g.resources.len(), "group summary");
     }
 
     Ok(groups)
@@ -204,13 +201,24 @@ fn parse_placement_for_group(
             .unwrap_or("uakt")
             .to_string();
 
-        let amount = service_pricing
+        let amount_base: u64 = service_pricing
             .get("amount")
             .and_then(|a| a.as_u64())
-            .unwrap_or(100)
-            .to_string();
+            .unwrap_or(100);
 
-        pricing_map.insert(service_name.clone(), DecCoin { denom, amount });
+        // CRITICAL: Multiply by 10^18 for DecCoin decimal precision.
+        // The chain divides DecCoin amounts by 10^18 to get the actual value.
+        // Without this, "1000" would be interpreted as ~0 uakt.
+        const DECIMAL_PRECISION: u128 = 1_000_000_000_000_000_000; // 10^18
+        let amount_with_decimals = (amount_base as u128) * DECIMAL_PRECISION;
+
+        pricing_map.insert(
+            service_name.clone(),
+            DecCoin {
+                denom,
+                amount: amount_with_decimals.to_string(),
+            },
+        );
     }
 
     let requirements = PlacementRequirements {
@@ -228,6 +236,8 @@ fn parse_placement_for_group(
 fn parse_resources_from_profile(
     profiles: &serde_yaml::Value,
     profile_name: &str,
+    yaml: &serde_yaml::Value,
+    service_name: &str,
 ) -> Result<Resources, DeployError> {
     let compute = profiles
         .get("compute")
@@ -253,14 +263,49 @@ fn parse_resources_from_profile(
     // Parse GPU (optional)
     let gpu = parse_gpu(resources_section)?;
 
+    // Parse endpoints from service expose section
+    let endpoints = parse_endpoints(yaml, service_name);
+
     Ok(Resources {
-        id: 0, // Will be assigned by chain
+        id: 0, // Will be assigned by caller
         cpu: Some(cpu),
         memory: Some(memory),
         storage,
         gpu: Some(gpu),
-        endpoints: Vec::new(),
+        endpoints,
     })
+}
+
+/// Parse endpoints from service definition's expose section.
+fn parse_endpoints(yaml: &serde_yaml::Value, service_name: &str) -> Vec<Endpoint> {
+    let mut endpoints = Vec::new();
+
+    let service = match yaml.get("services").and_then(|s| s.get(service_name)) {
+        Some(s) => s,
+        None => return endpoints,
+    };
+
+    if let Some(expose_array) = service.get("expose").and_then(|e| e.as_sequence()) {
+        for (idx, expose_item) in expose_array.iter().enumerate() {
+            // Check if globally exposed
+            let global = expose_item
+                .get("to")
+                .and_then(|t| t.as_sequence())
+                .map(|arr| arr.iter().any(|item| item.get("global").is_some()))
+                .unwrap_or(false);
+
+            // Proto enum: SHARED_HTTP = 0, RANDOM_PORT = 1, LEASED_IP = 2
+            // Global HTTP exposes need SHARED_HTTP (kind=0) for provider endpoint allocation.
+            let kind = if global { 0 } else { 0 };
+
+            endpoints.push(Endpoint {
+                kind,
+                sequence_number: idx as u32,
+            });
+        }
+    }
+
+    endpoints
 }
 
 fn parse_cpu(resources: &serde_yaml::Value) -> Result<Cpu, DeployError> {
@@ -513,7 +558,8 @@ deployment:
 
         let price = ru.price.as_ref().unwrap();
         assert_eq!(price.denom, "uakt");
-        assert_eq!(price.amount, "1000");
+        // 1000 * 10^18 = 1000000000000000000000
+        assert_eq!(price.amount, "1000000000000000000000");
 
         // Check resource parsing
         let res = ru.resource.as_ref().unwrap();
@@ -586,12 +632,12 @@ deployment:
         let api_ru = &groups[0].resources[0];
         assert_eq!(api_ru.count, 2);
         let api_price = api_ru.price.as_ref().unwrap();
-        assert_eq!(api_price.amount, "800");
+        assert_eq!(api_price.amount, "800000000000000000000"); // 800 * 10^18
 
         let web_ru = &groups[0].resources[1];
         assert_eq!(web_ru.count, 1);
         let web_price = web_ru.price.as_ref().unwrap();
-        assert_eq!(web_price.amount, "500");
+        assert_eq!(web_price.amount, "500000000000000000000"); // 500 * 10^18
     }
 
     #[test]
@@ -838,7 +884,8 @@ deployment:
         let groups = build_groupspecs_from_sdl(sdl).unwrap();
         let price = groups[0].resources[0].price.as_ref().unwrap();
         assert_eq!(price.denom, "uakt");
-        assert_eq!(price.amount, "100");
+        // 100 * 10^18 = 100000000000000000000
+        assert_eq!(price.amount, "100000000000000000000");
     }
 
     // ── Error cases ───────────────────────────────────────────────

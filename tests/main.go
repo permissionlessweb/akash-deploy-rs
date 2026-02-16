@@ -4,10 +4,11 @@
 // test fixtures - all using ACTUAL provider code.
 //
 // Usage:
-//   provider-validate jwt      <token> <pubkey_hex>
-//   provider-validate manifest  <manifest.json> <expected_hash_hex>
-//   provider-validate all       <token> <pubkey_hex> <manifest.json> <expected_hash_hex>
-//   provider-validate gen-fixture <sdl_file> [output_dir]
+//
+//	provider-validate jwt      <token> <pubkey_hex>
+//	provider-validate manifest  <manifest.json> <expected_hash_hex>
+//	provider-validate all       <token> <pubkey_hex> <manifest.json> <expected_hash_hex>
+//	provider-validate gen-fixture <sdl_file> [output_dir]
 package main
 
 import (
@@ -90,7 +91,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Usage: %s gen-fixture <sdl_file> [output_dir]\n", os.Args[0])
 			os.Exit(1)
 		}
-		outputDir := "fixtures"
+		outputDir := "testdata/fixures"
 		if len(os.Args) >= 4 {
 			outputDir = os.Args[3]
 		}
@@ -128,7 +129,7 @@ EXAMPLES:
   %[1]s jwt eyJhbGc... 02a1b2c3...
   %[1]s manifest manifest.json abc123...
   %[1]s all eyJhbGc... 02a1b2c3... manifest.json abc123...
-  %[1]s gen-fixture simple.yaml fixtures/
+  %[1]s gen-fixture simple.yaml testdata/fixtures
 
 PROVIDER CODE USED:
   JWT:      github.com/akash-network/provider/gateway/utils.AuthProcess()
