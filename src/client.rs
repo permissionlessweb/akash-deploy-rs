@@ -98,30 +98,50 @@ pub struct QueryClients {
 impl QueryClients {
     /// Create all query clients by connecting to the gRPC endpoint.
     pub async fn new(grpc_endpoint: &str) -> Result<Self, DeployError> {
-        tracing::debug!(endpoint = %grpc_endpoint, "connecting gRPC query clients");
+        tracing::info!(endpoint = %grpc_endpoint, "connecting gRPC query clients");
         use crate::gen::akash::{
             cert::v1 as akash_cert, escrow::v1 as akash_escrow, market::v1beta5 as akash_market,
             provider::v1beta4 as akash_provider,
         };
 
+        tracing::debug!("  connecting cert query client...");
         let cert = akash_cert::query_client::QueryClient::connect(grpc_endpoint.to_string())
             .await
-            .map_err(|e| DeployError::Query(format!("Failed to connect cert client: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(%e, "failed to connect cert query client");
+                DeployError::Query(format!("Failed to connect cert client: {}", e))
+            })?;
+        tracing::debug!("  cert query client connected");
 
+        tracing::debug!("  connecting provider query client...");
         let provider =
             akash_provider::query_client::QueryClient::connect(grpc_endpoint.to_string())
                 .await
                 .map_err(|e| {
+                    tracing::error!(%e, "failed to connect provider query client");
                     DeployError::Query(format!("Failed to connect provider client: {}", e))
                 })?;
+        tracing::debug!("  provider query client connected");
 
+        tracing::debug!("  connecting market query client...");
         let market = akash_market::query_client::QueryClient::connect(grpc_endpoint.to_string())
             .await
-            .map_err(|e| DeployError::Query(format!("Failed to connect market client: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(%e, "failed to connect market query client");
+                DeployError::Query(format!("Failed to connect market client: {}", e))
+            })?;
+        tracing::debug!("  market query client connected");
 
+        tracing::debug!("  connecting escrow query client...");
         let escrow = akash_escrow::query_client::QueryClient::connect(grpc_endpoint.to_string())
             .await
-            .map_err(|e| DeployError::Query(format!("Failed to connect escrow client: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(%e, "failed to connect escrow query client");
+                DeployError::Query(format!("Failed to connect escrow client: {}", e))
+            })?;
+        tracing::debug!("  escrow query client connected");
+
+        tracing::info!("all gRPC query clients connected successfully");
 
         Ok(Self {
             cert,
@@ -184,18 +204,30 @@ impl AkashClient<FileBackedStorage> {
         rpc_endpoint: &str,
         grpc_endpoint: &str,
     ) -> Result<Self, DeployError> {
-        // Create the key signer from mnemonic
+        tracing::info!("starting client initialization");
+
+        // Step 1: Create the key signer from mnemonic
+        tracing::info!("step 1/6: creating key signer from mnemonic");
         let signer = KeySigner::new_mnemonic_str(mnemonic, None).map_err(|e| {
+            tracing::error!(?e, "failed to create signer from mnemonic");
             DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
         })?;
+        tracing::info!("step 1/6: key signer created successfully");
 
-        // Derive secp256k1 signing key for JWT (ES256K) from the same mnemonic
+        // Step 2: Derive secp256k1 signing key for JWT (ES256K) from the same mnemonic
+        tracing::info!("step 2/6: deriving JWT signing key (ES256K)");
         let jwt_signing_key = derive_jwt_signing_key(mnemonic)?;
+        tracing::info!("step 2/6: JWT signing key derived successfully");
 
-        // Set up Akash chain configuration
+        // Step 3: Set up Akash chain configuration
         // NOTE: We intentionally omit gRPC from the SigningClient config so that
         // layer-climb uses RPC for all tx operations (simulate, broadcast, poll).
         // gRPC is only used for our custom Akash query clients (bids, leases, etc.).
+        tracing::info!(
+            rpc = %rpc_endpoint,
+            grpc = %grpc_endpoint,
+            "step 3/6: building chain config"
+        );
         let grpc_ep = if grpc_endpoint.is_empty() {
             None
         } else {
@@ -213,14 +245,18 @@ impl AkashClient<FileBackedStorage> {
             grpc_endpoint: None, // Use RPC for all tx operations
             grpc_web_endpoint: None,
         };
+        tracing::info!("step 3/6: chain config built (chain_id=akashnet-2, rpc={})", rpc_endpoint);
 
-        // Save gRPC endpoint for query clients only
-        let grpc_endpoint = grpc_ep;
-
-        // Create the signing client
+        // Step 4: Create the signing client (connects to RPC)
+        tracing::info!("step 4/6: creating signing client (connecting to RPC endpoint)...");
         let mut client = SigningClient::new(chain_config, signer, None::<Connection>)
             .await
-            .map_err(|e| DeployError::Query(format!("Failed to create signing client: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(%e, "step 4/6 FAILED: signing client creation error");
+                // Include the full error chain with {:#} for nested errors
+                DeployError::Query(format!("Failed to create signing client: {:#}", e))
+            })?;
+        tracing::info!(address = %client.addr, "step 4/6: signing client created successfully");
 
         // Use QueryAndIncrement: queries sequence once, then increments locally for subsequent txs
         client.sequence_strategy = SequenceStrategy::new(SequenceStrategyKind::QueryAndIncrement);
@@ -228,15 +264,25 @@ impl AkashClient<FileBackedStorage> {
         // Get the address from the client
         let address = client.addr.clone();
 
-        // Initialize storage
+        // Step 5: Initialize storage
+        tracing::info!("step 5/6: initializing file-backed storage");
         let storage = FileBackedStorage::new_default().await?;
+        tracing::info!("step 5/6: storage initialized");
 
-        // Initialize query clients if gRPC endpoint is configured
-        let query_clients = if let Some(endpoint) = grpc_endpoint {
-            Some(QueryClients::new(&endpoint).await?)
+        // Step 6: Initialize query clients if gRPC endpoint is configured
+        // Save gRPC endpoint for query clients only
+        let grpc_endpoint = grpc_ep;
+        let query_clients = if let Some(ref endpoint) = grpc_endpoint {
+            tracing::info!(endpoint = %endpoint, "step 6/6: connecting gRPC query clients");
+            let clients = QueryClients::new(endpoint).await?;
+            tracing::info!("step 6/6: gRPC query clients connected");
+            Some(clients)
         } else {
+            tracing::info!("step 6/6: skipped (no gRPC endpoint configured)");
             None
         };
+
+        tracing::info!(address = %address, "client initialization complete");
 
         Ok(Self {
             client,

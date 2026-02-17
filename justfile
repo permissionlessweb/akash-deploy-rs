@@ -69,7 +69,7 @@ test-one SDL:
 
 # Live demonstration deploying a simple sd to akash network
 demo:
-    @cargo run --example deploy
+    @cargo run --example deploy --features default-client
 
 # Alias for test
 test-all: test
