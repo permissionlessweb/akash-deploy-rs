@@ -83,10 +83,7 @@ async fn interactive_select_provider(
                 "capabilities/gpu/vendor/nvidia/model/*",
             ];
 
-            let audited = info
-                .attributes
-                .iter()
-                .any(|(k, _)| k.starts_with("audit-"));
+            let audited = info.attributes.iter().any(|(k, _)| k.starts_with("audit-"));
 
             if audited {
                 println!("      audited:  YES");
@@ -144,10 +141,7 @@ async fn interactive_select_provider(
 /// Close a deployment. Best-effort — logs errors but doesn't panic.
 async fn cleanup_deployment(client: &AkashClient, owner: &str, dseq: u64, signer: &KeySigner) {
     println!("cleanup: closing deployment dseq={}", dseq);
-    match client
-        .broadcast_close_deployment(signer, owner, dseq)
-        .await
-    {
+    match client.broadcast_close_deployment(signer, owner, dseq).await {
         Ok(tx) => println!("cleanup: close tx={} code={}", tx.hash, tx.code),
         Err(e) => println!("cleanup: close failed (may already be closed): {}", e),
     }
@@ -157,6 +151,19 @@ async fn cleanup_deployment(client: &AkashClient, owner: &str, dseq: u64, signer
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load .env
     dotenvy::dotenv().ok();
+
+    // Initialize tracing subscriber.
+    // Control verbosity with RUST_LOG env var:
+    //   RUST_LOG=info   — see client init steps (default)
+    //   RUST_LOG=debug  — see gRPC connection details
+    //   RUST_LOG=trace  — see everything (very verbose)
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with_target(false)
+        .init();
 
     let mnemonic = std::env::var("TEST_MNEMONIC")
         .map_err(|_| "TEST_MNEMONIC not set — set it in .env or environment")?;
@@ -173,11 +180,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  owner: {}", owner);
 
     let balance = client.query_balance(&owner, "uakt").await?;
-    println!(
-        "  balance: {} uakt ({:.6} AKT)",
-        balance,
-        balance as f64 / 1_000_000.0
-    );
     println!();
 
     let signer = KeySigner::new_mnemonic_str(&mnemonic, None)
