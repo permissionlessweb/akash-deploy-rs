@@ -8,6 +8,7 @@
 mod record;
 mod session;
 mod store;
+pub mod stdout;
 
 #[cfg(feature = "file-storage")]
 pub mod file_backed;
@@ -17,6 +18,7 @@ pub mod file_backed_session;
 pub use record::DeploymentRecord;
 pub use session::SessionStorage;
 pub use store::DeploymentStore;
+pub use stdout::StdoutStorage;
 
 #[cfg(feature = "file-storage")]
 pub use file_backed::FileDeploymentStore;

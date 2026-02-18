@@ -15,7 +15,6 @@ rpc = ["tonic"]
 file-storage = ["tokio/fs", "dirs"]
 default-client = [
     "layer-climb",
-    "file-storage",
     "reqwest",
     "rustls-pemfile",
     "tonic-prost",
@@ -60,7 +59,8 @@ tonic-prost = { version = "0.14.3", optional = true }
 [dev-dependencies]
 dotenvy = "0.15"
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [[example]]
 name = "deploy"
-required-features = ["default-client"]
+required-features = ["default-client", "file-storage"]

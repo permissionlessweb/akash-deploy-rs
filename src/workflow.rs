@@ -148,17 +148,20 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
     ) -> Result<StepResult, DeployError> {
         let balance = self.backend.query_balance(&state.owner, "uakt").await?;
 
-        if balance < self.config.min_balance_uakt as u128 {
+        // Check both the minimum balance threshold and that the balance covers the deposit
+        let required = std::cmp::max(self.config.min_balance_uakt, state.deposit_uakt);
+
+        if balance < required as u128 {
             state.fail(
                 format!(
-                    "insufficient balance: {} uakt < {} uakt required",
-                    balance, self.config.min_balance_uakt
+                    "insufficient balance: {} uakt < {} uakt required (min={}, deposit={})",
+                    balance, required, self.config.min_balance_uakt, state.deposit_uakt
                 ),
                 false, // not recoverable by retry
             );
             return Ok(StepResult::Failed(format!(
-                "insufficient balance: {}",
-                balance
+                "insufficient balance: {} uakt < {} uakt required",
+                balance, required
             )));
         }
 
@@ -924,7 +927,8 @@ deployment:
     #[tokio::test]
     async fn test_workflow_check_balance_insufficient() {
         let backend = MockBackend::new();
-        backend.set_balance(1_000_000);
+        // Balance (400k) is below both min_balance_uakt (1M) and deposit (5M)
+        backend.set_balance(400_000);
 
         let signer = MockSigner;
         let config = WorkflowConfig::default();
@@ -932,9 +936,9 @@ deployment:
 
         let mut state = DeploymentState::new("test", "akash1owner");
         state.step = Step::CheckBalance;
+        state.deposit_uakt = 5_000_000;
 
         let result = workflow.advance(&mut state).await.unwrap();
-        println!("{:#?}",result);
         assert!(matches!(result, StepResult::Failed(_)));
     }
 

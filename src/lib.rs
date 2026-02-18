@@ -80,10 +80,12 @@ pub use state::{DeploymentState, Step};
 pub use store::FileBackedStorage;
 #[cfg(feature = "file-storage")]
 pub use store::FileDeploymentStore;
-pub use store::{DeploymentRecord, DeploymentStore, SessionStorage};
+pub use store::{DeploymentRecord, DeploymentStore, SessionStorage, StdoutStorage};
 pub use traits::AkashBackend;
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};
 
 #[cfg(feature = "default-client")]
-pub use client::{export_sessions, import_sessions, AkashClient, KeySigner};
+pub use client::{AkashClient, KeySigner};
+#[cfg(all(feature = "default-client", feature = "file-storage"))]
+pub use client::{export_sessions, import_sessions};
