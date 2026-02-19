@@ -55,7 +55,9 @@ use crate::auth::jwt::{JwtBuilder, JwtClaims};
 use crate::error::DeployError;
 use crate::r#gen::akash::escrow::id::v1::Scope;
 use crate::state::DeploymentState;
-use crate::store::{FileBackedStorage, SessionStorage};
+use crate::store::{SessionStorage, StdoutStorage};
+#[cfg(feature = "file-storage")]
+use crate::store::FileBackedStorage;
 use crate::traits::AkashBackend;
 use crate::types::*;
 
@@ -66,6 +68,7 @@ use layer_climb::prelude::*;
 use layer_climb::transaction::{SequenceStrategy, SequenceStrategyKind};
 use sha2::{Digest, Sha256};
 use std::io::Cursor;
+use tokio::sync::RwLock;
 
 // Import Akash proto types
 use crate::gen::akash::{deployment::v1beta4 as akash_deployment, market::v1beta5 as akash_market};
@@ -162,13 +165,19 @@ impl QueryClients {
 ///
 /// # Type Parameters
 ///
-/// - `S`: Storage implementation (defaults to `FileBackedStorage`)
+/// - `S`: Storage implementation.
+///   - With `file-storage` feature: defaults to `FileBackedStorage` (disk persistence)
+///   - Without `file-storage`: defaults to `StdoutStorage` (JSON to stdout, no persistence)
+///   - Use `AkashClient::with_storage()` for custom backends (DB, WASM, etc.)
+#[cfg(feature = "file-storage")]
 pub struct AkashClient<S: SessionStorage = FileBackedStorage> {
     /// Layer-climb signing client for chain communication
     client: SigningClient,
 
-    /// Generic storage backend
-    storage: S,
+    /// Generic storage backend (behind RwLock for interior mutability).
+    /// The `AkashBackend` trait requires `&self` but `SessionStorage` write
+    /// methods need `&mut self` — the lock bridges this gap.
+    storage: RwLock<S>,
 
     /// Owner address (cached from signer)
     address: Address,
@@ -180,23 +189,134 @@ pub struct AkashClient<S: SessionStorage = FileBackedStorage> {
     jwt_signing_key: Option<SigningKey>,
 }
 
+/// See [`AkashClient`] — this variant defaults to `StdoutStorage` when
+/// the `file-storage` feature is not enabled.
+#[cfg(not(feature = "file-storage"))]
+pub struct AkashClient<S: SessionStorage = StdoutStorage> {
+    /// Layer-climb signing client for chain communication
+    client: SigningClient,
+
+    /// Generic storage backend (behind RwLock for interior mutability).
+    /// The `AkashBackend` trait requires `&self` but `SessionStorage` write
+    /// methods need `&mut self` — the lock bridges this gap.
+    storage: RwLock<S>,
+
+    /// Owner address (cached from signer)
+    address: Address,
+
+    /// Reusable gRPC query clients
+    query_clients: Option<QueryClients>,
+
+    /// secp256k1 signing key for JWT generation (ES256K)
+    jwt_signing_key: Option<SigningKey>,
+}
+
+/// Intermediate result from the common client init steps (signer, chain config, RPC, gRPC).
+struct ClientInit {
+    client: SigningClient,
+    address: Address,
+    query_clients: Option<QueryClients>,
+    jwt_signing_key: SigningKey,
+}
+
+/// Common initialization: mnemonic → signer → chain config → signing client → gRPC clients.
+/// Storage creation is left to the caller so it can differ by feature flag.
+async fn init_client_core(
+    mnemonic: &str,
+    rpc_endpoint: &str,
+    grpc_endpoint: &str,
+) -> Result<ClientInit, DeployError> {
+    tracing::info!("starting client initialization");
+
+    // Step 1: Create the key signer from mnemonic
+    tracing::info!("step 1/5: creating key signer from mnemonic");
+    let signer = KeySigner::new_mnemonic_str(mnemonic, None).map_err(|e| {
+        tracing::error!(?e, "failed to create signer from mnemonic");
+        DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
+    })?;
+    tracing::info!("step 1/5: key signer created successfully");
+
+    // Step 2: Derive secp256k1 signing key for JWT (ES256K) from the same mnemonic
+    tracing::info!("step 2/5: deriving JWT signing key (ES256K)");
+    let jwt_signing_key = derive_jwt_signing_key(mnemonic)?;
+    tracing::info!("step 2/5: JWT signing key derived successfully");
+
+    // Step 3: Set up Akash chain configuration
+    // NOTE: We intentionally omit gRPC from the SigningClient config so that
+    // layer-climb uses RPC for all tx operations (simulate, broadcast, poll).
+    // gRPC is only used for our custom Akash query clients (bids, leases, etc.).
+    tracing::info!(
+        rpc = %rpc_endpoint,
+        grpc = %grpc_endpoint,
+        "step 3/5: building chain config"
+    );
+    let grpc_ep = if grpc_endpoint.is_empty() {
+        None
+    } else {
+        Some(grpc_endpoint.to_string())
+    };
+
+    let chain_config = ChainConfig {
+        chain_id: ChainId::new("akashnet-2"),
+        address_kind: AddrKind::Cosmos {
+            prefix: "akash".to_string(),
+        },
+        gas_price: 0.025,
+        gas_denom: "uakt".to_string(),
+        rpc_endpoint: Some(rpc_endpoint.to_string()),
+        grpc_endpoint: None, // Use RPC for all tx operations
+        grpc_web_endpoint: None,
+    };
+    tracing::info!("step 3/5: chain config built (chain_id=akashnet-2, rpc={})", rpc_endpoint);
+
+    // Step 4: Create the signing client (connects to RPC)
+    tracing::info!("step 4/5: creating signing client (connecting to RPC endpoint)...");
+    let mut client = SigningClient::new(chain_config, signer, None::<Connection>)
+        .await
+        .map_err(|e| {
+            tracing::error!(%e, "step 4/5 FAILED: signing client creation error");
+            DeployError::Query(format!("Failed to create signing client: {:#}", e))
+        })?;
+    tracing::info!(address = %client.addr, "step 4/5: signing client created successfully");
+
+    // Use QueryAndIncrement: queries sequence once, then increments locally for subsequent txs
+    client.sequence_strategy = SequenceStrategy::new(SequenceStrategyKind::QueryAndIncrement);
+
+    let address = client.addr.clone();
+
+    // Step 5: Initialize query clients if gRPC endpoint is configured
+    let query_clients = if let Some(ref endpoint) = grpc_ep {
+        tracing::info!(endpoint = %endpoint, "step 5/5: connecting gRPC query clients");
+        let clients = QueryClients::new(endpoint).await?;
+        tracing::info!("step 5/5: gRPC query clients connected");
+        Some(clients)
+    } else {
+        tracing::info!("step 5/5: skipped (no gRPC endpoint configured)");
+        None
+    };
+
+    Ok(ClientInit {
+        client,
+        address,
+        query_clients,
+        jwt_signing_key,
+    })
+}
+
+/// With `file-storage`: `new_from_mnemonic` persists to `~/.akash-deploy`.
+#[cfg(feature = "file-storage")]
 impl AkashClient<FileBackedStorage> {
-    /// Create a new client with default file-backed storage.
+    /// Create a new client with file-backed storage (`~/.akash-deploy`).
     ///
-    /// This initializes the layer-climb client with the given mnemonic and RPC endpoint,
-    /// and sets up file-based storage in `~/.akash-deploy`.
-    ///
-    /// # Arguments
-    ///
-    /// - `mnemonic`: BIP39 mnemonic phrase for key derivation
-    /// - `rpc_endpoint`: Akash RPC endpoint URL (e.g., "https://rpc.akashnet.net:443")
+    /// Requires the `file-storage` feature.
     ///
     /// # Example
     ///
     /// ```ignore
     /// let client = AkashClient::new_from_mnemonic(
-    ///     "your twelve word mnemonic phrase here for signing transactions securely",
-    ///     "https://rpc.akashnet.net:443"
+    ///     "your twelve word mnemonic phrase here",
+    ///     "https://rpc.akashnet.net:443",
+    ///     "https://grpc.akashnet.net:443",
     /// ).await?;
     /// ```
     pub async fn new_from_mnemonic(
@@ -204,92 +324,58 @@ impl AkashClient<FileBackedStorage> {
         rpc_endpoint: &str,
         grpc_endpoint: &str,
     ) -> Result<Self, DeployError> {
-        tracing::info!("starting client initialization");
+        let init = init_client_core(mnemonic, rpc_endpoint, grpc_endpoint).await?;
 
-        // Step 1: Create the key signer from mnemonic
-        tracing::info!("step 1/6: creating key signer from mnemonic");
-        let signer = KeySigner::new_mnemonic_str(mnemonic, None).map_err(|e| {
-            tracing::error!(?e, "failed to create signer from mnemonic");
-            DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
-        })?;
-        tracing::info!("step 1/6: key signer created successfully");
-
-        // Step 2: Derive secp256k1 signing key for JWT (ES256K) from the same mnemonic
-        tracing::info!("step 2/6: deriving JWT signing key (ES256K)");
-        let jwt_signing_key = derive_jwt_signing_key(mnemonic)?;
-        tracing::info!("step 2/6: JWT signing key derived successfully");
-
-        // Step 3: Set up Akash chain configuration
-        // NOTE: We intentionally omit gRPC from the SigningClient config so that
-        // layer-climb uses RPC for all tx operations (simulate, broadcast, poll).
-        // gRPC is only used for our custom Akash query clients (bids, leases, etc.).
-        tracing::info!(
-            rpc = %rpc_endpoint,
-            grpc = %grpc_endpoint,
-            "step 3/6: building chain config"
-        );
-        let grpc_ep = if grpc_endpoint.is_empty() {
-            None
-        } else {
-            Some(grpc_endpoint.to_string())
-        };
-
-        let chain_config = ChainConfig {
-            chain_id: ChainId::new("akashnet-2"),
-            address_kind: AddrKind::Cosmos {
-                prefix: "akash".to_string(),
-            },
-            gas_price: 0.025,
-            gas_denom: "uakt".to_string(),
-            rpc_endpoint: Some(rpc_endpoint.to_string()),
-            grpc_endpoint: None, // Use RPC for all tx operations
-            grpc_web_endpoint: None,
-        };
-        tracing::info!("step 3/6: chain config built (chain_id=akashnet-2, rpc={})", rpc_endpoint);
-
-        // Step 4: Create the signing client (connects to RPC)
-        tracing::info!("step 4/6: creating signing client (connecting to RPC endpoint)...");
-        let mut client = SigningClient::new(chain_config, signer, None::<Connection>)
-            .await
-            .map_err(|e| {
-                tracing::error!(%e, "step 4/6 FAILED: signing client creation error");
-                // Include the full error chain with {:#} for nested errors
-                DeployError::Query(format!("Failed to create signing client: {:#}", e))
-            })?;
-        tracing::info!(address = %client.addr, "step 4/6: signing client created successfully");
-
-        // Use QueryAndIncrement: queries sequence once, then increments locally for subsequent txs
-        client.sequence_strategy = SequenceStrategy::new(SequenceStrategyKind::QueryAndIncrement);
-
-        // Get the address from the client
-        let address = client.addr.clone();
-
-        // Step 5: Initialize storage
-        tracing::info!("step 5/6: initializing file-backed storage");
+        tracing::info!("initializing file-backed storage (~/.akash-deploy)");
         let storage = FileBackedStorage::new_default().await?;
-        tracing::info!("step 5/6: storage initialized");
+        tracing::info!("file-backed storage initialized");
 
-        // Step 6: Initialize query clients if gRPC endpoint is configured
-        // Save gRPC endpoint for query clients only
-        let grpc_endpoint = grpc_ep;
-        let query_clients = if let Some(ref endpoint) = grpc_endpoint {
-            tracing::info!(endpoint = %endpoint, "step 6/6: connecting gRPC query clients");
-            let clients = QueryClients::new(endpoint).await?;
-            tracing::info!("step 6/6: gRPC query clients connected");
-            Some(clients)
-        } else {
-            tracing::info!("step 6/6: skipped (no gRPC endpoint configured)");
-            None
-        };
-
-        tracing::info!(address = %address, "client initialization complete");
+        tracing::info!(address = %init.address, "client initialization complete (file-storage)");
 
         Ok(Self {
-            client,
-            storage,
-            address,
-            query_clients,
-            jwt_signing_key: Some(jwt_signing_key),
+            client: init.client,
+            storage: RwLock::new(storage),
+            address: init.address,
+            query_clients: init.query_clients,
+            jwt_signing_key: Some(init.jwt_signing_key),
+        })
+    }
+}
+
+/// Without `file-storage`: `new_from_mnemonic` uses stdout (JSON output, no persistence).
+#[cfg(not(feature = "file-storage"))]
+impl AkashClient<StdoutStorage> {
+    /// Create a new client with stdout storage (JSON to stdout, no persistence).
+    ///
+    /// State is printed as JSON to stdout for interoperability with external tools.
+    /// For disk persistence, enable the `file-storage` feature.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let client = AkashClient::new_from_mnemonic(
+    ///     "your twelve word mnemonic phrase here",
+    ///     "https://rpc.akashnet.net:443",
+    ///     "https://grpc.akashnet.net:443",
+    /// ).await?;
+    /// ```
+    pub async fn new_from_mnemonic(
+        mnemonic: &str,
+        rpc_endpoint: &str,
+        grpc_endpoint: &str,
+    ) -> Result<Self, DeployError> {
+        let init = init_client_core(mnemonic, rpc_endpoint, grpc_endpoint).await?;
+
+        tracing::info!("using stdout storage (no file-storage feature)");
+
+        tracing::info!(address = %init.address, "client initialization complete (stdout-storage)");
+
+        Ok(Self {
+            client: init.client,
+            storage: RwLock::new(StdoutStorage::new()),
+            address: init.address,
+            query_clients: init.query_clients,
+            jwt_signing_key: Some(init.jwt_signing_key),
         })
     }
 }
@@ -303,7 +389,7 @@ impl<S: SessionStorage> AkashClient<S> {
         let address = client.addr.clone();
         Self {
             client,
-            storage,
+            storage: RwLock::new(storage),
             address,
             query_clients: None, // Will be initialized lazily on first query
             jwt_signing_key: None,
@@ -371,14 +457,11 @@ impl<S: SessionStorage> AkashClient<S> {
         self.client.signer.as_ref()
     }
 
-    /// Get a reference to the storage backend.
-    pub fn storage(&self) -> &S {
+    /// Get the storage lock for direct access.
+    ///
+    /// Use `.read().await` for read-only access or `.write().await` for mutations.
+    pub fn storage(&self) -> &RwLock<S> {
         &self.storage
-    }
-
-    /// Get a mutable reference to the storage backend.
-    pub fn storage_mut(&mut self) -> &mut S {
-        &mut self.storage
     }
 }
 
@@ -596,7 +679,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
 
     async fn query_certificate(&self, owner: &str) -> Result<Option<CertificateInfo>, DeployError> {
         // Check cache first
-        if let Some(cert) = self.storage.load_cached_certificate(owner).await? {
+        if let Some(cert) = self.storage.read().await.load_cached_certificate(owner).await? {
             return Ok(Some(cert));
         }
 
@@ -639,7 +722,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         provider: &str,
     ) -> Result<Option<ProviderInfo>, DeployError> {
         // Check cache first
-        if let Some(info) = self.storage.load_cached_provider(provider).await? {
+        if let Some(info) = self.storage.read().await.load_cached_provider(provider).await? {
             return Ok(Some(info));
         }
 
@@ -1384,51 +1467,48 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     }
 
     async fn load_state(&self, session_id: &str) -> Result<Option<DeploymentState>, DeployError> {
-        self.storage.load_session(session_id).await
+        self.storage.read().await.load_session(session_id).await
     }
 
     async fn save_state(
         &self,
-        _session_id: &str,
-        _state: &DeploymentState,
+        session_id: &str,
+        state: &DeploymentState,
     ) -> Result<(), DeployError> {
-        // We need mutable access to storage, but the trait requires immutable self
-        // This is a design limitation - users should use storage_mut() directly
-        // or we can use interior mutability (RefCell/Mutex) in FileBackedStorage
-        // For now, document that save_state happens automatically via workflow
-        // TODO: Consider using Arc<Mutex<S>> for storage
-        Ok(())
+        tracing::debug!(session_id, "persisting workflow state");
+        self.storage.write().await.save_session(state).await
     }
 
     async fn load_cert_key(&self, owner: &str) -> Result<Option<Vec<u8>>, DeployError> {
-        self.storage.load_cert_key(owner).await
+        self.storage.read().await.load_cert_key(owner).await
     }
 
-    async fn save_cert_key(&self, _owner: &str, _key: &[u8]) -> Result<(), DeployError> {
-        // Same mutability issue as save_state
-        // TODO: Use interior mutability in storage
-        Ok(())
+    async fn save_cert_key(&self, owner: &str, key: &[u8]) -> Result<(), DeployError> {
+        tracing::debug!(owner, "persisting certificate key");
+        self.storage.write().await.save_cert_key(owner, key).await
     }
 
-    async fn delete_cert_key(&self, _owner: &str) -> Result<(), DeployError> {
-        // Same mutability issue
-        Ok(())
+    async fn delete_cert_key(&self, owner: &str) -> Result<(), DeployError> {
+        tracing::debug!(owner, "deleting certificate key");
+        self.storage.write().await.delete_cert_key(owner).await
     }
 
     async fn load_cached_provider(
         &self,
         provider: &str,
     ) -> Result<Option<ProviderInfo>, DeployError> {
-        self.storage.load_cached_provider(provider).await
+        self.storage.read().await.load_cached_provider(provider).await
     }
 
-    async fn cache_provider(&self, _info: &ProviderInfo) -> Result<(), DeployError> {
-        // Same mutability issue
-        Ok(())
+    async fn cache_provider(&self, info: &ProviderInfo) -> Result<(), DeployError> {
+        tracing::debug!(provider = %info.address, "caching provider info");
+        self.storage.write().await.cache_provider(info).await
     }
 }
 
 /// Helper to export sessions for backup/sharing.
+///
+/// Requires the `file-storage` feature for filesystem access.
 ///
 /// # Example
 ///
@@ -1437,8 +1517,9 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
 /// export_sessions(&client, "/path/to/backup").await?;
 ///
 /// // Import sessions from backup
-/// import_sessions(&mut client, "/path/to/backup").await?;
+/// import_sessions(&client, "/path/to/backup").await?;
 /// ```
+#[cfg(feature = "file-storage")]
 pub async fn export_sessions<S: SessionStorage>(
     client: &AkashClient<S>,
     export_dir: &std::path::Path,
@@ -1447,10 +1528,11 @@ pub async fn export_sessions<S: SessionStorage>(
         .await
         .map_err(|e| DeployError::Storage(format!("failed to create export dir: {}", e)))?;
 
-    let session_ids = client.storage().list_sessions().await?;
+    let storage = client.storage().read().await;
+    let session_ids = storage.list_sessions().await?;
 
     for session_id in session_ids {
-        if let Some(session) = client.storage().load_session(&session_id).await? {
+        if let Some(session) = storage.load_session(&session_id).await? {
             let content = serde_json::to_string_pretty(&session)
                 .map_err(|e| DeployError::Storage(format!("failed to serialize session: {}", e)))?;
 
@@ -1465,8 +1547,11 @@ pub async fn export_sessions<S: SessionStorage>(
 }
 
 /// Helper to import sessions from exported files.
+///
+/// Requires the `file-storage` feature for filesystem access.
+#[cfg(feature = "file-storage")]
 pub async fn import_sessions<S: SessionStorage>(
-    client: &mut AkashClient<S>,
+    client: &AkashClient<S>,
     import_dir: &std::path::Path,
 ) -> Result<usize, DeployError> {
     let mut imported = 0;
@@ -1488,7 +1573,7 @@ pub async fn import_sessions<S: SessionStorage>(
             let session: DeploymentState = serde_json::from_str(&content)
                 .map_err(|e| DeployError::Storage(format!("failed to parse session: {}", e)))?;
 
-            client.storage_mut().save_session(&session).await?;
+            client.storage().write().await.save_session(&session).await?;
             imported += 1;
         }
     }
