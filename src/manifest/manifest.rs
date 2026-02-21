@@ -525,9 +525,7 @@ impl ManifestBuilder {
 
             // Expand each `to` target into a separate ManifestServiceExpose entry
             // (matches Go manifest builder behavior)
-            let to_targets = expose_config
-                .get("to")
-                .and_then(|t| t.as_sequence());
+            let to_targets = expose_config.get("to").and_then(|t| t.as_sequence());
 
             if let Some(targets) = to_targets {
                 for target in targets {
@@ -589,7 +587,8 @@ impl ManifestBuilder {
         //   3. proto
         //   4. global (true before false)
         exposes.sort_by(|a, b| {
-            a.service.cmp(&b.service)
+            a.service
+                .cmp(&b.service)
                 .then(a.port.cmp(&b.port))
                 .then(a.proto.cmp(&b.proto))
                 .then(b.global.cmp(&a.global)) // reversed: true ("1") > false ("0"), so b first = global first

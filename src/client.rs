@@ -531,7 +531,10 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
     let json: serde_json::Value = serde_json::from_str(body)
         .map_err(|e| DeployError::Provider(format!("Invalid JSON in status response: {}", e)))?;
 
-    tracing::debug!("parse_provider_lease_status: raw response body length={}", body.len());
+    tracing::debug!(
+        "parse_provider_lease_status: raw response body length={}",
+        body.len()
+    );
     tracing::trace!("parse_provider_lease_status: {}", body);
 
     let mut endpoints = Vec::new();
@@ -623,7 +626,11 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
             "parse_provider_lease_status: endpoint"
         );
     }
-    tracing::debug!(ready, endpoint_count = endpoints.len(), "parse_provider_lease_status: done");
+    tracing::debug!(
+        ready,
+        endpoint_count = endpoints.len(),
+        "parse_provider_lease_status: done"
+    );
 
     Ok(ProviderLeaseStatus { ready, endpoints })
 }
@@ -824,7 +831,10 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             .map_err(|e| DeployError::Query(format!("Failed to query bids: {}", e)))?
             .into_inner();
 
-        tracing::debug!(raw_count = response.bids.len(), "query_bids: raw gRPC response");
+        tracing::debug!(
+            raw_count = response.bids.len(),
+            "query_bids: raw gRPC response"
+        );
 
         // Convert proto bids to our domain types
         let bids = response

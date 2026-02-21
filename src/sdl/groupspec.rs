@@ -292,15 +292,27 @@ fn parse_endpoints(yaml: &serde_yaml::Value, service_name: &str) -> Vec<Endpoint
             let global = expose_item
                 .get("to")
                 .and_then(|t| t.as_sequence())
-                .map(|arr| arr.iter().any(|item| item.get("global").map(|v| v.as_bool() == Some(true)).unwrap_or(false)))
+                .map(|arr| {
+                    arr.iter().any(|item| {
+                        item.get("global")
+                            .map(|v| v.as_bool() == Some(true))
+                            .unwrap_or(false)
+                    })
+                })
                 .unwrap_or(false);
 
             if !global {
                 continue;
             }
 
-            let port = expose_item.get("port").and_then(|p| p.as_u64()).unwrap_or(80) as u32;
-            let external_port = expose_item.get("as").and_then(|p| p.as_u64()).unwrap_or(port as u64) as u32;
+            let port = expose_item
+                .get("port")
+                .and_then(|p| p.as_u64())
+                .unwrap_or(80) as u32;
+            let external_port = expose_item
+                .get("as")
+                .and_then(|p| p.as_u64())
+                .unwrap_or(port as u64) as u32;
             let proto = expose_item
                 .get("proto")
                 .and_then(|p| p.as_str())
@@ -309,7 +321,11 @@ fn parse_endpoints(yaml: &serde_yaml::Value, service_name: &str) -> Vec<Endpoint
 
             // SHARED_HTTP (kind=0): port-80 TCP exposes routed through provider ingress.
             // RANDOM_PORT (kind=1): all other globally exposed ports.
-            let kind = if external_port == 80 && proto == "TCP" { 0 } else { 1 };
+            let kind = if external_port == 80 && proto == "TCP" {
+                0
+            } else {
+                1
+            };
 
             endpoints.push(Endpoint {
                 kind,

@@ -85,7 +85,7 @@ pub use traits::AkashBackend;
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};
 
-#[cfg(feature = "default-client")]
-pub use client::{AkashClient, KeySigner};
 #[cfg(all(feature = "default-client", feature = "file-storage"))]
 pub use client::{export_sessions, import_sessions};
+#[cfg(feature = "default-client")]
+pub use client::{AkashClient, KeySigner};

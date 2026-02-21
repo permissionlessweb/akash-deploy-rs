@@ -42,7 +42,10 @@ impl SessionStorage for StdoutStorage {
         Ok(())
     }
 
-    async fn load_session(&self, _session_id: &str) -> Result<Option<DeploymentState>, DeployError> {
+    async fn load_session(
+        &self,
+        _session_id: &str,
+    ) -> Result<Option<DeploymentState>, DeployError> {
         Ok(None)
     }
 
@@ -55,7 +58,7 @@ impl SessionStorage for StdoutStorage {
     }
 
     async fn save_cert_key(&mut self, owner: &str, key_pem: &[u8]) -> Result<(), DeployError> {
-        use base64::{Engine, engine::general_purpose::STANDARD};
+        use base64::{engine::general_purpose::STANDARD, Engine};
         let json = serde_json::json!({
             "type": "cert_key",
             "owner": owner,

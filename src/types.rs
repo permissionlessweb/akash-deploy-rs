@@ -137,10 +137,7 @@ pub struct ProviderLeaseStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProviderAuth {
     /// mTLS certificate-based authentication (legacy).
-    Mtls {
-        cert_pem: Vec<u8>,
-        key_pem: Vec<u8>,
-    },
+    Mtls { cert_pem: Vec<u8>, key_pem: Vec<u8> },
     /// JWT Bearer token authentication (default).
     Jwt { token: String },
 }
