@@ -60,16 +60,13 @@ pub struct ManifestService {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManifestServiceExpose {
     pub port: u32,
-    /// CRITICAL: camelCase field name (not snake_case)
     #[serde(rename = "externalPort")]
     pub external_port: u32,
     pub proto: String,
     #[serde(default)]
     pub service: String,
     pub global: bool,
-    /// `null` when missing, `[]` when present-but-empty
     pub hosts: Option<Vec<String>>,
-    /// CRITICAL: camelCase field name
     #[serde(rename = "httpOptions")]
     pub http_options: ManifestHttpOptions,
     #[serde(default)]
@@ -347,13 +344,22 @@ impl ManifestBuilder {
         let mut resources = self.parse_service_resources(name, profiles_section)?;
 
         // Populate resource endpoints for global exposes only.
-        // On-chain GroupSpec allocates SHARED_HTTP endpoints for global exposes.
-        // The provider cross-validates manifest resource endpoints match on-chain allocation.
+        // kind=0 (SHARED_HTTP): external port 80 via provider ingress — omit kind field (JSON default).
+        // kind=1 (RANDOM_PORT): any other globally exposed port — include "kind": 1.
+        // Must match the GroupSpec endpoint allocation (port-80 TCP → SHARED_HTTP, else RANDOM_PORT).
         for exp in &expose {
             if exp.global {
-                resources.endpoints.push(serde_json::json!({
-                    "sequence_number": exp.endpoint_sequence_number
-                }));
+                let is_shared_http = exp.external_port == 80 && exp.proto == "TCP";
+                if is_shared_http {
+                    resources.endpoints.push(serde_json::json!({
+                        "sequence_number": exp.endpoint_sequence_number
+                    }));
+                } else {
+                    resources.endpoints.push(serde_json::json!({
+                        "kind": 1,
+                        "sequence_number": exp.endpoint_sequence_number
+                    }));
+                }
             }
         }
 
@@ -481,7 +487,10 @@ impl ManifestBuilder {
             .as_sequence()
             .ok_or_else(|| DeployError::Sdl("'expose' must be an array".into()))?;
 
-        for (idx, expose_config) in expose_arr.iter().enumerate() {
+        // Global endpoint sequence counter — incremented for each global expose
+        let mut endpoint_seq: u32 = 0;
+
+        for expose_config in expose_arr.iter() {
             let port = expose_config
                 .get("port")
                 .and_then(|p| p.as_u64())
@@ -499,19 +508,7 @@ impl ManifestBuilder {
                 .unwrap_or("TCP")
                 .to_uppercase();
 
-            let global = expose_config
-                .get("to")
-                .and_then(|t| t.as_sequence())
-                .map(|arr| {
-                    arr.iter().any(|item| {
-                        item.get("global")
-                            .and_then(|g| g.as_bool())
-                            .unwrap_or(false)
-                    })
-                })
-                .unwrap_or(false);
-
-            // Parse accept hosts
+            // Parse accept hosts (shared across all `to` targets for this expose block)
             let hosts = expose_config
                 .get("accept")
                 .and_then(|a| a.as_sequence())
@@ -523,20 +520,124 @@ impl ManifestBuilder {
             // CRITICAL: Go serializes missing hosts as null, present-but-empty as []
             let hosts = hosts.filter(|h| !h.is_empty());
 
-            exposes.push(ManifestServiceExpose {
-                port,
-                external_port,
-                proto,
-                service: String::new(),
-                global,
-                hosts,
-                http_options: ManifestHttpOptions::default(),
-                ip: String::new(),
-                endpoint_sequence_number: idx as u32,
-            });
+            // Parse http_options from SDL (fall back to defaults)
+            let http_options = self.parse_http_options(expose_config);
+
+            // Expand each `to` target into a separate ManifestServiceExpose entry
+            // (matches Go manifest builder behavior)
+            let to_targets = expose_config
+                .get("to")
+                .and_then(|t| t.as_sequence());
+
+            if let Some(targets) = to_targets {
+                for target in targets {
+                    let is_global = target
+                        .get("global")
+                        .and_then(|g| g.as_bool())
+                        .unwrap_or(false);
+
+                    let service_name = target
+                        .get("service")
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let seq = if is_global {
+                        let s = endpoint_seq;
+                        endpoint_seq += 1;
+                        s
+                    } else {
+                        0
+                    };
+
+                    // Only global entries get accept hostnames — service-to-service
+                    // targets use internal DNS, not external hostname routing.
+                    let entry_hosts = if is_global { hosts.clone() } else { None };
+
+                    exposes.push(ManifestServiceExpose {
+                        port,
+                        external_port,
+                        proto: proto.clone(),
+                        service: service_name,
+                        global: is_global,
+                        hosts: entry_hosts,
+                        http_options: http_options.clone(),
+                        ip: String::new(),
+                        endpoint_sequence_number: seq,
+                    });
+                }
+            } else {
+                // No `to` targets — create a single non-global entry
+                exposes.push(ManifestServiceExpose {
+                    port,
+                    external_port,
+                    proto,
+                    service: String::new(),
+                    global: false,
+                    hosts,
+                    http_options,
+                    ip: String::new(),
+                    endpoint_sequence_number: 0,
+                });
+            }
         }
 
+        // CRITICAL: Provider requires expose entries sorted by (service, port, proto, global).
+        // This matches pkg.akt.dev/go/manifest/v2beta3 ServiceExposes.Less() exactly:
+        //   1. service name (empty string sorts first — internal exposes last)
+        //   2. port
+        //   3. proto
+        //   4. global (true before false)
+        exposes.sort_by(|a, b| {
+            a.service.cmp(&b.service)
+                .then(a.port.cmp(&b.port))
+                .then(a.proto.cmp(&b.proto))
+                .then(b.global.cmp(&a.global)) // reversed: true ("1") > false ("0"), so b first = global first
+        });
+
         Ok(exposes)
+    }
+
+    /// Parse http_options from an SDL expose block, falling back to defaults.
+    fn parse_http_options(&self, expose_config: &serde_yaml::Value) -> ManifestHttpOptions {
+        let defaults = ManifestHttpOptions::default();
+
+        let opts = match expose_config.get("http_options") {
+            Some(o) => o,
+            None => return defaults,
+        };
+
+        ManifestHttpOptions {
+            max_body_size: opts
+                .get("max_body_size")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(defaults.max_body_size as u64) as u32,
+            read_timeout: opts
+                .get("read_timeout")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(defaults.read_timeout as u64) as u32,
+            send_timeout: opts
+                .get("send_timeout")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(defaults.send_timeout as u64) as u32,
+            next_tries: opts
+                .get("next_tries")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(defaults.next_tries as u64) as u32,
+            next_timeout: opts
+                .get("next_timeout")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(defaults.next_timeout as u64) as u32,
+            next_cases: opts
+                .get("next_cases")
+                .and_then(|v| v.as_sequence())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or(defaults.next_cases),
+        }
     }
 
     fn parse_service_resources(

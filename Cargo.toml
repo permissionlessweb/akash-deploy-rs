@@ -11,7 +11,7 @@ exclude = ["tests/", ".claude/", "*.md", "!README.md", "justfile"]
 [features]
 default = ["sdl-templates"]
 sdl-templates = []
-rpc = ["tonic"]
+rpc = ["tonic","tonic-prost"]
 file-storage = ["tokio/fs", "dirs"]
 default-client = [
     "layer-climb",

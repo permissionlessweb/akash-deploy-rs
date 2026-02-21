@@ -541,6 +541,8 @@ fn build_manifest(owner: &str, sdl: &str, dseq: u64) -> Result<Vec<u8>, DeployEr
     // Serialize to canonical JSON (deterministic, matches Go's encoding/json)
     let canonical_json = crate::manifest::canonical::to_canonical_json(&manifest_groups)?;
 
+    tracing::debug!(manifest_json = %canonical_json, "built manifest JSON");
+
     Ok(canonical_json.into_bytes())
 }
 

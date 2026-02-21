@@ -596,6 +596,16 @@ This validates that your Rust code produces **identical** output to Go providers
 
 ## TODO
 
+- ensure all possible SDL-syntax options are covered:
+  - ip leases: (http,custom, non-http, shared-ip)
+  - advanced http options
+  - geographic targeting
+  - custom provider attributes
+  - persistent storage
+  - storage classes
+  - monting
+  - multi-volume
+  - gpu (ram, interface, multi-gpu)
+  - orivate storage credentials
 - [ ] Add more SDL parsing examples
-- [ ] Implement Storage Write And Load To File For Deployment Instances
 - [ ] Document AkashBackend trait methods in detail

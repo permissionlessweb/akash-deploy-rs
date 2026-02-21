@@ -286,21 +286,34 @@ fn parse_endpoints(yaml: &serde_yaml::Value, service_name: &str) -> Vec<Endpoint
     };
 
     if let Some(expose_array) = service.get("expose").and_then(|e| e.as_sequence()) {
-        for (idx, expose_item) in expose_array.iter().enumerate() {
-            // Check if globally exposed
+        for expose_item in expose_array.iter() {
+            // Only globally exposed ports generate GroupSpec endpoints.
+            // Service-to-service (internal) exposes do not.
             let global = expose_item
                 .get("to")
                 .and_then(|t| t.as_sequence())
-                .map(|arr| arr.iter().any(|item| item.get("global").is_some()))
+                .map(|arr| arr.iter().any(|item| item.get("global").map(|v| v.as_bool() == Some(true)).unwrap_or(false)))
                 .unwrap_or(false);
 
-            // Proto enum: SHARED_HTTP = 0, RANDOM_PORT = 1, LEASED_IP = 2
-            // Global HTTP exposes need SHARED_HTTP (kind=0) for provider endpoint allocation.
-            let kind = if global { 0 } else { 0 };
+            if !global {
+                continue;
+            }
+
+            let port = expose_item.get("port").and_then(|p| p.as_u64()).unwrap_or(80) as u32;
+            let external_port = expose_item.get("as").and_then(|p| p.as_u64()).unwrap_or(port as u64) as u32;
+            let proto = expose_item
+                .get("proto")
+                .and_then(|p| p.as_str())
+                .unwrap_or("TCP")
+                .to_uppercase();
+
+            // SHARED_HTTP (kind=0): port-80 TCP exposes routed through provider ingress.
+            // RANDOM_PORT (kind=1): all other globally exposed ports.
+            let kind = if external_port == 80 && proto == "TCP" { 0 } else { 1 };
 
             endpoints.push(Endpoint {
                 kind,
-                sequence_number: idx as u32,
+                sequence_number: 0,
             });
         }
     }
@@ -383,12 +396,35 @@ fn parse_storage(resources: &serde_yaml::Value) -> Result<Vec<Storage>, DeployEr
 
         let size_bytes = parse_size_to_bytes(size_str)?;
 
+        // Parse storage attributes (persistent, class) — must match manifest attributes
+        let mut attributes: Vec<Attribute> = Vec::new();
+        if let Some(attrs) = storage.get("attributes") {
+            // Collect persistent and class, then sort by key to match manifest sort order
+            let mut pairs: Vec<(String, String)> = Vec::new();
+            if let Some(persistent) = attrs.get("persistent") {
+                let val = match persistent {
+                    serde_yaml::Value::Bool(b) => b.to_string(),
+                    serde_yaml::Value::String(s) => s.clone(),
+                    _ => "false".to_string(),
+                };
+                pairs.push(("persistent".to_string(), val));
+            }
+            if let Some(class) = attrs.get("class") {
+                let val = class.as_str().unwrap_or("default").to_string();
+                pairs.push(("class".to_string(), val));
+            }
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            for (key, value) in pairs {
+                attributes.push(Attribute { key, value });
+            }
+        }
+
         storages.push(Storage {
             name,
             quantity: Some(crate::gen::akash::base::resources::v1beta4::ResourceValue {
                 val: size_bytes.to_string().into_bytes(),
             }),
-            attributes: Vec::new(),
+            attributes,
         });
     }
 

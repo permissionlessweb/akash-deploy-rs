@@ -53,11 +53,10 @@
 
 use crate::auth::jwt::{JwtBuilder, JwtClaims};
 use crate::error::DeployError;
-use crate::r#gen::akash::escrow::id::v1::Scope;
 use crate::state::DeploymentState;
-use crate::store::{SessionStorage, StdoutStorage};
 #[cfg(feature = "file-storage")]
 use crate::store::FileBackedStorage;
+use crate::store::SessionStorage;
 use crate::traits::AkashBackend;
 use crate::types::*;
 
@@ -267,7 +266,10 @@ async fn init_client_core(
         grpc_endpoint: None, // Use RPC for all tx operations
         grpc_web_endpoint: None,
     };
-    tracing::info!("step 3/5: chain config built (chain_id=akashnet-2, rpc={})", rpc_endpoint);
+    tracing::info!(
+        "step 3/5: chain config built (chain_id=akashnet-2, rpc={})",
+        rpc_endpoint
+    );
 
     // Step 4: Create the signing client (connects to RPC)
     tracing::info!("step 4/5: creating signing client (connecting to RPC endpoint)...");
@@ -529,16 +531,16 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
     let json: serde_json::Value = serde_json::from_str(body)
         .map_err(|e| DeployError::Provider(format!("Invalid JSON in status response: {}", e)))?;
 
+    tracing::debug!("parse_provider_lease_status: raw response body length={}", body.len());
+    tracing::trace!("parse_provider_lease_status: {}", body);
+
     let mut endpoints = Vec::new();
     let mut ready = false;
 
-    if let Some(services) = json.get("services").and_then(|s| s.as_array()) {
-        for service in services {
-            let name = service
-                .get("name")
-                .and_then(|n| n.as_str())
-                .unwrap_or("unknown");
-
+    // Provider returns `services` as an object keyed by service name, e.g.:
+    //   {"services": {"my-svc": {"available": 1, "uris": ["abc.ingress.com", "my.domain"]}}}
+    if let Some(services) = json.get("services").and_then(|s| s.as_object()) {
+        for (name, service) in services {
             let available = service
                 .get("available")
                 .and_then(|a| a.as_u64())
@@ -565,7 +567,7 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
                         };
 
                         endpoints.push(ServiceEndpoint {
-                            service: name.to_string(),
+                            service: name.clone(),
                             uri: full_uri,
                             port,
                         });
@@ -575,43 +577,53 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
         }
     }
 
-    // Fallback: forwarded_ports format
-    if endpoints.is_empty() {
-        if let Some(ports) = json.get("forwarded_ports").and_then(|p| p.as_object()) {
-            for (service_name, port_info) in ports {
-                let port_obj = if let Some(arr) = port_info.as_array() {
-                    arr.first().and_then(|v| v.as_object())
-                } else {
-                    port_info.as_object()
-                };
+    // Also parse forwarded_ports (raw TCP ports). These are NOT mutually
+    // exclusive with services — a deployment can have both HTTP-routed
+    // endpoints and TCP-forwarded ports.
+    if let Some(ports) = json.get("forwarded_ports").and_then(|p| p.as_object()) {
+        for (service_name, port_info) in ports {
+            let port_obj = if let Some(arr) = port_info.as_array() {
+                arr.first().and_then(|v| v.as_object())
+            } else {
+                port_info.as_object()
+            };
 
-                if let Some(port_obj) = port_obj {
-                    if let Some(host) = port_obj.get("host").and_then(|h| h.as_str()) {
-                        let external_port = port_obj
-                            .get("externalPort")
-                            .and_then(|p| p.as_u64())
-                            .or_else(|| port_obj.get("port").and_then(|p| p.as_u64()))
-                            .unwrap_or(80);
+            if let Some(port_obj) = port_obj {
+                if let Some(host) = port_obj.get("host").and_then(|h| h.as_str()) {
+                    let external_port = port_obj
+                        .get("externalPort")
+                        .and_then(|p| p.as_u64())
+                        .or_else(|| port_obj.get("port").and_then(|p| p.as_u64()))
+                        .unwrap_or(80);
 
-                        let uri = if external_port == 443 {
-                            format!("https://{}", host)
-                        } else if external_port == 80 {
-                            format!("http://{}", host)
-                        } else {
-                            format!("http://{}:{}", host, external_port)
-                        };
+                    let uri = if external_port == 443 {
+                        format!("https://{}", host)
+                    } else if external_port == 80 {
+                        format!("http://{}", host)
+                    } else {
+                        format!("http://{}:{}", host, external_port)
+                    };
 
-                        ready = true;
-                        endpoints.push(ServiceEndpoint {
-                            service: service_name.clone(),
-                            uri,
-                            port: external_port as u16,
-                        });
-                    }
+                    ready = true;
+                    endpoints.push(ServiceEndpoint {
+                        service: service_name.clone(),
+                        uri,
+                        port: external_port as u16,
+                    });
                 }
             }
         }
     }
+
+    for ep in &endpoints {
+        tracing::debug!(
+            service = %ep.service,
+            uri = %ep.uri,
+            port = ep.port,
+            "parse_provider_lease_status: endpoint"
+        );
+    }
+    tracing::debug!(ready, endpoint_count = endpoints.len(), "parse_provider_lease_status: done");
 
     Ok(ProviderLeaseStatus { ready, endpoints })
 }
@@ -679,7 +691,13 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
 
     async fn query_certificate(&self, owner: &str) -> Result<Option<CertificateInfo>, DeployError> {
         // Check cache first
-        if let Some(cert) = self.storage.read().await.load_cached_certificate(owner).await? {
+        if let Some(cert) = self
+            .storage
+            .read()
+            .await
+            .load_cached_certificate(owner)
+            .await?
+        {
             return Ok(Some(cert));
         }
 
@@ -722,7 +740,13 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         provider: &str,
     ) -> Result<Option<ProviderInfo>, DeployError> {
         // Check cache first
-        if let Some(info) = self.storage.read().await.load_cached_provider(provider).await? {
+        if let Some(info) = self
+            .storage
+            .read()
+            .await
+            .load_cached_provider(provider)
+            .await?
+        {
             return Ok(Some(info));
         }
 
@@ -776,6 +800,8 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     async fn query_bids(&self, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
         use crate::gen::akash::market::v1beta5 as akash_market;
 
+        tracing::debug!(owner, dseq, "query_bids: querying bids");
+
         // Get reusable query clients
         let mut clients = self.get_query_clients().await?;
 
@@ -798,17 +824,55 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             .map_err(|e| DeployError::Query(format!("Failed to query bids: {}", e)))?
             .into_inner();
 
+        tracing::debug!(raw_count = response.bids.len(), "query_bids: raw gRPC response");
+
         // Convert proto bids to our domain types
         let bids = response
             .bids
             .into_iter()
             .filter_map(|bid_response| {
-                let bid = bid_response.bid?;
-                let bid_id = bid.id?;
-                let price = bid.price?;
+                let bid = match bid_response.bid {
+                    Some(b) => b,
+                    None => {
+                        tracing::warn!("query_bids: bid_response.bid is None");
+                        return None;
+                    }
+                };
+                let bid_id = match bid.id {
+                    Some(id) => id,
+                    None => {
+                        tracing::warn!("query_bids: bid.id is None");
+                        return None;
+                    }
+                };
+                let price = match bid.price {
+                    Some(p) => p,
+                    None => {
+                        tracing::warn!(provider = %bid_id.provider, "query_bids: bid.price is None");
+                        return None;
+                    }
+                };
 
-                // Parse price amount
-                let price_uakt = price.amount.parse::<u64>().ok()?;
+                tracing::debug!(
+                    provider = %bid_id.provider,
+                    denom = %price.denom,
+                    amount = %price.amount,
+                    state = bid.state,
+                    "query_bids: bid"
+                );
+
+                // Parse price amount — DecCoin amounts are 18-decimal-precision
+                // fixed-point integers (e.g. "138933496000000000000" = 138.93 uakt).
+                // Parse as u128 first, then divide by 10^18 to get the uakt value.
+                let raw_amount = match price.amount.split('.').next().unwrap_or("0").parse::<u128>() {
+                    Ok(v) => v,
+                    Err(e) => {
+                        tracing::warn!(amount = %price.amount, error = %e, "query_bids: failed to parse price");
+                        return None;
+                    }
+                };
+                const DEC_PRECISION: u128 = 1_000_000_000_000_000_000; // 10^18
+                let price_uakt = (raw_amount / DEC_PRECISION) as u64;
 
                 // Extract resources (if available)
                 let resources = Resources::default(); // TODO: Parse from bid if needed
@@ -819,8 +883,9 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
                     resources,
                 })
             })
-            .collect();
+            .collect::<Vec<_>>();
 
+        tracing::debug!(parsed_count = bids.len(), "query_bids: done");
         Ok(bids)
     }
 
@@ -1016,13 +1081,14 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             deposit: Some(deposit),
         };
 
-        eprintln!("═══ MsgCreateDeployment ═══");
-        eprintln!("  owner: {}", owner);
-        eprintln!("  dseq: {}", dseq);
-        eprintln!("  deposit: {} uakt", deposit_uakt);
-        eprintln!("  groups: {}", msg.groups.len());
-        eprintln!("  hash: {}", hex::encode(&msg.hash));
-        eprintln!("═══ Broadcasting... ═══");
+        tracing::info!(
+            owner,
+            dseq,
+            deposit_uakt,
+            groups = msg.groups.len(),
+            hash = %hex::encode(&msg.hash),
+            "MsgCreateDeployment: broadcasting"
+        );
 
         // Configure tx builder:
         // - 1.4x gas simulation multiplier for overhead
@@ -1044,10 +1110,30 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
                     tx_code = response.code,
                     "deployment tx response"
                 );
-                eprintln!("  tx_hash: {}", response.txhash);
-                eprintln!("  tx_code: {}", response.code);
+                tracing::debug!(
+                    block_height_dseq = dseq,
+                    event_dseq = ?event_dseq,
+                    num_events = response.events.len(),
+                    "create_deployment: tx events"
+                );
+                for (ei, event) in response.events.iter().enumerate() {
+                    tracing::trace!(
+                        event_index = ei,
+                        event_type = %event.r#type,
+                        "create_deployment: event"
+                    );
+                    for attr in &event.attributes {
+                        tracing::trace!(key = %attr.key, value = %attr.value, "  attr");
+                    }
+                }
 
                 let final_dseq = event_dseq.unwrap_or(dseq);
+                tracing::info!(
+                    final_dseq,
+                    tx_hash = %response.txhash,
+                    tx_code = response.code,
+                    "create_deployment: complete"
+                );
 
                 Ok((
                     TxResult {
@@ -1066,18 +1152,17 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
                 // the tx succeeds on-chain but the response is lost/truncated.
                 // We recover by waiting and verifying the deployment exists.
                 if err_str.contains("Missing response message") {
-                    eprintln!("WARNING: gRPC returned 'Missing response message'");
-                    eprintln!(
-                        "  This is a known gRPC endpoint issue — tx likely succeeded on-chain."
+                    tracing::warn!(
+                        dseq,
+                        "gRPC returned 'Missing response message' — tx likely succeeded on-chain, verifying..."
                     );
-                    eprintln!("  Waiting 6s then verifying deployment dseq={} ...", dseq);
                     tokio::time::sleep(std::time::Duration::from_secs(6)).await;
                     match self.query_bids(owner, dseq).await {
                         Ok(bids) => {
-                            eprintln!(
-                                "  Verified: deployment dseq={} exists on-chain ({} bids so far)",
+                            tracing::info!(
                                 dseq,
-                                bids.len()
+                                bid_count = bids.len(),
+                                "Verified: deployment exists on-chain"
                             );
                             Ok((
                                 TxResult {
@@ -1090,7 +1175,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
                             ))
                         }
                         Err(verify_err) => {
-                            eprintln!("  Verification failed: {}", verify_err);
+                            tracing::error!(error = %verify_err, "Deployment verification failed");
                             // Could not verify — report the original error
                             Err(DeployError::Transaction {
                                 code: 1,
@@ -1497,7 +1582,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         &self,
         provider: &str,
     ) -> Result<Option<ProviderInfo>, DeployError> {
-        self.storage.read().await.load_cached_provider(provider).await
+        self.storage
+            .read()
+            .await
+            .load_cached_provider(provider)
+            .await
     }
 
     async fn cache_provider(&self, info: &ProviderInfo) -> Result<(), DeployError> {
@@ -1573,7 +1662,12 @@ pub async fn import_sessions<S: SessionStorage>(
             let session: DeploymentState = serde_json::from_str(&content)
                 .map_err(|e| DeployError::Storage(format!("failed to parse session: {}", e)))?;
 
-            client.storage().write().await.save_session(&session).await?;
+            client
+                .storage()
+                .write()
+                .await
+                .save_session(&session)
+                .await?;
             imported += 1;
         }
     }
