@@ -330,38 +330,7 @@ fn test_sdl_template_process_missing_default() {
 
 #[test]
 fn test_full_sdl_template() {
-    let template_content = r#"
-version: "2.0"
-services:
-  web:
-    image: ${IMAGE}:${VERSION}
-    expose:
-      - port: ${PORT}
-        as: ${PORT}
-        to:
-          - global: true
-profiles:
-  compute:
-    web:
-      resources:
-        cpu:
-          units: ${CPU_UNITS}
-        memory:
-          size: ${MEMORY_SIZE}
-        storage:
-          size: ${STORAGE_SIZE}
-  placement:
-    dcloud:
-      pricing:
-        web:
-          denom: uakt
-          amount: ${PRICE}
-deployment:
-  web:
-    dcloud:
-      profile: web
-      count: ${COUNT}
-"#;
+    let template_content = include_str!("testdata/template_simple.yaml");
 
     let template = SdlTemplate::new(template_content).unwrap();
 

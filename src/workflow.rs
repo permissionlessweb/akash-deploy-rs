@@ -4,6 +4,8 @@
 //! transitions between steps and calls the backend. No storage,
 //! no signing, no transport. Just logic.
 
+use tracing::subscriber;
+
 use crate::error::DeployError;
 use crate::state::{DeploymentState, Step};
 use crate::traits::AkashBackend;
@@ -401,21 +403,21 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         })?;
 
         // Process template if feature enabled and is_template flag set
-        #[cfg(feature = "sdl-templates")]
-        let processed_sdl = if state.is_template {
-            let template = crate::sdl::template::SdlTemplate::new(sdl)?;
-            let empty_vars = std::collections::HashMap::new();
-            let empty_defaults = std::collections::HashMap::new();
-            let variables = state.template_variables.as_ref().unwrap_or(&empty_vars);
-            let defaults = state.template_defaults.as_ref().unwrap_or(&empty_defaults);
-            template.process(variables, defaults)?
-        } else {
+        let processed_sdl = {
+            #[cfg(feature = "sdl-templates")]
+            if state.is_template {
+                let template = crate::sdl::template::SdlTemplate::new(sdl)?;
+                let empty_vars = std::collections::HashMap::new();
+                let empty_defaults = std::collections::HashMap::new();
+                let variables = state.template_variables.as_ref().unwrap_or(&empty_vars);
+                let defaults = state.template_defaults.as_ref().unwrap_or(&empty_defaults);
+                template.process(variables, defaults)?
+            } else {
+                sdl.clone()
+            }
+            #[cfg(not(feature = "sdl-templates"))]
             sdl.clone()
         };
-
-        #[cfg(not(feature = "sdl-templates"))]
-        let processed_sdl = sdl.clone();
-
         // Get provider URI
         let provider_info = self
             .backend
@@ -541,6 +543,7 @@ fn build_manifest(owner: &str, sdl: &str, dseq: u64) -> Result<Vec<u8>, DeployEr
     // Serialize to canonical JSON (deterministic, matches Go's encoding/json)
     let canonical_json = crate::manifest::canonical::to_canonical_json(&manifest_groups)?;
 
+    tracing::debug!("sdl: {}", sdl);
     tracing::debug!(manifest_json = %canonical_json, "built manifest JSON");
 
     Ok(canonical_json.into_bytes())
@@ -1004,6 +1007,7 @@ deployment:
                 service: "web".to_string(),
                 uri: "https://web.example.com".to_string(),
                 port: 80,
+                internal_port: todo!(),
             }],
         });
 

@@ -237,18 +237,12 @@ impl ManifestBuilder {
         let services_section = yaml
             .get("services")
             .ok_or_else(|| DeployError::Sdl("Missing 'services' section".into()))?;
-
         let deployment_section = yaml
             .get("deployment")
             .ok_or_else(|| DeployError::Sdl("Missing 'deployment' section".into()))?;
-
         let profiles_section = yaml.get("profiles");
-
-        // Parse all services
         let all_services =
             self.parse_services(services_section, deployment_section, profiles_section)?;
-
-        // Group services by their placement group
         let mut groups_map: std::collections::HashMap<String, Vec<ManifestService>> =
             std::collections::HashMap::new();
 
@@ -314,7 +308,6 @@ impl ManifestBuilder {
             let service_name = name
                 .as_str()
                 .ok_or_else(|| DeployError::Sdl("Service name must be string".into()))?;
-
             let service =
                 self.parse_service(service_name, config, deployment_section, profiles_section)?;
             services.push(service);
@@ -342,7 +335,6 @@ impl ManifestBuilder {
         let env = self.parse_env(config);
         let expose = self.parse_expose(config)?;
         let mut resources = self.parse_service_resources(name, profiles_section)?;
-
         // Populate resource endpoints for global exposes only.
         // kind=0 (SHARED_HTTP): external port 80 via provider ingress — omit kind field (JSON default).
         // kind=1 (RANDOM_PORT): any other globally exposed port — include "kind": 1.
@@ -477,25 +469,16 @@ impl ManifestBuilder {
         config: &serde_yaml::Value,
     ) -> Result<Vec<ManifestServiceExpose>, DeployError> {
         let mut exposes = Vec::new();
-
+        let mut endpoint_sequence_number: u32 = 0;
         let expose_section = match config.get("expose") {
             Some(e) => e,
             None => return Ok(exposes),
         };
-
         let expose_arr = expose_section
             .as_sequence()
             .ok_or_else(|| DeployError::Sdl("'expose' must be an array".into()))?;
-
-        // Global endpoint sequence counter — incremented for each global expose
-        let mut endpoint_seq: u32 = 0;
-
         for expose_config in expose_arr.iter() {
-            let port = expose_config
-                .get("port")
-                .and_then(|p| p.as_u64())
-                .unwrap_or(80) as u32;
-
+            let port = expose_config.get("port").and_then(|p| p.as_u64()).unwrap_or(80) as u32;
             // external_port: 0 when not explicitly set (matches Go provider behavior)
             let external_port = expose_config
                 .get("as")
@@ -507,7 +490,6 @@ impl ManifestBuilder {
                 .and_then(|p| p.as_str())
                 .unwrap_or("TCP")
                 .to_uppercase();
-
             // Parse accept hosts (shared across all `to` targets for this expose block)
             let hosts = expose_config
                 .get("accept")
@@ -519,15 +501,11 @@ impl ManifestBuilder {
                 });
             // CRITICAL: Go serializes missing hosts as null, present-but-empty as []
             let hosts = hosts.filter(|h| !h.is_empty());
-
             // Parse http_options from SDL (fall back to defaults)
             let http_options = self.parse_http_options(expose_config);
-
             // Expand each `to` target into a separate ManifestServiceExpose entry
             // (matches Go manifest builder behavior)
-            let to_targets = expose_config.get("to").and_then(|t| t.as_sequence());
-
-            if let Some(targets) = to_targets {
+            if let Some(targets) = expose_config.get("to").and_then(|t| t.as_sequence()) {
                 for target in targets {
                     let is_global = target
                         .get("global")
@@ -540,28 +518,23 @@ impl ManifestBuilder {
                         .unwrap_or("")
                         .to_string();
 
-                    let seq = if is_global {
-                        let s = endpoint_seq;
-                        endpoint_seq += 1;
+                    let endpoint_sequence_number = if is_global {
+                        let s = endpoint_sequence_number;
+                        endpoint_sequence_number += 1;
                         s
                     } else {
                         0
                     };
-
-                    // Only global entries get accept hostnames — service-to-service
-                    // targets use internal DNS, not external hostname routing.
-                    let entry_hosts = if is_global { hosts.clone() } else { None };
-
                     exposes.push(ManifestServiceExpose {
                         port,
                         external_port,
                         proto: proto.clone(),
                         service: service_name,
                         global: is_global,
-                        hosts: entry_hosts,
+                        hosts: if is_global { hosts.clone() } else { None },
                         http_options: http_options.clone(),
                         ip: String::new(),
-                        endpoint_sequence_number: seq,
+                        endpoint_sequence_number,
                     });
                 }
             } else {
@@ -575,7 +548,7 @@ impl ManifestBuilder {
                     hosts,
                     http_options,
                     ip: String::new(),
-                    endpoint_sequence_number: 0,
+                    endpoint_sequence_number,
                 });
             }
         }

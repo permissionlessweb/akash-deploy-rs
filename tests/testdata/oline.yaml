@@ -1,0 +1,200 @@
+---
+version: "2.0"
+services:
+  oline-a-snapshot:
+    image: ghcr.io/akash-network/cosmos-omnibus:v1.2.38-generic
+    expose:
+      - port: 26656
+        as: 26656
+        to:
+          - global: true
+      - port: 26657
+        as: 26657
+        to:
+          - global: true
+        accept:
+          - statesync.terp.network # ← only for RPC, not P2P
+    env:
+      - MONIKER=oline::special::snapshot-node
+      - CHAIN_JSON=https://raw.githubusercontent.com/permissionlessweb/chain-registry/refs/heads/terpnetwork%40v5.0.4/terpnetwork/chain.json
+      - MINIMUM_GAS_PRICES=0.05uthiol
+      - FASTSYNC_VERSION=v0
+      - PRUNING=nothing
+      - STATESYNC_SNAPSHOT_INTERVAL=500
+      # - COSMOVISOR_ENABLED=1
+      - TERPD_P2P_PEX=false
+      - ADDRBOOK_URL=https://raw.githubusercontent.com/111STAVR111/props/main/Terp/addrbook.json
+      - TERPD_P2P_PRIVATE_PEER_IDS=69696969696969696969696969@123.456.7.89:00000
+      - WASMVM_PATH=/lib/libwasmvm.x86_64.so
+      - WASMVM_VERSION=v3.0.2
+      - WASMVM_URL=https://github.com/CosmWasm/wasmvm/releases/download/v3.0.2/libwasmvm.x86_64.so
+      - S3_KEY=fdafdafdafdafasfdsafdsfsa
+      - S3_SECRET=fdfdafdsafdsafdfdsafdsafdsavdafdsfda
+      - S3_HOST=snapshots.terp.network
+      - SNAPSHOT_URL=https://server-4.itrocket.net/mainnet/terp/yero.tar.lz4
+      - SNAPSHOT_FORMAT=tar.lz4
+      - SNAPSHOT_PATH=snapshots/terpnetwork
+      - SNAPSHOT_TIME=00:00:00
+      - SNAPSHOT_DIR=/root/.terpd
+      - SNAPSHOT_METADATA=1
+      - SNAPSHOT_METADATA_URL=https://snapshots.terp.network/snapshots/terpnetwork/snapshot.json
+      - SNAPSHOT_SAVE_FORMAT=tar.gz
+      - SNAPSHOT_RETAIN=2 days
+      - SNAPSHOT_KEEP_LAST=2
+      - SNAPSHOT_ON_START=1
+      - START_CMD=/bin/sh -c "curl -fsSL https://raw.githubusercontent.com/permissionlessweb/o-line/refs/heads/feat/tls/plays/scripts/tls-setup.sh | sh -s -- terpd start"
+  oline-a-seed:
+    image: ghcr.io/akash-network/cosmos-omnibus:v1.2.38-generic
+    expose:
+      - port: 26657
+        as: 26657
+        accept:
+          - seed-statesync.terp.network
+          - www.seed-statesync.terp.network
+        to:
+          - global: true
+      - port: 26656
+        as: 26656
+        accept:
+          - seed.terp.network
+          - www.seed.terp.network
+        to:
+          - global: true
+    env:
+      - MONIKER=oline::special::seed-node
+      - CHAIN_JSON=https://raw.githubusercontent.com/permissionlessweb/chain-registry/refs/heads/terpnetwork%40v5.0.4/terpnetwork/chain.json
+      - MINIMUM_GAS_PRICES=0.05uthiol
+      - PRUNING=default
+      - TERPD_P2P_PEX=true
+      - FASTSYNC_VERSION=v0
+      - STATESYNC_SNAPSHOT_INTERVAL=500
+      - WASMVM_PATH=/lib/libwasmvm.x86_64.so
+      - WASMVM_VERSION=v3.0.2
+      - WASMVM_URL=https://github.com/CosmWasm/wasmvm/releases/download/v3.0.2/libwasmvm.x86_64.so
+      # - COSMOVISOR_ENABLED=1
+      # - STATESYNC_RPC_SERVERS=<mainnet-terp-rpc.konsortech.xyz:443,rpc.terp.aknodes.net:443>
+      - ADDRBOOK_URL=https://raw.githubusercontent.com/111STAVR111/props/main/Terp/addrbook.json
+      - SNAPSHOT_URL=https://server-4.itrocket.net/mainnet/terp/terp_2026-02-21_17759092_snap.tar.lz4
+      - SNAPSHOT_FORMAT=tar.lz4
+  oline-a-minio-ipfs:
+    image: ghcr.io/permissionlessweb/minio-ipfs:v0.0.3
+    expose:
+      - port: 9001
+        as: 9001
+        to:
+          - global: true
+      - port: 8081
+        as: 8081
+        to:
+          - global: true
+      - port: 9000
+        as: 9000
+        to:
+          - service: oline-a-snapshot
+      - port: 80
+        as: 80
+        to:
+          - global: true
+        accept:
+          - snapshots.terp.network
+        http_options:
+          max_body_size: 104857600
+          read_timeout: 60000
+          send_timeout: 60000
+      - port: 443
+        as: 443
+        proto: tcp
+        to:
+          - global: true
+      - port: 4001
+        as: 4001
+        proto: tcp
+        to:
+          - global: true
+    env:
+      - MINIO_ROOT_USER=fdafdsafdsafdasfdafadfdsafdsa
+      - MINIO_ROOT_PASSWORD=dfdafadfdsafsadfdsafdsfsa
+      - MINIO_BUCKET=snapshots
+      - MINIO_CONSOLE_PORT=9001
+      - IPFS_GATEWAY_PORT=8081
+      - IPFS_PROFILE=server
+      - AUTOPIN_INTERVAL=300
+      - AUTOPIN_PATTERNS=*.tar.gz,*.tar.zst,*.tar.lz4,*.tar.xz
+      - PUID=1000
+      - PGID=1000
+      - SNAPSHOT_DOWNLOAD_DOMAIN=snapshots.terp.network
+      - CERTBOT_EMAIL=admin@terp.network
+    params:
+      storage:
+        ipfs-data:
+          mount: /data/ipfs
+          readOnly: false
+        minio-data:
+          mount: /data/minio
+          readOnly: false
+profiles:
+  compute:
+    oline-a-snapshot:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 8Gi
+        storage:
+          - size: 50Gi
+    oline-a-seed:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 8Gi
+        storage:
+          - size: 50Gi
+    oline-a-minio-ipfs:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 4Gi
+        storage:
+          - size: 10Gi
+          - name: ipfs-data
+            size: 100Gi
+            attributes:
+              persistent: true
+              class: beta3
+          - name: minio-data
+            size: 50Gi
+            attributes:
+              persistent: true
+              class: beta3
+  placement:
+    dcloud:
+      pricing:
+        oline-a-snapshot:
+          denom: uakt
+          amount: 1000
+        oline-a-seed:
+          denom: uakt
+          amount: 1000
+        oline-a-minio-ipfs:
+          denom: uakt
+          amount: 1000
+      signedBy:
+        anyOf:
+          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
+      attributes:
+        host: akash
+deployment:
+  oline-a-snapshot:
+    dcloud:
+      profile: oline-a-snapshot
+      count: 1
+  oline-a-seed:
+    dcloud:
+      profile: oline-a-seed
+      count: 1
+  oline-a-minio-ipfs:
+    dcloud:
+      profile: oline-a-minio-ipfs
+      count: 1

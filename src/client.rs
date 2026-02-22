@@ -540,8 +540,6 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
     let mut endpoints = Vec::new();
     let mut ready = false;
 
-    // Provider returns `services` as an object keyed by service name, e.g.:
-    //   {"services": {"my-svc": {"available": 1, "uris": ["abc.ingress.com", "my.domain"]}}}
     if let Some(services) = json.get("services").and_then(|s| s.as_object()) {
         for (name, service) in services {
             let available = service
@@ -564,15 +562,16 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
                         };
 
                         let port = if full_uri.starts_with("https://") {
-                            443
+                            443u16
                         } else {
-                            80
+                            80u16
                         };
 
                         endpoints.push(ServiceEndpoint {
                             service: name.clone(),
                             uri: full_uri,
                             port,
+                            internal_port: 0, // HTTP-ingress: no SDL-port mapping
                         });
                     }
                 }
@@ -583,36 +582,52 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
     // Also parse forwarded_ports (raw TCP ports). These are NOT mutually
     // exclusive with services — a deployment can have both HTTP-routed
     // endpoints and TCP-forwarded ports.
+    //
+    // Akash provider JSON fields:
+    //   "port"         → provider-assigned NodePort (what clients connect to)
+    //   "externalPort" → SDL-specified internal port (e.g. 26656 or 26657)
+    //
+    // Each service can have multiple forwarded ports — iterate the entire array.
     if let Some(ports) = json.get("forwarded_ports").and_then(|p| p.as_object()) {
         for (service_name, port_info) in ports {
-            let port_obj = if let Some(arr) = port_info.as_array() {
-                arr.first().and_then(|v| v.as_object())
+            let items: Vec<&serde_json::Value> = if let Some(arr) = port_info.as_array() {
+                arr.iter().collect()
             } else {
-                port_info.as_object()
+                vec![port_info]
             };
 
-            if let Some(port_obj) = port_obj {
-                if let Some(host) = port_obj.get("host").and_then(|h| h.as_str()) {
-                    let external_port = port_obj
-                        .get("externalPort")
-                        .and_then(|p| p.as_u64())
-                        .or_else(|| port_obj.get("port").and_then(|p| p.as_u64()))
-                        .unwrap_or(80);
+            for item in items {
+                if let Some(port_obj) = item.as_object() {
+                    if let Some(host) = port_obj.get("host").and_then(|h| h.as_str()) {
+                        // Akash provider JSON field semantics (confirmed by observed behavior):
+                        //   "externalPort" = provider-assigned NodePort clients connect to (e.g. 32202)
+                        //   "port"         = SDL-specified internal container port (e.g. 26656 / 26657)
+                        let node_port = port_obj
+                            .get("externalPort")
+                            .and_then(|p| p.as_u64())
+                            .unwrap_or(0);
 
-                    let uri = if external_port == 443 {
-                        format!("https://{}", host)
-                    } else if external_port == 80 {
-                        format!("http://{}", host)
-                    } else {
-                        format!("http://{}:{}", host, external_port)
-                    };
+                        if node_port == 0 {
+                            continue;
+                        }
 
-                    ready = true;
-                    endpoints.push(ServiceEndpoint {
-                        service: service_name.clone(),
-                        uri,
-                        port: external_port as u16,
-                    });
+                        // internal_port identifies the protocol: 26657 = RPC, 26656 = P2P.
+                        let internal_port = port_obj
+                            .get("port")
+                            .and_then(|p| p.as_u64())
+                            .unwrap_or(node_port)
+                            as u16;
+
+                        let uri = format!("http://{}:{}", host, node_port);
+
+                        ready = true;
+                        endpoints.push(ServiceEndpoint {
+                            service: service_name.clone(),
+                            uri,
+                            port: node_port as u16,
+                            internal_port,
+                        });
+                    }
                 }
             }
         }
@@ -623,6 +638,7 @@ fn parse_provider_lease_status(body: &str) -> Result<ProviderLeaseStatus, Deploy
             service = %ep.service,
             uri = %ep.uri,
             port = ep.port,
+            internal_port = ep.internal_port,
             "parse_provider_lease_status: endpoint"
         );
     }

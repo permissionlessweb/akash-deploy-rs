@@ -121,7 +121,11 @@ impl TxResult {
 pub struct ServiceEndpoint {
     pub service: String,
     pub uri: String,
+    /// Provider-assigned external NodePort that clients connect to.
     pub port: u16,
+    /// SDL-specified internal port this connection maps to (0 for HTTP-ingress endpoints).
+    #[serde(default)]
+    pub internal_port: u16,
 }
 
 /// Provider's status for a lease.
