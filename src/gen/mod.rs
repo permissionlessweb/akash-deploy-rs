@@ -154,16 +154,21 @@ pub mod akash {
 // Re-export commonly used types for convenience
 pub mod prelude {
     // Certificate types
-    pub use super::akash::cert::v1::*;
+    #[cfg(feature = "rpc")]
+    pub use super::akash::cert::v1::query_client as cert_query_client;
+    pub use super::akash::cert::v1::{GenesisState as CertGenesisState, State as CertState};
 
     // Deployment types (v1beta5 is the latest)
-    pub use super::akash::deployment::v1beta5::*;
+    #[cfg(feature = "rpc")]
+    pub use super::akash::deployment::v1beta5::query_client as deployment_query_client;
 
     // Market types (v2beta1 is the latest)
-    pub use super::akash::market::v2beta1::*;
+    #[cfg(feature = "rpc")]
+    pub use super::akash::market::v2beta1::{self as market, query_client as market_query_client};
 
     // Escrow types
-    pub use super::akash::escrow::v1::*;
+    #[cfg(feature = "rpc")]
+    pub use super::akash::escrow::v1::{self as escrow, query_client as escrow_query_client};
 
     // Provider types (v1beta4 is the latest)
     pub use super::akash::provider::v1beta4::*;

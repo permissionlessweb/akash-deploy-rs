@@ -58,9 +58,6 @@ pub struct FileBackedStorage {
 
     /// In-memory certificate cache
     certificates: HashMap<String, CertificateInfo>,
-
-    /// Whether storage has been modified and needs flush
-    dirty: bool,
 }
 
 impl FileBackedStorage {
@@ -98,7 +95,6 @@ impl FileBackedStorage {
             sessions: HashMap::new(),
             providers: HashMap::new(),
             certificates: HashMap::new(),
-            dirty: false,
         };
 
         // Load existing data into memory

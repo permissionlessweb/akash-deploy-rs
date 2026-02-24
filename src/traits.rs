@@ -125,7 +125,8 @@ pub trait AkashBackend: Send + Sync {
     ///
     /// The implementation should derive the secp256k1 key from the wallet
     /// and sign with ES256K (SHA-256 + secp256k1).
-    fn generate_jwt(&self, owner: &str) -> impl Future<Output = Result<String, DeployError>> + Send;
+    fn generate_jwt(&self, owner: &str)
+        -> impl Future<Output = Result<String, DeployError>> + Send;
 
     /// Send manifest to provider.
     fn send_manifest(
