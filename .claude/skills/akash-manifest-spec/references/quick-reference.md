@@ -126,8 +126,8 @@ fn parse_size(s: &str) -> u64 {
 ```rust
 // Always include on every service
 ManifestServiceExpose {
-    service: String::new(),           // ""
-    ip: String::new(),                // ""
+    service: String::new(), 
+    ip: String::new(), 
     endpoint_sequence_number: 0,
     http_options: ManifestHttpOptions::default(),
 }

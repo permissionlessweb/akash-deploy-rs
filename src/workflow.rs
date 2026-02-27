@@ -4,8 +4,6 @@
 //! transitions between steps and calls the backend. No storage,
 //! no signing, no transport. Just logic.
 
-use tracing::subscriber;
-
 use crate::error::DeployError;
 use crate::state::{DeploymentState, Step};
 use crate::traits::AkashBackend;
@@ -23,10 +21,6 @@ pub struct WorkflowConfig {
     pub max_bid_wait_attempts: u32,
     /// Max attempts to wait for endpoints.
     pub max_endpoint_wait_attempts: u32,
-    /// Auto-select cheapest bid without user input.
-    pub auto_select_cheapest_bid: bool,
-    /// Trusted providers to prefer.
-    pub trusted_providers: Vec<String>,
     /// Provider authentication mode (JWT or mTLS).
     pub auth_mode: AuthMode,
 }
@@ -38,8 +32,6 @@ impl Default for WorkflowConfig {
             bid_wait_seconds: 12,        // ~2 blocks
             max_bid_wait_attempts: 10,
             max_endpoint_wait_attempts: 30,
-            auto_select_cheapest_bid: false,
-            trusted_providers: Vec::new(),
             auth_mode: AuthMode::default(),
         }
     }
@@ -314,15 +306,6 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             return Ok(StepResult::Continue);
         }
 
-        // Auto-select if configured
-        if self.config.auto_select_cheapest_bid {
-            // Prefer trusted providers, then cheapest
-            let selected = self.auto_select_provider(&state.bids);
-            state.selected_provider = Some(selected.provider.clone());
-            state.transition(Step::CreateLease);
-            return Ok(StepResult::Continue);
-        }
-
         // Need user input
         Ok(StepResult::NeedsInput(InputRequired::SelectProvider {
             bids: state.bids.clone(),
@@ -483,19 +466,6 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
     // ═══════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════
-
-    fn auto_select_provider<'b>(&self, bids: &'b [Bid]) -> &'b Bid {
-        // First try trusted providers
-        for trusted in &self.config.trusted_providers {
-            if let Some(bid) = bids.iter().find(|b| &b.provider == trusted) {
-                return bid;
-            }
-        }
-        // Otherwise cheapest
-        bids.iter()
-            .min_by_key(|b| b.price_uakt)
-            .expect("bids should not be empty")
-    }
 
     /// Provide user's provider selection.
     pub fn select_provider(state: &mut DeploymentState, provider: &str) -> Result<(), DeployError> {
