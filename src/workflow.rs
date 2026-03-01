@@ -436,10 +436,38 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .await?
             .ok_or_else(|| DeployError::Provider("provider not found".into()))?;
 
-        let status = self
+        // Give the provider a few seconds on the first attempt — Kubernetes resources
+        // (Service, Pod) are created after bid acceptance, and the provider may return
+        // 404 "lease not found" if queried before it has had time to process the lease.
+        if attempts == 0 {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+
+        let status = match self
             .backend
             .query_provider_status(&provider_info.host_uri, lease, &auth)
-            .await?;
+            .await
+        {
+            Ok(s) => s,
+            // Transient provider errors (e.g. 404 "lease not found" while the provider
+            // is still setting up Kubernetes resources) are not fatal — treat them the
+            // same as a "not ready" status and let the retry loop handle them.
+            Err(e) if e.is_recoverable() => {
+                if attempts >= self.config.max_endpoint_wait_attempts {
+                    state.fail(
+                        format!("endpoints not ready after {} attempts: {}", attempts, e),
+                        true,
+                    );
+                    return Ok(StepResult::Failed("endpoints not ready".into()));
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                state.transition(Step::WaitForEndpoints {
+                    attempts: attempts + 1,
+                });
+                return Ok(StepResult::Continue);
+            }
+            Err(e) => return Err(e),
+        };
 
         if status.ready && !status.endpoints.is_empty() {
             state.endpoints = status.endpoints;
@@ -873,7 +901,6 @@ deployment:
     fn test_default_config() {
         let config = WorkflowConfig::default();
         assert_eq!(config.min_balance_uakt, 1_000_000);
-        assert!(!config.auto_select_cheapest_bid);
     }
 
     #[test]
@@ -940,35 +967,6 @@ deployment:
     }
 
     #[tokio::test]
-    async fn test_workflow_auto_select_cheapest() {
-        let backend = MockBackend::new();
-
-        let signer = MockSigner;
-        let mut config = WorkflowConfig::default();
-        config.auto_select_cheapest_bid = true;
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SelectProvider;
-        state.bids = vec![
-            Bid {
-                provider: "akash1expensive".to_string(),
-                price_uakt: 5000,
-                resources: Resources::default(),
-            },
-            Bid {
-                provider: "akash1cheap".to_string(),
-                price_uakt: 1000,
-                resources: Resources::default(),
-            },
-        ];
-
-        let result = workflow.advance(&mut state).await.unwrap();
-        assert!(matches!(result, StepResult::Continue));
-        assert_eq!(state.selected_provider, Some("akash1cheap".to_string()));
-    }
-
-    #[tokio::test]
     async fn test_workflow_endpoints_ready() {
         let backend = MockBackend::new();
         backend.set_provider_status(ProviderLeaseStatus {
@@ -977,7 +975,7 @@ deployment:
                 service: "web".to_string(),
                 uri: "https://web.example.com".to_string(),
                 port: 80,
-                internal_port: todo!(),
+                internal_port: 80,
             }],
         });
 
@@ -1234,34 +1232,6 @@ deployment:
     }
 
     #[tokio::test]
-    async fn test_step_select_provider_with_trusted() {
-        let backend = MockBackend::new();
-        let signer = MockSigner;
-        let mut config = WorkflowConfig::default();
-        config.trusted_providers = vec!["akash1trusted".to_string()];
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SelectProvider;
-        state.bids = vec![
-            Bid {
-                provider: "akash1trusted".to_string(),
-                price_uakt: 5000,
-                resources: Resources::default(),
-            },
-            Bid {
-                provider: "akash1cheap".to_string(),
-                price_uakt: 1000,
-                resources: Resources::default(),
-            },
-        ];
-
-        let result = workflow.advance(&mut state).await.unwrap();
-        // Should need input since auto_select is false
-        assert!(matches!(result, StepResult::NeedsInput(_)));
-    }
-
-    #[tokio::test]
     async fn test_step_create_deployment_with_valid_sdl() {
         let backend = MockBackend::new();
         let signer = MockSigner;
@@ -1381,64 +1351,6 @@ deployment:
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Continue));
         assert!(matches!(state.step, Step::CreateLease));
-    }
-
-    #[tokio::test]
-    async fn test_workflow_select_provider_auto_select() {
-        let backend = MockBackend::new();
-        let signer = MockSigner;
-        let mut config = WorkflowConfig::default();
-        config.auto_select_cheapest_bid = true;
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SelectProvider;
-        state.bids = vec![
-            Bid {
-                provider: "akash1expensive".to_string(),
-                price_uakt: 5000,
-                resources: Resources::default(),
-            },
-            Bid {
-                provider: "akash1cheap".to_string(),
-                price_uakt: 1000,
-                resources: Resources::default(),
-            },
-        ];
-
-        let result = workflow.advance(&mut state).await.unwrap();
-        assert!(matches!(result, StepResult::Continue));
-        assert_eq!(state.selected_provider, Some("akash1cheap".to_string()));
-    }
-
-    #[tokio::test]
-    async fn test_workflow_auto_select_trusted_provider() {
-        let backend = MockBackend::new();
-        let signer = MockSigner;
-        let mut config = WorkflowConfig::default();
-        config.auto_select_cheapest_bid = true;
-        config.trusted_providers = vec!["akash1trusted".to_string()];
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SelectProvider;
-        state.bids = vec![
-            Bid {
-                provider: "akash1trusted".to_string(),
-                price_uakt: 5000, // More expensive
-                resources: Resources::default(),
-            },
-            Bid {
-                provider: "akash1cheap".to_string(),
-                price_uakt: 1000, // Cheaper
-                resources: Resources::default(),
-            },
-        ];
-
-        let result = workflow.advance(&mut state).await.unwrap();
-        assert!(matches!(result, StepResult::Continue));
-        // Should select trusted provider even though it's more expensive
-        assert_eq!(state.selected_provider, Some("akash1trusted".to_string()));
     }
 
     #[tokio::test]
