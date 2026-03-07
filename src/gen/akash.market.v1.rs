@@ -44,10 +44,10 @@ impl ::prost::Name for BidId {
         "/akash.market.v1.BidID".into()
     }
 }
-/// OrderId stores owner and all other seq numbers.
+/// LeaseFilters defines flags for lease list filtering.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct OrderId {
+pub struct LeaseFilters {
     /// Owner is the account bech32 address of the user who owns the deployment.
     /// It is a string representing a valid bech32 account address.
     ///
@@ -67,15 +67,28 @@ pub struct OrderId {
     /// Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated.
     #[prost(uint32, tag = "4")]
     pub oseq: u32,
+    /// Provider is the account bech32 address of the provider making the bid.
+    /// It is a string representing a valid account bech32 address.
+    ///
+    /// Example:
+    /// "akash1..."
+    #[prost(string, tag = "5")]
+    pub provider: ::prost::alloc::string::String,
+    /// State represents the state of the lease.
+    #[prost(string, tag = "6")]
+    pub state: ::prost::alloc::string::String,
+    /// BSeq (bid sequence) distinguishes multiple bids associated with a single deployment from same provider.
+    #[prost(uint32, tag = "7")]
+    pub bseq: u32,
 }
-impl ::prost::Name for OrderId {
-    const NAME: &'static str = "OrderID";
+impl ::prost::Name for LeaseFilters {
+    const NAME: &'static str = "LeaseFilters";
     const PACKAGE: &'static str = "akash.market.v1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v1.OrderID".into()
+        "akash.market.v1.LeaseFilters".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v1.OrderID".into()
+        "/akash.market.v1.LeaseFilters".into()
     }
 }
 /// LeaseClosedReason indicates reason bid was closed
@@ -129,6 +142,40 @@ impl LeaseClosedReason {
             "lease_closed_reason_insufficient_funds" => Some(Self::InsufficientFunds),
             _ => None,
         }
+    }
+}
+/// OrderId stores owner and all other seq numbers.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct OrderId {
+    /// Owner is the account bech32 address of the user who owns the deployment.
+    /// It is a string representing a valid bech32 account address.
+    ///
+    /// Example:
+    /// "akash1..."
+    #[prost(string, tag = "1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Dseq (deployment sequence number) is a unique numeric identifier for the deployment.
+    /// It is used to differentiate deployments created by the same owner.
+    #[prost(uint64, tag = "2")]
+    pub dseq: u64,
+    /// Gseq (group sequence number) is a unique numeric identifier for the group.
+    /// It is used to differentiate groups created by the same owner in a deployment.
+    #[prost(uint32, tag = "3")]
+    pub gseq: u32,
+    /// Oseq (order sequence) distinguishes multiple orders associated with a single deployment.
+    /// Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated.
+    #[prost(uint32, tag = "4")]
+    pub oseq: u32,
+}
+impl ::prost::Name for OrderId {
+    const NAME: &'static str = "OrderID";
+    const PACKAGE: &'static str = "akash.market.v1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v1.OrderID".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v1.OrderID".into()
     }
 }
 /// LeaseID stores bid details of lease.
@@ -387,52 +434,5 @@ impl ::prost::Name for EventLeaseClosed {
     }
     fn type_url() -> ::prost::alloc::string::String {
         "/akash.market.v1.EventLeaseClosed".into()
-    }
-}
-/// LeaseFilters defines flags for lease list filtering.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct LeaseFilters {
-    /// Owner is the account bech32 address of the user who owns the deployment.
-    /// It is a string representing a valid bech32 account address.
-    ///
-    /// Example:
-    /// "akash1..."
-    #[prost(string, tag = "1")]
-    pub owner: ::prost::alloc::string::String,
-    /// Dseq (deployment sequence number) is a unique numeric identifier for the deployment.
-    /// It is used to differentiate deployments created by the same owner.
-    #[prost(uint64, tag = "2")]
-    pub dseq: u64,
-    /// Gseq (group sequence number) is a unique numeric identifier for the group.
-    /// It is used to differentiate groups created by the same owner in a deployment.
-    #[prost(uint32, tag = "3")]
-    pub gseq: u32,
-    /// Oseq (order sequence) distinguishes multiple orders associated with a single deployment.
-    /// Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated.
-    #[prost(uint32, tag = "4")]
-    pub oseq: u32,
-    /// Provider is the account bech32 address of the provider making the bid.
-    /// It is a string representing a valid account bech32 address.
-    ///
-    /// Example:
-    /// "akash1..."
-    #[prost(string, tag = "5")]
-    pub provider: ::prost::alloc::string::String,
-    /// State represents the state of the lease.
-    #[prost(string, tag = "6")]
-    pub state: ::prost::alloc::string::String,
-    /// BSeq (bid sequence) distinguishes multiple bids associated with a single deployment from same provider.
-    #[prost(uint32, tag = "7")]
-    pub bseq: u32,
-}
-impl ::prost::Name for LeaseFilters {
-    const NAME: &'static str = "LeaseFilters";
-    const PACKAGE: &'static str = "akash.market.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v1.LeaseFilters".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v1.LeaseFilters".into()
     }
 }

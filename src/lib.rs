@@ -44,6 +44,7 @@ pub mod auth;
 pub mod error;
 pub mod gen;
 pub mod manifest;
+pub mod rest;
 pub mod sdl;
 pub mod state;
 pub mod store;

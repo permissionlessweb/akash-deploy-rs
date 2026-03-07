@@ -262,8 +262,20 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .dseq
             .ok_or_else(|| DeployError::InvalidState("dseq missing at WaitForBids".into()))?;
 
-        // Query bids
-        let bids = self.backend.query_bids(&state.owner, dseq).await?;
+        // Query bids — transient query errors (network, 5xx, etc.) are not fatal;
+        // treat them as "no bids yet" and let the retry loop handle them.
+        let bids = match self.backend.query_bids(&state.owner, dseq).await {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::warn!(error = %e, "query_bids failed (will retry)");
+                tokio::time::sleep(std::time::Duration::from_secs(self.config.bid_wait_seconds))
+                    .await;
+                state.transition(Step::WaitForBids {
+                    waited_blocks: waited_blocks + 1,
+                });
+                return Ok(StepResult::Continue);
+            }
+        };
 
         if !bids.is_empty() {
             state.bids = bids;

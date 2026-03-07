@@ -209,191 +209,6 @@ impl LeaseClosedReason {
         }
     }
 }
-/// MsgCreateBid defines an SDK message for creating Bid.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct MsgCreateBid {
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<BidId>,
-    /// Prices holds the pricing options stated on the Bid.
-    #[prost(message, repeated, tag = "2")]
-    pub prices: ::prost::alloc::vec::Vec<
-        super::super::super::cosmos::base::v1beta1::DecCoin,
-    >,
-    /// Deposit holds the amount of coins to deposit.
-    #[prost(message, optional, tag = "3")]
-    pub deposit: ::core::option::Option<super::super::base::deposit::v1::Deposit>,
-    /// ResourceOffer is a list of resource offers.
-    #[prost(message, repeated, tag = "4")]
-    pub resources_offer: ::prost::alloc::vec::Vec<ResourceOffer>,
-}
-impl ::prost::Name for MsgCreateBid {
-    const NAME: &'static str = "MsgCreateBid";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgCreateBid".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgCreateBid".into()
-    }
-}
-/// MsgCreateBidResponse defines the Msg/CreateBid response type.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgCreateBidResponse {}
-impl ::prost::Name for MsgCreateBidResponse {
-    const NAME: &'static str = "MsgCreateBidResponse";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgCreateBidResponse".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgCreateBidResponse".into()
-    }
-}
-/// MsgCloseBid defines an SDK message for closing bid.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgCloseBid {
-    /// Id is the unique identifier of the Bid.
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<BidId>,
-    #[prost(enumeration = "LeaseClosedReason", tag = "2")]
-    pub reason: i32,
-}
-impl ::prost::Name for MsgCloseBid {
-    const NAME: &'static str = "MsgCloseBid";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgCloseBid".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgCloseBid".into()
-    }
-}
-/// MsgCloseBidResponse defines the Msg/CloseBid response type.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgCloseBidResponse {}
-impl ::prost::Name for MsgCloseBidResponse {
-    const NAME: &'static str = "MsgCloseBidResponse";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgCloseBidResponse".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgCloseBidResponse".into()
-    }
-}
-/// OrderId stores owner and all other seq numbers.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct OrderId {
-    /// Owner is the account bech32 address of the user who owns the deployment.
-    /// It is a string representing a valid bech32 account address.
-    ///
-    /// Example:
-    /// "akash1..."
-    #[prost(string, tag = "1")]
-    pub owner: ::prost::alloc::string::String,
-    /// Dseq (deployment sequence number) is a unique numeric identifier for the deployment.
-    /// It is used to differentiate deployments created by the same owner.
-    #[prost(uint64, tag = "2")]
-    pub dseq: u64,
-    /// Gseq (group sequence number) is a unique numeric identifier for the group.
-    /// It is used to differentiate groups created by the same owner in a deployment.
-    #[prost(uint32, tag = "3")]
-    pub gseq: u32,
-    /// Oseq (order sequence) distinguishes multiple orders associated with a single deployment.
-    /// Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated.
-    #[prost(uint32, tag = "4")]
-    pub oseq: u32,
-}
-impl ::prost::Name for OrderId {
-    const NAME: &'static str = "OrderID";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.OrderID".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.OrderID".into()
-    }
-}
-/// Order stores orderID, state of order and other details.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Order {
-    /// Id is the unique identifier of the order.
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<OrderId>,
-    #[prost(enumeration = "order::State", tag = "2")]
-    pub state: i32,
-    #[prost(message, optional, tag = "3")]
-    pub spec: ::core::option::Option<super::super::deployment::v1beta5::GroupSpec>,
-    #[prost(int64, tag = "4")]
-    pub created_at: i64,
-}
-/// Nested message and enum types in `Order`.
-pub mod order {
-    /// State is an enum which refers to state of order.
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
-    #[repr(i32)]
-    pub enum State {
-        /// Prefix should start with 0 in enum. So declaring dummy state.
-        Invalid = 0,
-        /// OrderOpen denotes state for order open.
-        Open = 1,
-        /// OrderMatched denotes state for order matched.
-        Active = 2,
-        /// OrderClosed denotes state for order lost.
-        Closed = 3,
-    }
-    impl State {
-        /// String value of the enum field names used in the ProtoBuf definition.
-        ///
-        /// The values are not transformed in any way and thus are considered stable
-        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-        pub fn as_str_name(&self) -> &'static str {
-            match self {
-                Self::Invalid => "invalid",
-                Self::Open => "open",
-                Self::Active => "active",
-                Self::Closed => "closed",
-            }
-        }
-        /// Creates an enum from field names used in the ProtoBuf definition.
-        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-            match value {
-                "invalid" => Some(Self::Invalid),
-                "open" => Some(Self::Open),
-                "active" => Some(Self::Active),
-                "closed" => Some(Self::Closed),
-                _ => None,
-            }
-        }
-    }
-}
-impl ::prost::Name for Order {
-    const NAME: &'static str = "Order";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.Order".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.Order".into()
-    }
-}
 /// LeaseID stores bid details of lease.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -526,130 +341,243 @@ impl ::prost::Name for Lease {
         "/akash.market.v2beta1.Lease".into()
     }
 }
-/// EventOrderCreated is triggered when an order is created.
-/// It contains all the information required to identify an order.
+/// MsgCreateLease is sent to create a lease.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventOrderCreated {
-    /// Id is the unique identifier of the Order.
+pub struct MsgCreateLease {
+    /// BidId is the unique identifier of the Bid.
     #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<OrderId>,
+    pub bid_id: ::core::option::Option<BidId>,
 }
-impl ::prost::Name for EventOrderCreated {
-    const NAME: &'static str = "EventOrderCreated";
+impl ::prost::Name for MsgCreateLease {
+    const NAME: &'static str = "MsgCreateLease";
     const PACKAGE: &'static str = "akash.market.v2beta1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.EventOrderCreated".into()
+        "akash.market.v2beta1.MsgCreateLease".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.EventOrderCreated".into()
+        "/akash.market.v2beta1.MsgCreateLease".into()
     }
 }
-/// EventOrderClosed is triggered when an order is closed.
-/// It contains all the information required to identify an order.
+/// MsgCreateLeaseResponse is the response from creating a lease.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgCreateLeaseResponse {}
+impl ::prost::Name for MsgCreateLeaseResponse {
+    const NAME: &'static str = "MsgCreateLeaseResponse";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgCreateLeaseResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgCreateLeaseResponse".into()
+    }
+}
+/// MsgWithdrawLease defines an SDK message for withdrawing lease funds.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventOrderClosed {
-    /// Id is the unique identifier of the Order.
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<OrderId>,
-}
-impl ::prost::Name for EventOrderClosed {
-    const NAME: &'static str = "EventOrderClosed";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.EventOrderClosed".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.EventOrderClosed".into()
-    }
-}
-/// EventBidCreated is triggered when a bid is created.
-/// It contains all the information required to identify a bid.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EventBidCreated {
-    /// Id is the unique identifier of the Bid.
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<BidId>,
-    /// Price stated on the Bid.
-    #[prost(message, repeated, tag = "3")]
-    pub prices: ::prost::alloc::vec::Vec<
-        super::super::super::cosmos::base::v1beta1::DecCoin,
-    >,
-}
-impl ::prost::Name for EventBidCreated {
-    const NAME: &'static str = "EventBidCreated";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.EventBidCreated".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.EventBidCreated".into()
-    }
-}
-/// EventBidClosed is triggered when a bid is closed.
-/// It contains all the information required to identify a bid.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventBidClosed {
-    /// Id is the unique identifier of the Bid.
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<BidId>,
-}
-impl ::prost::Name for EventBidClosed {
-    const NAME: &'static str = "EventBidClosed";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.EventBidClosed".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.EventBidClosed".into()
-    }
-}
-/// EventLeaseCreated is triggered when a lease is created.
-/// It contains all the information required to identify a lease.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EventLeaseCreated {
-    /// Id is the unique identifier of the Lease.
+pub struct MsgWithdrawLease {
+    /// BidId is the unique identifier of the Bid.
     #[prost(message, optional, tag = "1")]
     pub id: ::core::option::Option<LeaseId>,
-    /// Price settled for the lease.
-    #[prost(message, repeated, tag = "3")]
-    pub prices: ::prost::alloc::vec::Vec<
-        super::super::super::cosmos::base::v1beta1::DecCoin,
-    >,
 }
-impl ::prost::Name for EventLeaseCreated {
-    const NAME: &'static str = "EventLeaseCreated";
+impl ::prost::Name for MsgWithdrawLease {
+    const NAME: &'static str = "MsgWithdrawLease";
     const PACKAGE: &'static str = "akash.market.v2beta1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.EventLeaseCreated".into()
+        "akash.market.v2beta1.MsgWithdrawLease".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.EventLeaseCreated".into()
+        "/akash.market.v2beta1.MsgWithdrawLease".into()
     }
 }
-/// EventLeaseClosed is triggered when a lease is closed.
-/// It contains all the information required to identify a lease.
+/// MsgWithdrawLeaseResponse defines the Msg/WithdrawLease response type.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgWithdrawLeaseResponse {}
+impl ::prost::Name for MsgWithdrawLeaseResponse {
+    const NAME: &'static str = "MsgWithdrawLeaseResponse";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgWithdrawLeaseResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgWithdrawLeaseResponse".into()
+    }
+}
+/// MsgCloseLease defines an SDK message for closing order.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventLeaseClosed {
-    /// Id is the unique identifier of the Lease.
+pub struct MsgCloseLease {
+    /// LeaseID is the unique identifier of the Lease.
     #[prost(message, optional, tag = "1")]
     pub id: ::core::option::Option<LeaseId>,
     #[prost(enumeration = "LeaseClosedReason", tag = "2")]
     pub reason: i32,
 }
-impl ::prost::Name for EventLeaseClosed {
-    const NAME: &'static str = "EventLeaseClosed";
+impl ::prost::Name for MsgCloseLease {
+    const NAME: &'static str = "MsgCloseLease";
     const PACKAGE: &'static str = "akash.market.v2beta1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.EventLeaseClosed".into()
+        "akash.market.v2beta1.MsgCloseLease".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.EventLeaseClosed".into()
+        "/akash.market.v2beta1.MsgCloseLease".into()
+    }
+}
+/// MsgCloseLeaseResponse defines the Msg/CloseLease response type.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgCloseLeaseResponse {}
+impl ::prost::Name for MsgCloseLeaseResponse {
+    const NAME: &'static str = "MsgCloseLeaseResponse";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgCloseLeaseResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgCloseLeaseResponse".into()
+    }
+}
+/// Params is the params for the x/market module.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Params {
+    /// BidMinDeposit is a parameter for the minimum deposit on a Bid.
+    #[prost(message, optional, tag = "1")]
+    pub bid_min_deposit: ::core::option::Option<
+        super::super::super::cosmos::base::v1beta1::Coin,
+    >,
+    /// OrderMaxBids is a parameter for the maximum number of bids in an order.
+    #[prost(uint32, tag = "2")]
+    pub order_max_bids: u32,
+}
+impl ::prost::Name for Params {
+    const NAME: &'static str = "Params";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.Params".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.Params".into()
+    }
+}
+/// MsgUpdateParams is the Msg/UpdateParams request type.
+///
+/// Since: akash v1.0.0
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgUpdateParams {
+    /// authority is the address of the governance account.
+    #[prost(string, tag = "1")]
+    pub authority: ::prost::alloc::string::String,
+    /// params defines the x/deployment parameters to update.
+    ///
+    /// NOTE: All parameters must be supplied.
+    #[prost(message, optional, tag = "2")]
+    pub params: ::core::option::Option<Params>,
+}
+impl ::prost::Name for MsgUpdateParams {
+    const NAME: &'static str = "MsgUpdateParams";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgUpdateParams".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgUpdateParams".into()
+    }
+}
+/// MsgUpdateParamsResponse defines the response structure for executing a
+/// MsgUpdateParams message.
+///
+/// Since: akash v1.0.0
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgUpdateParamsResponse {}
+impl ::prost::Name for MsgUpdateParamsResponse {
+    const NAME: &'static str = "MsgUpdateParamsResponse";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgUpdateParamsResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgUpdateParamsResponse".into()
+    }
+}
+/// MsgCreateBid defines an SDK message for creating Bid.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MsgCreateBid {
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<BidId>,
+    /// Prices holds the pricing options stated on the Bid.
+    #[prost(message, repeated, tag = "2")]
+    pub prices: ::prost::alloc::vec::Vec<
+        super::super::super::cosmos::base::v1beta1::DecCoin,
+    >,
+    /// Deposit holds the amount of coins to deposit.
+    #[prost(message, optional, tag = "3")]
+    pub deposit: ::core::option::Option<super::super::base::deposit::v1::Deposit>,
+    /// ResourceOffer is a list of resource offers.
+    #[prost(message, repeated, tag = "4")]
+    pub resources_offer: ::prost::alloc::vec::Vec<ResourceOffer>,
+}
+impl ::prost::Name for MsgCreateBid {
+    const NAME: &'static str = "MsgCreateBid";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgCreateBid".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgCreateBid".into()
+    }
+}
+/// MsgCreateBidResponse defines the Msg/CreateBid response type.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgCreateBidResponse {}
+impl ::prost::Name for MsgCreateBidResponse {
+    const NAME: &'static str = "MsgCreateBidResponse";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgCreateBidResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgCreateBidResponse".into()
+    }
+}
+/// MsgCloseBid defines an SDK message for closing bid.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgCloseBid {
+    /// Id is the unique identifier of the Bid.
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<BidId>,
+    #[prost(enumeration = "LeaseClosedReason", tag = "2")]
+    pub reason: i32,
+}
+impl ::prost::Name for MsgCloseBid {
+    const NAME: &'static str = "MsgCloseBid";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgCloseBid".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgCloseBid".into()
+    }
+}
+/// MsgCloseBidResponse defines the Msg/CloseBid response type.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgCloseBidResponse {}
+impl ::prost::Name for MsgCloseBidResponse {
+    const NAME: &'static str = "MsgCloseBidResponse";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.MsgCloseBidResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.MsgCloseBidResponse".into()
     }
 }
 /// LeaseFilters defines flags for lease list filtering.
@@ -783,194 +711,113 @@ impl ::prost::Name for OrderFilters {
         "/akash.market.v2beta1.OrderFilters".into()
     }
 }
-/// Params is the params for the x/market module.
+/// OrderId stores owner and all other seq numbers.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct Params {
-    /// BidMinDeposit is a parameter for the minimum deposit on a Bid.
-    #[prost(message, optional, tag = "1")]
-    pub bid_min_deposit: ::core::option::Option<
-        super::super::super::cosmos::base::v1beta1::Coin,
-    >,
-    /// OrderMaxBids is a parameter for the maximum number of bids in an order.
-    #[prost(uint32, tag = "2")]
-    pub order_max_bids: u32,
+pub struct OrderId {
+    /// Owner is the account bech32 address of the user who owns the deployment.
+    /// It is a string representing a valid bech32 account address.
+    ///
+    /// Example:
+    /// "akash1..."
+    #[prost(string, tag = "1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Dseq (deployment sequence number) is a unique numeric identifier for the deployment.
+    /// It is used to differentiate deployments created by the same owner.
+    #[prost(uint64, tag = "2")]
+    pub dseq: u64,
+    /// Gseq (group sequence number) is a unique numeric identifier for the group.
+    /// It is used to differentiate groups created by the same owner in a deployment.
+    #[prost(uint32, tag = "3")]
+    pub gseq: u32,
+    /// Oseq (order sequence) distinguishes multiple orders associated with a single deployment.
+    /// Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated.
+    #[prost(uint32, tag = "4")]
+    pub oseq: u32,
 }
-impl ::prost::Name for Params {
-    const NAME: &'static str = "Params";
+impl ::prost::Name for OrderId {
+    const NAME: &'static str = "OrderID";
     const PACKAGE: &'static str = "akash.market.v2beta1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.Params".into()
+        "akash.market.v2beta1.OrderID".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.Params".into()
+        "/akash.market.v2beta1.OrderID".into()
     }
 }
-/// GenesisState defines the basic genesis state used by market module.
+/// Order stores orderID, state of order and other details.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GenesisState {
-    /// Params holds parameters of the genesis of market.
+pub struct Order {
+    /// Id is the unique identifier of the order.
     #[prost(message, optional, tag = "1")]
-    pub params: ::core::option::Option<Params>,
-    /// Orders is a list of orders in the genesis state.
-    #[prost(message, repeated, tag = "2")]
-    pub orders: ::prost::alloc::vec::Vec<Order>,
-    /// Leases is a list of leases in the genesis state.
-    #[prost(message, repeated, tag = "3")]
-    pub leases: ::prost::alloc::vec::Vec<Lease>,
-    /// Bids is a list of bids in the genesis state.
-    #[prost(message, repeated, tag = "4")]
-    pub bids: ::prost::alloc::vec::Vec<Bid>,
+    pub id: ::core::option::Option<OrderId>,
+    #[prost(enumeration = "order::State", tag = "2")]
+    pub state: i32,
+    #[prost(message, optional, tag = "3")]
+    pub spec: ::core::option::Option<super::super::deployment::v1beta5::GroupSpec>,
+    #[prost(int64, tag = "4")]
+    pub created_at: i64,
 }
-impl ::prost::Name for GenesisState {
-    const NAME: &'static str = "GenesisState";
+/// Nested message and enum types in `Order`.
+pub mod order {
+    /// State is an enum which refers to state of order.
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum State {
+        /// Prefix should start with 0 in enum. So declaring dummy state.
+        Invalid = 0,
+        /// OrderOpen denotes state for order open.
+        Open = 1,
+        /// OrderMatched denotes state for order matched.
+        Active = 2,
+        /// OrderClosed denotes state for order lost.
+        Closed = 3,
+    }
+    impl State {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Self::Invalid => "invalid",
+                Self::Open => "open",
+                Self::Active => "active",
+                Self::Closed => "closed",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "invalid" => Some(Self::Invalid),
+                "open" => Some(Self::Open),
+                "active" => Some(Self::Active),
+                "closed" => Some(Self::Closed),
+                _ => None,
+            }
+        }
+    }
+}
+impl ::prost::Name for Order {
+    const NAME: &'static str = "Order";
     const PACKAGE: &'static str = "akash.market.v2beta1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.GenesisState".into()
+        "akash.market.v2beta1.Order".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.GenesisState".into()
-    }
-}
-/// MsgCreateLease is sent to create a lease.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgCreateLease {
-    /// BidId is the unique identifier of the Bid.
-    #[prost(message, optional, tag = "1")]
-    pub bid_id: ::core::option::Option<BidId>,
-}
-impl ::prost::Name for MsgCreateLease {
-    const NAME: &'static str = "MsgCreateLease";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgCreateLease".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgCreateLease".into()
-    }
-}
-/// MsgCreateLeaseResponse is the response from creating a lease.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgCreateLeaseResponse {}
-impl ::prost::Name for MsgCreateLeaseResponse {
-    const NAME: &'static str = "MsgCreateLeaseResponse";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgCreateLeaseResponse".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgCreateLeaseResponse".into()
-    }
-}
-/// MsgWithdrawLease defines an SDK message for withdrawing lease funds.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgWithdrawLease {
-    /// BidId is the unique identifier of the Bid.
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<LeaseId>,
-}
-impl ::prost::Name for MsgWithdrawLease {
-    const NAME: &'static str = "MsgWithdrawLease";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgWithdrawLease".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgWithdrawLease".into()
-    }
-}
-/// MsgWithdrawLeaseResponse defines the Msg/WithdrawLease response type.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgWithdrawLeaseResponse {}
-impl ::prost::Name for MsgWithdrawLeaseResponse {
-    const NAME: &'static str = "MsgWithdrawLeaseResponse";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgWithdrawLeaseResponse".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgWithdrawLeaseResponse".into()
-    }
-}
-/// MsgCloseLease defines an SDK message for closing order.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgCloseLease {
-    /// LeaseID is the unique identifier of the Lease.
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<LeaseId>,
-    #[prost(enumeration = "LeaseClosedReason", tag = "2")]
-    pub reason: i32,
-}
-impl ::prost::Name for MsgCloseLease {
-    const NAME: &'static str = "MsgCloseLease";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgCloseLease".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgCloseLease".into()
-    }
-}
-/// MsgCloseLeaseResponse defines the Msg/CloseLease response type.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgCloseLeaseResponse {}
-impl ::prost::Name for MsgCloseLeaseResponse {
-    const NAME: &'static str = "MsgCloseLeaseResponse";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgCloseLeaseResponse".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgCloseLeaseResponse".into()
-    }
-}
-/// MsgUpdateParams is the Msg/UpdateParams request type.
-///
-/// Since: akash v1.0.0
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgUpdateParams {
-    /// authority is the address of the governance account.
-    #[prost(string, tag = "1")]
-    pub authority: ::prost::alloc::string::String,
-    /// params defines the x/deployment parameters to update.
-    ///
-    /// NOTE: All parameters must be supplied.
-    #[prost(message, optional, tag = "2")]
-    pub params: ::core::option::Option<Params>,
-}
-impl ::prost::Name for MsgUpdateParams {
-    const NAME: &'static str = "MsgUpdateParams";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgUpdateParams".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgUpdateParams".into()
-    }
-}
-/// MsgUpdateParamsResponse defines the response structure for executing a
-/// MsgUpdateParams message.
-///
-/// Since: akash v1.0.0
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgUpdateParamsResponse {}
-impl ::prost::Name for MsgUpdateParamsResponse {
-    const NAME: &'static str = "MsgUpdateParamsResponse";
-    const PACKAGE: &'static str = "akash.market.v2beta1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.market.v2beta1.MsgUpdateParamsResponse".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.market.v2beta1.MsgUpdateParamsResponse".into()
+        "/akash.market.v2beta1.Order".into()
     }
 }
 /// QueryOrdersRequest is request type for the Query/Orders RPC method.
@@ -2016,6 +1863,132 @@ pub mod query_server {
         const NAME: &'static str = SERVICE_NAME;
     }
 }
+/// EventOrderCreated is triggered when an order is created.
+/// It contains all the information required to identify an order.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventOrderCreated {
+    /// Id is the unique identifier of the Order.
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<OrderId>,
+}
+impl ::prost::Name for EventOrderCreated {
+    const NAME: &'static str = "EventOrderCreated";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.EventOrderCreated".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.EventOrderCreated".into()
+    }
+}
+/// EventOrderClosed is triggered when an order is closed.
+/// It contains all the information required to identify an order.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventOrderClosed {
+    /// Id is the unique identifier of the Order.
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<OrderId>,
+}
+impl ::prost::Name for EventOrderClosed {
+    const NAME: &'static str = "EventOrderClosed";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.EventOrderClosed".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.EventOrderClosed".into()
+    }
+}
+/// EventBidCreated is triggered when a bid is created.
+/// It contains all the information required to identify a bid.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EventBidCreated {
+    /// Id is the unique identifier of the Bid.
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<BidId>,
+    /// Price stated on the Bid.
+    #[prost(message, repeated, tag = "3")]
+    pub prices: ::prost::alloc::vec::Vec<
+        super::super::super::cosmos::base::v1beta1::DecCoin,
+    >,
+}
+impl ::prost::Name for EventBidCreated {
+    const NAME: &'static str = "EventBidCreated";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.EventBidCreated".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.EventBidCreated".into()
+    }
+}
+/// EventBidClosed is triggered when a bid is closed.
+/// It contains all the information required to identify a bid.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventBidClosed {
+    /// Id is the unique identifier of the Bid.
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<BidId>,
+}
+impl ::prost::Name for EventBidClosed {
+    const NAME: &'static str = "EventBidClosed";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.EventBidClosed".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.EventBidClosed".into()
+    }
+}
+/// EventLeaseCreated is triggered when a lease is created.
+/// It contains all the information required to identify a lease.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EventLeaseCreated {
+    /// Id is the unique identifier of the Lease.
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<LeaseId>,
+    /// Price settled for the lease.
+    #[prost(message, repeated, tag = "3")]
+    pub prices: ::prost::alloc::vec::Vec<
+        super::super::super::cosmos::base::v1beta1::DecCoin,
+    >,
+}
+impl ::prost::Name for EventLeaseCreated {
+    const NAME: &'static str = "EventLeaseCreated";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.EventLeaseCreated".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.EventLeaseCreated".into()
+    }
+}
+/// EventLeaseClosed is triggered when a lease is closed.
+/// It contains all the information required to identify a lease.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventLeaseClosed {
+    /// Id is the unique identifier of the Lease.
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<LeaseId>,
+    #[prost(enumeration = "LeaseClosedReason", tag = "2")]
+    pub reason: i32,
+}
+impl ::prost::Name for EventLeaseClosed {
+    const NAME: &'static str = "EventLeaseClosed";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.EventLeaseClosed".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.EventLeaseClosed".into()
+    }
+}
 /// Generated client implementations.
 #[cfg(feature = "rpc")]
 pub mod msg_client {
@@ -2703,5 +2676,32 @@ pub mod msg_server {
     pub const SERVICE_NAME: &str = "akash.market.v2beta1.Msg";
     impl<T> tonic::server::NamedService for MsgServer<T> {
         const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// GenesisState defines the basic genesis state used by market module.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GenesisState {
+    /// Params holds parameters of the genesis of market.
+    #[prost(message, optional, tag = "1")]
+    pub params: ::core::option::Option<Params>,
+    /// Orders is a list of orders in the genesis state.
+    #[prost(message, repeated, tag = "2")]
+    pub orders: ::prost::alloc::vec::Vec<Order>,
+    /// Leases is a list of leases in the genesis state.
+    #[prost(message, repeated, tag = "3")]
+    pub leases: ::prost::alloc::vec::Vec<Lease>,
+    /// Bids is a list of bids in the genesis state.
+    #[prost(message, repeated, tag = "4")]
+    pub bids: ::prost::alloc::vec::Vec<Bid>,
+}
+impl ::prost::Name for GenesisState {
+    const NAME: &'static str = "GenesisState";
+    const PACKAGE: &'static str = "akash.market.v2beta1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.market.v2beta1.GenesisState".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.market.v2beta1.GenesisState".into()
     }
 }

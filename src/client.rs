@@ -152,6 +152,7 @@ impl QueryClients {
             escrow,
         })
     }
+
 }
 
 /// Akash client with integrated chain/provider communication and storage.
@@ -186,6 +187,10 @@ pub struct AkashClient<S: SessionStorage = FileBackedStorage> {
 
     /// secp256k1 signing key for JWT generation (ES256K)
     jwt_signing_key: Option<SigningKey>,
+
+    /// Cosmos REST (gRPC-Gateway) base URL. When set, Akash chain queries
+    /// (bids, leases, certs, etc.) use REST instead of gRPC.
+    rest_endpoint: Option<String>,
 }
 
 /// See [`AkashClient`] — this variant defaults to `StdoutStorage` when
@@ -208,6 +213,10 @@ pub struct AkashClient<S: SessionStorage = StdoutStorage> {
 
     /// secp256k1 signing key for JWT generation (ES256K)
     jwt_signing_key: Option<SigningKey>,
+
+    /// Cosmos REST (gRPC-Gateway) base URL. When set, Akash chain queries
+    /// (bids, leases, certs, etc.) use REST instead of gRPC.
+    rest_endpoint: Option<String>,
 }
 
 /// Intermediate result from the common client init steps (signer, chain config, RPC, gRPC).
@@ -286,12 +295,25 @@ async fn init_client_core(
 
     let address = client.addr.clone();
 
-    // Step 5: Initialize query clients if gRPC endpoint is configured
+    // Step 5: Initialize query clients if gRPC endpoint is configured.
+    // Failure is non-fatal: log a warning and continue without gRPC.
+    // Queries will use the REST endpoint if configured, or attempt lazy gRPC init later.
     let query_clients = if let Some(ref endpoint) = grpc_ep {
         tracing::info!(endpoint = %endpoint, "step 5/5: connecting gRPC query clients");
-        let clients = QueryClients::new(endpoint).await?;
-        tracing::info!("step 5/5: gRPC query clients connected");
-        Some(clients)
+        match QueryClients::new(endpoint).await {
+            Ok(clients) => {
+                tracing::info!("step 5/5: gRPC query clients connected");
+                Some(clients)
+            }
+            Err(e) => {
+                tracing::warn!(
+                    endpoint = %endpoint,
+                    error = %e,
+                    "step 5/5: gRPC unavailable — queries will use REST or lazy-init"
+                );
+                None
+            }
+        }
     } else {
         tracing::info!("step 5/5: skipped (no gRPC endpoint configured)");
         None
@@ -340,6 +362,7 @@ impl AkashClient<FileBackedStorage> {
             address: init.address,
             query_clients: init.query_clients,
             jwt_signing_key: Some(init.jwt_signing_key),
+            rest_endpoint: None,
         })
     }
 }
@@ -378,6 +401,7 @@ impl AkashClient<StdoutStorage> {
             address: init.address,
             query_clients: init.query_clients,
             jwt_signing_key: Some(init.jwt_signing_key),
+            rest_endpoint: None,
         })
     }
 }
@@ -395,6 +419,7 @@ impl<S: SessionStorage> AkashClient<S> {
             address,
             query_clients: None, // Will be initialized lazily on first query
             jwt_signing_key: None,
+            rest_endpoint: None,
         }
     }
 
@@ -408,6 +433,18 @@ impl<S: SessionStorage> AkashClient<S> {
     /// Set the RPC endpoint.
     pub fn with_rpc(mut self, endpoint: impl Into<String>) -> Self {
         self.client.querier.chain_config.rpc_endpoint = Some(endpoint.into());
+        self
+    }
+
+    /// Set the REST (gRPC-Gateway) endpoint for Akash chain queries.
+    ///
+    /// When set, all Akash query methods (bids, leases, certs, providers,
+    /// escrow, balance) use the Cosmos REST API instead of gRPC, avoiding
+    /// 503 errors from unreliable gRPC endpoints.
+    ///
+    /// Endpoint format: `https://api.akashnet.net:443`
+    pub fn with_rest(mut self, endpoint: impl Into<String>) -> Self {
+        self.rest_endpoint = Some(endpoint.into());
         self
     }
 
@@ -724,6 +761,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             return Ok(Some(cert));
         }
 
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_certificate(api, owner).await;
+        }
+
         use crate::gen::akash::cert::v1 as akash_cert;
 
         // Get reusable query clients
@@ -771,6 +813,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             .await?
         {
             return Ok(Some(info));
+        }
+
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_provider_info(api, provider).await;
         }
 
         use crate::gen::akash::provider::v1beta4 as akash_provider;
@@ -821,9 +868,14 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     }
 
     async fn query_bids(&self, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
-        use crate::gen::akash::market::v1beta5 as akash_market;
-
         tracing::debug!(owner, dseq, "query_bids: querying bids");
+
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_bids(api, owner, dseq).await;
+        }
+
+        use crate::gen::akash::market::v1beta5 as akash_market;
 
         // Get reusable query clients
         let mut clients = self.get_query_clients().await?;
@@ -924,6 +976,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         bseq: u32,
         provider: &str,
     ) -> Result<LeaseInfo, DeployError> {
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_lease(api, owner, dseq, gseq, oseq, bseq, provider).await;
+        }
+
         use crate::gen::akash::market::v1 as akash_market_v1;
 
         // Get reusable query clients
@@ -972,6 +1029,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     }
 
     async fn query_escrow(&self, owner: &str, dseq: u64) -> Result<EscrowInfo, DeployError> {
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_escrow(api, owner, dseq).await;
+        }
+
         use crate::gen::akash::escrow::v1 as akash_escrow;
 
         // Get reusable query clients
