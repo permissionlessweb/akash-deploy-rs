@@ -30,7 +30,10 @@ async fn get_json(url: &str) -> Result<serde_json::Value, DeployError> {
 
     if !resp.status().is_success() {
         let status = resp.status().as_u16();
-        return Err(DeployError::Query(format!("REST {} → HTTP {}", url, status)));
+        return Err(DeployError::Query(format!(
+            "REST {} → HTTP {}",
+            url, status
+        )));
     }
 
     resp.json::<serde_json::Value>()
@@ -200,11 +203,21 @@ pub async fn query_provider_info(
     if status.as_u16() == 404 {
         return Ok(None);
     }
+    // Some nodes return 500 for invalid/unregistered provider addresses
+    // (e.g. invalid bech32 or simply not found).  Read the body and check
+    // for "not found" before treating as a hard error.
     if !status.is_success() {
+        let code = status.as_u16();
+        let body = resp.text().await.unwrap_or_default();
+        if body.to_lowercase().contains("not found")
+            || body.to_lowercase().contains("decoding bech32 failed")
+            || body.to_lowercase().contains("invalid address")
+        {
+            return Ok(None);
+        }
         return Err(DeployError::Query(format!(
-            "REST provider {} → HTTP {}",
-            provider,
-            status.as_u16()
+            "REST provider {} → HTTP {}: {}",
+            provider, code, body
         )));
     }
 
@@ -273,7 +286,8 @@ fn parse_bids(json: &serde_json::Value) -> Vec<Bid> {
             continue;
         }
         let provider = entry
-            .pointer("/bid/bid_id/provider")
+            .pointer("/bid/id/provider")
+            .or_else(|| entry.pointer("/bid/bid_id/provider"))
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
@@ -303,16 +317,14 @@ pub async fn query_bids_for_owner(api: &str, owner: &str) -> Result<Vec<Bid>, De
     let json = get_json_any(&[
         format!("{base}/{pkg}/bids/list?filters.owner={owner}"),
         format!("{base}/{pkg}/bids/list?owner={owner}"),
+        format!("{base}/akash/market/v1/bids/list?filters.owner={owner}"),
+        format!("{base}/akash/market/v1/bids/list?owner={owner}"),
     ])
     .await?;
     Ok(parse_bids(&json))
 }
 
-pub async fn query_bids(
-    api: &str,
-    owner: &str,
-    dseq: u64,
-) -> Result<Vec<Bid>, DeployError> {
+pub async fn query_bids(api: &str, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
     use crate::gen::akash::market::v1beta5::BidFilters;
     // PACKAGE = "akash.market.v1beta5" → path prefix = "akash/market/v1beta5"
     let pkg = pkg_path(BidFilters::PACKAGE);
@@ -323,6 +335,9 @@ pub async fn query_bids(
         format!("{base}/{pkg}/bids/list?filters.owner={owner}&filters.dseq={dseq}"),
         // Flat param variant used by some node implementations
         format!("{base}/{pkg}/bids/list?owner={owner}&dseq={dseq}"),
+        // Akash v1 API (newer nodes that emit akash.market.v1.* events)
+        format!("{base}/akash/market/v1/bids/list?filters.owner={owner}&filters.dseq={dseq}"),
+        format!("{base}/akash/market/v1/bids/list?owner={owner}&dseq={dseq}"),
     ])
     .await?;
     Ok(parse_bids(&json))
@@ -377,11 +392,7 @@ pub async fn query_lease(
 
 // ── Escrow ────────────────────────────────────────────────────────────────────
 
-pub async fn query_escrow(
-    api: &str,
-    owner: &str,
-    dseq: u64,
-) -> Result<EscrowInfo, DeployError> {
+pub async fn query_escrow(api: &str, owner: &str, dseq: u64) -> Result<EscrowInfo, DeployError> {
     use crate::gen::akash::escrow::v1::QueryAccountsRequest;
     // PACKAGE = "akash.escrow.v1" → path prefix = "akash/escrow/v1"
     let pkg = pkg_path(QueryAccountsRequest::PACKAGE);

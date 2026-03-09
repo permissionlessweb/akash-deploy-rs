@@ -44,7 +44,6 @@ pub mod auth;
 pub mod error;
 pub mod gen;
 pub mod manifest;
-pub mod rest;
 pub mod sdl;
 pub mod state;
 pub mod store;
@@ -54,6 +53,8 @@ pub mod workflow;
 
 #[cfg(feature = "default-client")]
 pub mod client;
+#[cfg(feature = "default-client")]
+pub mod rest;
 
 // Re-export the main types at crate root for convenience
 pub use auth::{

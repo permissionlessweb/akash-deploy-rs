@@ -227,6 +227,33 @@ struct ClientInit {
     jwt_signing_key: SigningKey,
 }
 
+/// Query the chain_id from a Tendermint RPC `/status` endpoint.
+///
+/// Falls back to `"akashnet-2"` if the query fails (e.g. node not up yet in tests).
+async fn query_chain_id_from_rpc(rpc_endpoint: &str) -> String {
+    let url = format!("{}/status", rpc_endpoint.trim_end_matches('/'));
+    match reqwest::get(&url).await {
+        Ok(resp) => {
+            match resp.json::<serde_json::Value>().await {
+                Ok(v) => {
+                    // Tendermint wraps result: {"result": {"node_info": {"network": "..."}}}
+                    if let Some(chain_id) = v
+                        .pointer("/result/node_info/network")
+                        .and_then(|v| v.as_str())
+                    {
+                        tracing::info!(chain_id, "auto-detected chain_id from RPC /status");
+                        return chain_id.to_string();
+                    }
+                    tracing::warn!("chain_id not found in /status response; defaulting to akashnet-2");
+                }
+                Err(e) => tracing::warn!(%e, "failed to parse /status JSON; defaulting to akashnet-2"),
+            }
+        }
+        Err(e) => tracing::warn!(%e, "failed to GET /status; defaulting to akashnet-2"),
+    }
+    "akashnet-2".to_string()
+}
+
 /// Common initialization: mnemonic → signer → chain config → signing client → gRPC clients.
 /// Storage creation is left to the caller so it can differ by feature flag.
 async fn init_client_core(
@@ -264,8 +291,9 @@ async fn init_client_core(
         Some(grpc_endpoint.to_string())
     };
 
+    let chain_id = query_chain_id_from_rpc(rpc_endpoint).await;
     let chain_config = ChainConfig {
-        chain_id: ChainId::new("akashnet-2"),
+        chain_id: ChainId::new(&chain_id),
         address_kind: AddrKind::Cosmos {
             prefix: "akash".to_string(),
         },
@@ -276,8 +304,9 @@ async fn init_client_core(
         grpc_web_endpoint: None,
     };
     tracing::info!(
-        "step 3/5: chain config built (chain_id=akashnet-2, rpc={})",
-        rpc_endpoint
+        chain_id,
+        rpc = %rpc_endpoint,
+        "step 3/5: chain config built"
     );
 
     // Step 4: Create the signing client (connects to RPC)
@@ -290,8 +319,8 @@ async fn init_client_core(
         })?;
     tracing::info!(address = %client.addr, "step 4/5: signing client created successfully");
 
-    // Use QueryAndIncrement: queries sequence once, then increments locally for subsequent txs
-    client.sequence_strategy = SequenceStrategy::new(SequenceStrategyKind::QueryAndIncrement);
+    // Use Query: always queries sequence fresh from chain (safe for retries and error paths).
+    client.sequence_strategy = SequenceStrategy::new(SequenceStrategyKind::Query);
 
     let address = client.addr.clone();
 
@@ -501,6 +530,83 @@ impl<S: SessionStorage> AkashClient<S> {
     /// Use `.read().await` for read-only access or `.write().await` for mutations.
     pub fn storage(&self) -> &RwLock<S> {
         &self.storage
+    }
+
+    /// Send coins from this account to another address (cosmos.bank MsgSend).
+    ///
+    /// Common use: faucet funding, pre-test account seeding.
+    pub async fn bank_send(
+        &self,
+        to: &str,
+        amount: u128,
+        denom: &str,
+    ) -> Result<TxResult, DeployError> {
+        // MsgSend defined inline — avoids pulling in a separate cosmos-sdk proto crate.
+        #[derive(Clone, PartialEq, ::prost::Message)]
+        struct MsgSend {
+            #[prost(string, tag = "1")]
+            from_address: String,
+            #[prost(string, tag = "2")]
+            to_address: String,
+            #[prost(message, repeated, tag = "3")]
+            amount: Vec<crate::gen::cosmos::base::v1beta1::Coin>,
+        }
+        impl ::prost::Name for MsgSend {
+            const NAME: &'static str = "MsgSend";
+            const PACKAGE: &'static str = "cosmos.bank.v1beta1";
+            fn full_name() -> String {
+                "cosmos.bank.v1beta1.MsgSend".into()
+            }
+            fn type_url() -> String {
+                "/cosmos.bank.v1beta1.MsgSend".into()
+            }
+        }
+        self.broadcast_any_msg(MsgSend {
+            from_address: self.address().to_string(),
+            to_address: to.to_string(),
+            amount: vec![crate::gen::cosmos::base::v1beta1::Coin {
+                denom: denom.to_string(),
+                amount: amount.to_string(),
+            }],
+        })
+        .await
+    }
+
+    /// Broadcast any Cosmos/Akash message. Returns a TxResult on success.
+    ///
+    /// Encodes the message as a `google.protobuf.Any` and broadcasts it via
+    /// the signing client. Useful for one-off message types (provider
+    /// registration, bids, etc.) without needing a full workflow.
+    pub async fn broadcast_any_msg<M: ProstMessage + ProstName>(
+        &self,
+        msg: M,
+    ) -> Result<TxResult, DeployError> {
+        let any = to_any(&msg);
+        // Log account state so we can diagnose sequence/account_number issues.
+        match self.client.querier.base_account(&self.address).await {
+            Ok(acct) => tracing::info!(
+                account_number = acct.account_number,
+                sequence = acct.sequence,
+                "tx: on-chain account state"
+            ),
+            Err(e) => tracing::warn!(%e, "tx: failed to query base_account (account may not exist on-chain yet)"),
+        }
+        let mut tx = self.client.tx_builder();
+        tx.set_gas_simulate_multiplier(1.5);
+        tx.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
+        let response = tx
+            .broadcast([any])
+            .await
+            .map_err(|e| DeployError::Transaction {
+                code: 1,
+                log: format!("{:#}", e),
+            })?;
+        Ok(TxResult {
+            hash: response.txhash,
+            code: response.code,
+            raw_log: response.raw_log,
+            height: response.height as u64,
+        })
     }
 }
 
@@ -1155,8 +1261,10 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
                 denom: "uakt".to_string(),
                 amount: deposit_uakt.to_string(),
             }),
+            // Use Balance only — Grant requires an authz grant which
+            // doesn't exist for fresh deployer accounts and may cause
+            // the chain to silently reject the deposit.
             sources: vec![
-                akash_deposit::Source::Grant as i32,
                 akash_deposit::Source::Balance as i32,
             ],
         };
