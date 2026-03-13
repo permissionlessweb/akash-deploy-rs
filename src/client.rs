@@ -60,7 +60,7 @@ use crate::store::SessionStorage;
 use crate::traits::AkashBackend;
 use crate::types::*;
 
-use bip32::XPrv;
+use bip32::{DerivationPath, XPrv};
 use coins_bip39::{English, Mnemonic};
 use k256::ecdsa::{signature::hazmat::PrehashSigner, Signature, SigningKey};
 use layer_climb::prelude::*;
@@ -261,19 +261,39 @@ async fn init_client_core(
     rpc_endpoint: &str,
     grpc_endpoint: &str,
 ) -> Result<ClientInit, DeployError> {
+    init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, None).await
+}
+
+/// Like `init_client_core` but derives the signer and JWT key at a specific
+/// BIP44 HD index (`m/44'/118'/0'/0/{index}`).  When `hd_index` is `None`,
+/// behaviour is identical to the original `init_client_core`.
+async fn init_client_core_at_index(
+    mnemonic: &str,
+    rpc_endpoint: &str,
+    grpc_endpoint: &str,
+    hd_index: Option<u32>,
+) -> Result<ClientInit, DeployError> {
     tracing::info!("starting client initialization");
 
-    // Step 1: Create the key signer from mnemonic
+    // Step 1: Create the key signer from mnemonic (optionally at child index)
     tracing::info!("step 1/5: creating key signer from mnemonic");
-    let signer = KeySigner::new_mnemonic_str(mnemonic, None).map_err(|e| {
-        tracing::error!(?e, "failed to create signer from mnemonic");
-        DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
-    })?;
+    let derivation_path = hd_index
+        .map(|i| {
+            format!("m/44'/118'/0'/0/{}", i)
+                .parse::<DerivationPath>()
+                .map_err(|e| DeployError::Signer(format!("Invalid HD path: {}", e)))
+        })
+        .transpose()?;
+    let signer =
+        KeySigner::new_mnemonic_str(mnemonic, derivation_path.as_ref()).map_err(|e| {
+            tracing::error!(?e, "failed to create signer from mnemonic");
+            DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
+        })?;
     tracing::info!("step 1/5: key signer created successfully");
 
     // Step 2: Derive secp256k1 signing key for JWT (ES256K) from the same mnemonic
     tracing::info!("step 2/5: deriving JWT signing key (ES256K)");
-    let jwt_signing_key = derive_jwt_signing_key(mnemonic)?;
+    let jwt_signing_key = derive_jwt_signing_key_at_index(mnemonic, hd_index)?;
     tracing::info!("step 2/5: JWT signing key derived successfully");
 
     // Step 3: Set up Akash chain configuration
@@ -288,7 +308,14 @@ async fn init_client_core(
     let grpc_ep = if grpc_endpoint.is_empty() {
         None
     } else {
-        Some(grpc_endpoint.to_string())
+        // Ensure the endpoint has a scheme — tonic requires a valid URI.
+        let ep = grpc_endpoint.to_string();
+        let ep = if !ep.starts_with("http://") && !ep.starts_with("https://") {
+            format!("https://{}", ep)
+        } else {
+            ep
+        };
+        Some(ep)
     };
 
     let chain_id = query_chain_id_from_rpc(rpc_endpoint).await;
@@ -394,6 +421,39 @@ impl AkashClient<FileBackedStorage> {
             rest_endpoint: None,
         })
     }
+
+    /// Create a new client at a specific BIP44 HD child index.
+    ///
+    /// Derives the signer and JWT key at `m/44'/118'/0'/0/{hd_index}` instead
+    /// of the default index 0.  Used by parallel deployment to give each phase
+    /// its own signing account.
+    pub async fn new_from_mnemonic_at_index(
+        mnemonic: &str,
+        hd_index: u32,
+        rpc_endpoint: &str,
+        grpc_endpoint: &str,
+    ) -> Result<Self, DeployError> {
+        let init =
+            init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, Some(hd_index))
+                .await?;
+
+        let storage = FileBackedStorage::new_default().await?;
+
+        tracing::info!(
+            address = %init.address,
+            hd_index,
+            "client initialization complete (file-storage, child account)"
+        );
+
+        Ok(Self {
+            client: init.client,
+            storage: RwLock::new(storage),
+            address: init.address,
+            query_clients: init.query_clients,
+            jwt_signing_key: Some(init.jwt_signing_key),
+            rest_endpoint: None,
+        })
+    }
 }
 
 /// Without `file-storage`: `new_from_mnemonic` uses stdout (JSON output, no persistence).
@@ -423,6 +483,33 @@ impl AkashClient<StdoutStorage> {
         tracing::info!("using stdout storage (no file-storage feature)");
 
         tracing::info!(address = %init.address, "client initialization complete (stdout-storage)");
+
+        Ok(Self {
+            client: init.client,
+            storage: RwLock::new(StdoutStorage::new()),
+            address: init.address,
+            query_clients: init.query_clients,
+            jwt_signing_key: Some(init.jwt_signing_key),
+            rest_endpoint: None,
+        })
+    }
+
+    /// Create a new client at a specific BIP44 HD child index (stdout storage).
+    pub async fn new_from_mnemonic_at_index(
+        mnemonic: &str,
+        hd_index: u32,
+        rpc_endpoint: &str,
+        grpc_endpoint: &str,
+    ) -> Result<Self, DeployError> {
+        let init =
+            init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, Some(hd_index))
+                .await?;
+
+        tracing::info!(
+            address = %init.address,
+            hd_index,
+            "client initialization complete (stdout-storage, child account)"
+        );
 
         Ok(Self {
             client: init.client,
@@ -608,6 +695,83 @@ impl<S: SessionStorage> AkashClient<S> {
             height: response.height as u64,
         })
     }
+
+    /// Query bids via gRPC first, falling back to REST if configured.
+    ///
+    /// gRPC is preferred because it filters by dseq server-side and supports
+    /// state filtering.  REST is used as a fallback when gRPC is unavailable.
+    async fn query_bids_impl(&self, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
+        tracing::debug!(owner, dseq, "query_bids: querying bids");
+
+        // Try gRPC first.
+        match self.query_bids_grpc(owner, dseq).await {
+            Ok(bids) => return Ok(bids),
+            Err(e) => {
+                if let Some(ref api) = self.rest_endpoint {
+                    tracing::warn!(error = %e, "query_bids: gRPC failed, falling back to REST");
+                    return crate::rest::query_bids(api, owner, dseq).await;
+                }
+                return Err(e);
+            }
+        }
+    }
+
+    async fn query_bids_grpc(&self, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
+        use crate::gen::akash::market::v1beta5 as akash_market;
+
+        let mut clients = self.get_query_clients().await?;
+
+        let response = clients
+            .market
+            .bids(akash_market::QueryBidsRequest {
+                filters: Some(akash_market::BidFilters {
+                    owner: owner.to_string(),
+                    dseq,
+                    gseq: 0,
+                    oseq: 0,
+                    provider: String::new(),
+                    state: "open".to_string(),
+                    bseq: 0,
+                }),
+                pagination: None,
+            })
+            .await
+            .map_err(|e| DeployError::Query(format!("Failed to query bids: {}", e)))?
+            .into_inner();
+
+        tracing::debug!(raw_count = response.bids.len(), "query_bids: raw gRPC response");
+
+        let bids = response
+            .bids
+            .into_iter()
+            .filter_map(|bid_response| {
+                let bid = bid_response.bid?;
+                let bid_id = bid.id?;
+                let price = bid.price?;
+
+                tracing::debug!(
+                    provider = %bid_id.provider,
+                    denom = %price.denom,
+                    amount = %price.amount,
+                    state = bid.state,
+                    "query_bids: bid"
+                );
+
+                let raw_amount = price.amount.split('.').next().unwrap_or("0").parse::<u128>().ok()?;
+                const DEC_PRECISION: u128 = 1_000_000_000_000_000_000;
+                let price_uakt = (raw_amount / DEC_PRECISION) as u64;
+
+                Some(Bid {
+                    provider: bid_id.provider,
+                    price_uakt,
+                    resources: Resources::default(),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        tracing::debug!(parsed_count = bids.len(), "query_bids: done");
+        Ok(bids)
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -618,6 +782,20 @@ impl<S: SessionStorage> AkashClient<S> {
 ///
 /// Uses the Cosmos HD path: m/44'/118'/0'/0/0
 fn derive_jwt_signing_key(mnemonic: &str) -> Result<SigningKey, DeployError> {
+    derive_jwt_signing_key_at_index(mnemonic, None)
+}
+
+/// Like `derive_jwt_signing_key` but derives at `m/44'/118'/0'/0/{index}` when
+/// `hd_index` is `Some`.  Falls back to index 0 when `None`.
+fn derive_jwt_signing_key_at_index(
+    mnemonic: &str,
+    hd_index: Option<u32>,
+) -> Result<SigningKey, DeployError> {
+    let path_str = match hd_index {
+        Some(i) => format!("m/44'/118'/0'/0/{}", i),
+        None => "m/44'/118'/0'/0/0".to_string(),
+    };
+
     let parsed: Mnemonic<English> = mnemonic
         .parse()
         .map_err(|e| DeployError::Jwt(format!("invalid mnemonic: {:?}", e)))?;
@@ -628,7 +806,7 @@ fn derive_jwt_signing_key(mnemonic: &str) -> Result<SigningKey, DeployError> {
 
     let child_key = XPrv::derive_from_path(
         seed_bytes,
-        &"m/44'/118'/0'/0/0"
+        &path_str
             .parse()
             .map_err(|e| DeployError::Jwt(format!("invalid HD path: {}", e)))?,
     )
@@ -974,103 +1152,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     }
 
     async fn query_bids(&self, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
-        tracing::debug!(owner, dseq, "query_bids: querying bids");
-
-        // REST fallback
-        if let Some(ref api) = self.rest_endpoint {
-            return crate::rest::query_bids(api, owner, dseq).await;
-        }
-
-        use crate::gen::akash::market::v1beta5 as akash_market;
-
-        // Get reusable query clients
-        let mut clients = self.get_query_clients().await?;
-
-        // Execute query
-        let response = clients
-            .market
-            .bids(akash_market::QueryBidsRequest {
-                filters: Some(akash_market::BidFilters {
-                    owner: owner.to_string(),
-                    dseq,
-                    gseq: 0,                 // 0 means all groups
-                    oseq: 0,                 // 0 means all order sequences
-                    provider: String::new(), // empty means all providers
-                    state: String::new(),    // empty means all states
-                    bseq: 0,                 // 0 means all bid sequences
-                }),
-                pagination: None,
-            })
-            .await
-            .map_err(|e| DeployError::Query(format!("Failed to query bids: {}", e)))?
-            .into_inner();
-
-        tracing::debug!(
-            raw_count = response.bids.len(),
-            "query_bids: raw gRPC response"
-        );
-
-        // Convert proto bids to our domain types
-        let bids = response
-            .bids
-            .into_iter()
-            .filter_map(|bid_response| {
-                let bid = match bid_response.bid {
-                    Some(b) => b,
-                    None => {
-                        tracing::warn!("query_bids: bid_response.bid is None");
-                        return None;
-                    }
-                };
-                let bid_id = match bid.id {
-                    Some(id) => id,
-                    None => {
-                        tracing::warn!("query_bids: bid.id is None");
-                        return None;
-                    }
-                };
-                let price = match bid.price {
-                    Some(p) => p,
-                    None => {
-                        tracing::warn!(provider = %bid_id.provider, "query_bids: bid.price is None");
-                        return None;
-                    }
-                };
-
-                tracing::debug!(
-                    provider = %bid_id.provider,
-                    denom = %price.denom,
-                    amount = %price.amount,
-                    state = bid.state,
-                    "query_bids: bid"
-                );
-
-                // Parse price amount — DecCoin amounts are 18-decimal-precision
-                // fixed-point integers (e.g. "138933496000000000000" = 138.93 uakt).
-                // Parse as u128 first, then divide by 10^18 to get the uakt value.
-                let raw_amount = match price.amount.split('.').next().unwrap_or("0").parse::<u128>() {
-                    Ok(v) => v,
-                    Err(e) => {
-                        tracing::warn!(amount = %price.amount, error = %e, "query_bids: failed to parse price");
-                        return None;
-                    }
-                };
-                const DEC_PRECISION: u128 = 1_000_000_000_000_000_000; // 10^18
-                let price_uakt = (raw_amount / DEC_PRECISION) as u64;
-
-                // Extract resources (if available)
-                let resources = Resources::default(); // TODO: Parse from bid if needed
-
-                Some(Bid {
-                    provider: bid_id.provider,
-                    price_uakt,
-                    resources,
-                })
-            })
-            .collect::<Vec<_>>();
-
-        tracing::debug!(parsed_count = bids.len(), "query_bids: done");
-        Ok(bids)
+        self.query_bids_impl(owner, dseq).await
     }
 
     async fn query_lease(

@@ -271,7 +271,14 @@ pub async fn query_provider_info(
 // ── Bids ──────────────────────────────────────────────────────────────────────
 
 /// Parse a bids JSON response into `Vec<Bid>`, keeping only open bids.
-fn parse_bids(json: &serde_json::Value) -> Vec<Bid> {
+///
+/// If `filter_dseq` is `Some(d)`, only bids whose dseq matches `d` are returned.
+/// This is a client-side safety net: some nodes ignore `filters.dseq` in the REST
+/// query and return ALL bids for the owner.
+///
+/// Results are capped at 30 to prevent overwhelming provider selection with
+/// hundreds of stale bids from previous deployments.
+fn parse_bids(json: &serde_json::Value, filter_dseq: Option<u64>) -> Vec<Bid> {
     let mut bids = Vec::new();
     let arr = match json.pointer("/bids").and_then(|v| v.as_array()) {
         Some(a) => a,
@@ -285,6 +292,19 @@ fn parse_bids(json: &serde_json::Value) -> Vec<Bid> {
         if state != "open" {
             continue;
         }
+
+        // Client-side dseq filter — verify this bid belongs to the requested deployment.
+        if let Some(expected) = filter_dseq {
+            let bid_dseq = entry
+                .pointer("/bid/id/dseq")
+                .or_else(|| entry.pointer("/bid/bid_id/dseq"))
+                .and_then(|v| v.as_str().and_then(|s| s.parse::<u64>().ok()).or_else(|| v.as_u64()))
+                .unwrap_or(0);
+            if bid_dseq != expected {
+                continue;
+            }
+        }
+
         let provider = entry
             .pointer("/bid/id/provider")
             .or_else(|| entry.pointer("/bid/bid_id/provider"))
@@ -302,6 +322,10 @@ fn parse_bids(json: &serde_json::Value) -> Vec<Bid> {
                 price_uakt,
                 resources: Resources::default(),
             });
+        }
+
+        if bids.len() >= 30 {
+            break;
         }
     }
     bids
@@ -321,7 +345,7 @@ pub async fn query_bids_for_owner(api: &str, owner: &str) -> Result<Vec<Bid>, De
         format!("{base}/akash/market/v1/bids/list?owner={owner}"),
     ])
     .await?;
-    Ok(parse_bids(&json))
+    Ok(parse_bids(&json, None))
 }
 
 pub async fn query_bids(api: &str, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
@@ -340,7 +364,7 @@ pub async fn query_bids(api: &str, owner: &str, dseq: u64) -> Result<Vec<Bid>, D
         format!("{base}/akash/market/v1/bids/list?owner={owner}&dseq={dseq}"),
     ])
     .await?;
-    Ok(parse_bids(&json))
+    Ok(parse_bids(&json, Some(dseq)))
 }
 
 // ── Lease ─────────────────────────────────────────────────────────────────────
