@@ -311,15 +311,21 @@ fn parse_bids(json: &serde_json::Value, filter_dseq: Option<u64>) -> Vec<Bid> {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let price_uakt = entry
+        let price = entry
             .pointer("/bid/price/amount")
             .and_then(|v| v.as_str())
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
+        let price_denom = entry
+            .pointer("/bid/price/denom")
+            .and_then(|v| v.as_str())
+            .unwrap_or("uakt")
+            .to_string();
         if !provider.is_empty() {
             bids.push(Bid {
                 provider,
-                price_uakt,
+                price,
+                price_denom,
                 resources: Resources::default(),
             });
         }
@@ -405,13 +411,19 @@ pub async fn query_lease(
         _ => LeaseState::Closed,
     };
 
-    let price_uakt = lease
+    let price = lease
         .pointer("/price/amount")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
 
-    Ok(LeaseInfo { state, price_uakt })
+    let price_denom = lease
+        .pointer("/price/denom")
+        .and_then(|v| v.as_str())
+        .unwrap_or("uakt")
+        .to_string();
+
+    Ok(LeaseInfo { state, price, price_denom })
 }
 
 // ── Escrow ────────────────────────────────────────────────────────────────────
@@ -434,13 +446,13 @@ pub async fn query_escrow(api: &str, owner: &str, dseq: u64) -> Result<EscrowInf
         .pointer("/accounts/0")
         .unwrap_or(&serde_json::Value::Null);
 
-    let balance_uakt = first
+    let balance = first
         .pointer("/balance/amount")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
 
-    let deposited_uakt = first
+    let deposited = first
         .pointer("/depositor_settled_balance/amount")
         .or_else(|| first.pointer("/settled_balance/amount"))
         .and_then(|v| v.as_str())
@@ -448,8 +460,44 @@ pub async fn query_escrow(api: &str, owner: &str, dseq: u64) -> Result<EscrowInf
         .unwrap_or(0);
 
     Ok(EscrowInfo {
-        balance_uakt,
-        deposited_uakt,
+        balance,
+        balance_denom: "uakt".to_string(),
+        deposited,
+        deposited_denom: "uakt".to_string(),
+    })
+}
+
+// ── BME Status ────────────────────────────────────────────────────────────────
+
+/// Query BME circuit breaker status via REST.
+pub async fn query_bme_status(api: &str) -> Result<BmeStatus, DeployError> {
+    let base = api.trim_end_matches('/');
+    let json = get_json_any(&[
+        format!("{base}/akash/bme/v1/status"),
+    ])
+    .await?;
+
+    let mints_allowed = json
+        .pointer("/mints_allowed")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let status = json
+        .pointer("/status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    let collateral_ratio = json
+        .pointer("/collateral_ratio")
+        .and_then(|v| v.as_str())
+        .unwrap_or("0")
+        .to_string();
+
+    Ok(BmeStatus {
+        mints_allowed,
+        status,
+        collateral_ratio,
     })
 }
 

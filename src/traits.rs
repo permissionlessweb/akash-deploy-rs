@@ -71,6 +71,11 @@ pub trait AkashBackend: Send + Sync {
         dseq: u64,
     ) -> impl Future<Output = Result<EscrowInfo, DeployError>> + Send;
 
+    /// Query BME circuit breaker status.
+    fn query_bme_status(
+        &self,
+    ) -> impl Future<Output = Result<BmeStatus, DeployError>> + Send;
+
     // ═══════════════════════════════════════════════════════════════
     // TRANSACTIONS (need signing)
     // ═══════════════════════════════════════════════════════════════
@@ -90,7 +95,8 @@ pub trait AkashBackend: Send + Sync {
         signer: &Self::Signer,
         owner: &str,
         sdl_content: &str,
-        deposit_uakt: u64,
+        deposit_amount: u64,
+        deposit_denom: &str,
     ) -> impl Future<Output = Result<(TxResult, u64), DeployError>> + Send;
 
     /// Create a lease from a bid.
@@ -115,6 +121,16 @@ pub trait AkashBackend: Send + Sync {
         signer: &Self::Signer,
         owner: &str,
         dseq: u64,
+    ) -> impl Future<Output = Result<TxResult, DeployError>> + Send;
+
+    /// Burn AKT to mint ACT via the BME module.
+    ///
+    /// The BME module requires a minimum mint of 10 ACT (10_000_000 uact).
+    fn broadcast_mint_act(
+        &self,
+        signer: &Self::Signer,
+        owner: &str,
+        amount_uakt: u64,
     ) -> impl Future<Output = Result<TxResult, DeployError>> + Send;
 
     // ═══════════════════════════════════════════════════════════════

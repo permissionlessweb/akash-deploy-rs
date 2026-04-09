@@ -91,3 +91,8 @@ pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig
 pub use client::{export_sessions, import_sessions};
 #[cfg(feature = "default-client")]
 pub use client::{AkashClient, KeySigner};
+#[cfg(feature = "default-client")]
+pub use client::{
+    broadcast_multi_signer, build_create_lease_msg, build_mint_act_msg, MultiSignerTxResult,
+    SignerEntry,
+};

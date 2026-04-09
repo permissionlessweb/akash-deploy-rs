@@ -55,13 +55,15 @@ fn interactive_select_provider(
     eprintln!();
 
     for (i, bid) in bids.iter().enumerate() {
-        let price_akt = bid.price_uakt as f64 / 1_000_000.0;
+        let price_display = bid.price as f64 / 1_000_000.0;
         eprintln!(
-            "  [{}] {} — {:.6} AKT/block ({} uakt)",
+            "  [{}] {} — {:.6} {}/block ({} {})",
             i + 1,
             bid.provider,
-            price_akt,
-            bid.price_uakt
+            price_display,
+            bid.price_denom,
+            bid.price,
+            bid.price_denom
         );
     }
 

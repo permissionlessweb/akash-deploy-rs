@@ -333,7 +333,7 @@ profiles:
     dcloud:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: ${PRICE}
 deployment:
   web:

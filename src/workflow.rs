@@ -13,8 +13,10 @@ use crate::AuthMode;
 /// Workflow configuration.
 #[derive(Debug, Clone)]
 pub struct WorkflowConfig {
-    /// Minimum balance required to proceed (uakt).
+    /// Minimum AKT balance required for gas (uakt).
     pub min_balance_uakt: u64,
+    /// Minimum ACT balance required for deployment deposit (uact).
+    pub min_balance_uact: u64,
     /// How long to wait between bid checks (seconds).
     pub bid_wait_seconds: u64,
     /// Max attempts to wait for bids.
@@ -29,6 +31,7 @@ impl Default for WorkflowConfig {
     fn default() -> Self {
         Self {
             min_balance_uakt: 1_000_000, // 1 AKT
+            min_balance_uact: 5_000_000, // 5 ACT minimum
             bid_wait_seconds: 12,        // ~2 blocks
             max_bid_wait_attempts: 10,
             max_endpoint_wait_attempts: 30,
@@ -87,6 +90,8 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
 
         let result = match &state.step {
             Step::Init => self.step_init(state).await,
+            Step::CheckBmeStatus => self.step_check_bme_status(state).await,
+            Step::MintAct => self.step_mint_act(state).await,
             Step::CheckBalance => self.step_check_balance(state).await,
             Step::EnsureAuth => self.step_ensure_auth(state).await,
             Step::CreateDeployment => self.step_create_deployment(state).await,
@@ -132,6 +137,32 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             return Ok(StepResult::NeedsInput(InputRequired::ProvideSdl));
         }
 
+        state.transition(Step::CheckBmeStatus);
+        Ok(StepResult::Continue)
+    }
+
+    async fn step_check_bme_status(
+        &self,
+        state: &mut DeploymentState,
+    ) -> Result<StepResult, DeployError> {
+        let bme = self.backend.query_bme_status().await?;
+
+        if !bme.mints_allowed {
+            state.fail(
+                format!("BME circuit breaker active (status={}), minting halted", bme.status),
+                false,
+            );
+            return Ok(StepResult::Failed(
+                "BME circuit breaker active, minting halted".into(),
+            ));
+        }
+
+        tracing::info!(
+            status = %bme.status,
+            collateral_ratio = %bme.collateral_ratio,
+            "BME status: healthy"
+        );
+
         state.transition(Step::CheckBalance);
         Ok(StepResult::Continue)
     }
@@ -140,25 +171,81 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         &self,
         state: &mut DeploymentState,
     ) -> Result<StepResult, DeployError> {
-        let balance = self.backend.query_balance(&state.owner, "uakt").await?;
+        let akt_balance = self.backend.query_balance(&state.owner, "uakt").await?;
+        let act_balance = self.backend.query_balance(&state.owner, "uact").await?;
 
-        // Check both the minimum balance threshold and that the balance covers the deposit
-        let required = std::cmp::max(self.config.min_balance_uakt, state.deposit_uakt);
-
-        if balance < required as u128 {
+        // Check AKT for gas
+        if akt_balance < self.config.min_balance_uakt as u128 {
             state.fail(
                 format!(
-                    "insufficient balance: {} uakt < {} uakt required (min={}, deposit={})",
-                    balance, required, self.config.min_balance_uakt, state.deposit_uakt
+                    "insufficient AKT for gas: {} uakt < {} uakt required",
+                    akt_balance, self.config.min_balance_uakt
                 ),
-                false, // not recoverable by retry
+                false,
             );
             return Ok(StepResult::Failed(format!(
-                "insufficient balance: {} uakt < {} uakt required",
-                balance, required
+                "insufficient AKT for gas: {} uakt < {} uakt required",
+                akt_balance, self.config.min_balance_uakt
             )));
         }
 
+        // Check ACT for deposit
+        if act_balance < state.deposit_amount as u128 {
+            let shortfall = state.deposit_amount as u128 - act_balance;
+            tracing::info!(
+                act_balance,
+                deposit_required = state.deposit_amount,
+                shortfall,
+                "insufficient ACT — will mint from AKT"
+            );
+            state.needs_mint_act = true;
+        }
+
+        state.transition(Step::MintAct);
+        Ok(StepResult::Continue)
+    }
+
+    async fn step_mint_act(
+        &self,
+        state: &mut DeploymentState,
+    ) -> Result<StepResult, DeployError> {
+        if !state.needs_mint_act {
+            state.transition(Step::EnsureAuth);
+            return Ok(StepResult::Continue);
+        }
+
+        // Mint enough AKT -> ACT to cover the deposit.
+        // BME module requires a minimum mint of 10 ACT (10_000_000 uact).
+        const MIN_MINT_UACT: u128 = 10_000_000;
+
+        let act_balance = self.backend.query_balance(&state.owner, "uact").await?;
+        let needed = (state.deposit_amount as u128).saturating_sub(act_balance);
+
+        if needed == 0 {
+            state.needs_mint_act = false;
+            state.transition(Step::EnsureAuth);
+            return Ok(StepResult::Continue);
+        }
+
+        let mint_amount = needed.max(MIN_MINT_UACT);
+
+        tracing::info!(
+            amount_uakt = mint_amount,
+            "minting ACT from AKT via BME"
+        );
+
+        let tx = self
+            .backend
+            .broadcast_mint_act(self.signer, &state.owner, mint_amount as u64)
+            .await?;
+
+        if !tx.is_success() {
+            state.fail(format!("mint ACT tx failed: {}", tx.raw_log), true);
+            return Ok(StepResult::Failed(tx.raw_log));
+        }
+
+        state.record_tx(&tx.hash);
+        state.needs_mint_act = false;
         state.transition(Step::EnsureAuth);
         Ok(StepResult::Continue)
     }
@@ -239,7 +326,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
 
         let (tx, dseq) = self
             .backend
-            .broadcast_create_deployment(self.signer, &state.owner, sdl, state.deposit_uakt)
+            .broadcast_create_deployment(self.signer, &state.owner, sdl, state.deposit_amount, &state.deposit_denom)
             .await?;
 
         if !tx.is_success() {
@@ -590,7 +677,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 1000
 deployment:
   web:
@@ -723,14 +810,25 @@ deployment:
         ) -> Result<LeaseInfo, DeployError> {
             Ok(LeaseInfo {
                 state: LeaseState::Active,
-                price_uakt: 1000,
+                price: 1000,
+                price_denom: "uact".to_string(),
             })
         }
 
         async fn query_escrow(&self, _owner: &str, _dseq: u64) -> Result<EscrowInfo, DeployError> {
             Ok(EscrowInfo {
-                balance_uakt: 5_000_000,
-                deposited_uakt: 5_000_000,
+                balance: 5_000_000,
+                balance_denom: "uakt".to_string(),
+                deposited: 5_000_000,
+                deposited_denom: "uakt".to_string(),
+            })
+        }
+
+        async fn query_bme_status(&self) -> Result<BmeStatus, DeployError> {
+            Ok(BmeStatus {
+                mints_allowed: true,
+                status: "HEALTHY".to_string(),
+                collateral_ratio: "2.0".to_string(),
             })
         }
 
@@ -763,7 +861,8 @@ deployment:
             _signer: &Self::Signer,
             _owner: &str,
             _sdl_content: &str,
-            _deposit_uakt: u64,
+            _deposit_amount: u64,
+            _deposit_denom: &str,
         ) -> Result<(TxResult, u64), DeployError> {
             self.call_counts.lock().unwrap().broadcast_create_deployment += 1;
             if *self.fail_deployment_tx.lock().unwrap() {
@@ -838,6 +937,20 @@ deployment:
                 code: 0,
                 raw_log: "success".to_string(),
                 height: 1004,
+            })
+        }
+
+        async fn broadcast_mint_act(
+            &self,
+            _signer: &Self::Signer,
+            _owner: &str,
+            _amount_uakt: u64,
+        ) -> Result<TxResult, DeployError> {
+            Ok(TxResult {
+                hash: "MINT_ACT_TX".to_string(),
+                code: 0,
+                raw_log: "success".to_string(),
+                height: 1005,
             })
         }
 
@@ -935,7 +1048,7 @@ deployment:
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Continue));
-        assert_eq!(backend.get_call_counts().query_balance, 1);
+        assert_eq!(backend.get_call_counts().query_balance, 2);
     }
 
     #[tokio::test]
@@ -950,7 +1063,7 @@ deployment:
 
         let mut state = DeploymentState::new("test", "akash1owner");
         state.step = Step::CheckBalance;
-        state.deposit_uakt = 5_000_000;
+        state.deposit_amount = 5_000_000;
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Failed(_)));
@@ -961,7 +1074,8 @@ deployment:
         let backend = MockBackend::new();
         backend.set_bids(vec![Bid {
             provider: "akash1provider".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }]);
 
@@ -1018,7 +1132,8 @@ deployment:
         let mut state = DeploymentState::new("test", "akash1owner");
         state.bids = vec![Bid {
             provider: "akash1provider1".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }];
 
@@ -1032,7 +1147,8 @@ deployment:
         let mut state = DeploymentState::new("test", "akash1owner");
         state.bids = vec![Bid {
             provider: "akash1provider1".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }];
 
@@ -1091,7 +1207,7 @@ deployment:
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Continue));
-        assert!(matches!(state.step, Step::CheckBalance));
+        assert!(matches!(state.step, Step::CheckBmeStatus));
     }
 
     #[tokio::test]
@@ -1265,7 +1381,8 @@ deployment:
         let backend = MockBackend::new();
         backend.set_bids(vec![Bid {
             provider: "akash1provider".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }]);
 
@@ -1355,7 +1472,8 @@ deployment:
         state.step = Step::SelectProvider;
         state.bids = vec![Bid {
             provider: "akash1provider".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }];
         state.selected_provider = Some("akash1provider".to_string());
@@ -1410,7 +1528,8 @@ deployment:
         state.selected_provider = Some("akash1nonexistent".to_string());
         state.bids = vec![Bid {
             provider: "akash1other".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }];
 

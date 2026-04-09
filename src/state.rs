@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 pub enum Step {
     /// Starting point.
     Init,
+    /// Check BME circuit breaker status.
+    CheckBmeStatus,
+    /// Mint ACT from AKT if needed.
+    MintAct,
     /// Check account has enough AKT.
     CheckBalance,
     /// Ensure provider auth is configured (JWT token or mTLS certificate).
@@ -39,6 +43,8 @@ impl Step {
     pub fn name(&self) -> &'static str {
         match self {
             Step::Init => "init",
+            Step::CheckBmeStatus => "check_bme_status",
+            Step::MintAct => "mint_act",
             Step::CheckBalance => "check_balance",
             Step::EnsureAuth => "ensure_auth",
             Step::CreateDeployment => "create_deployment",
@@ -84,8 +90,12 @@ pub struct DeploymentState {
     #[serde(default)]
     /// Whether the SDL content is a template.
     pub is_template: bool,
-    /// Deposit amount in uakt.
-    pub deposit_uakt: u64,
+    /// Deposit amount.
+    pub deposit_amount: u64,
+    /// Deposit denomination.
+    pub deposit_denom: String,
+    /// Whether we need to mint ACT from AKT before deploying.
+    pub needs_mint_act: bool,
     /// Deployment sequence number (from chain).
     pub dseq: Option<u64>,
     /// Group sequence (usually 1).
@@ -133,7 +143,9 @@ impl DeploymentState {
             owner: owner.into(),
             label: String::new(),
             sdl_content: None,
-            deposit_uakt: 500_000, // 0.5 AKT default (minimum deposit)
+            deposit_amount: 5_000_000, // 0.5 ACT = 5M uact as minimum
+            deposit_denom: "uact".to_string(),
+            needs_mint_act: false,
             dseq: None,
             gseq: 1,
             oseq: 1,
@@ -169,8 +181,9 @@ impl DeploymentState {
     }
 
     /// Set the deposit amount.
-    pub fn with_deposit(mut self, deposit_uakt: u64) -> Self {
-        self.deposit_uakt = deposit_uakt;
+    pub fn with_deposit(mut self, amount: u64, denom: impl Into<String>) -> Self {
+        self.deposit_amount = amount;
+        self.deposit_denom = denom.into();
         self
     }
 
@@ -251,11 +264,12 @@ mod tests {
         let state = DeploymentState::new("s1", "owner")
             .with_label("test-deploy")
             .with_sdl("version: 2")
-            .with_deposit(10_000_000);
+            .with_deposit(10_000_000, "uact");
 
         assert_eq!(state.label, "test-deploy");
         assert_eq!(state.sdl_content, Some("version: 2".to_string()));
-        assert_eq!(state.deposit_uakt, 10_000_000);
+        assert_eq!(state.deposit_amount, 10_000_000);
+        assert_eq!(state.deposit_denom, "uact");
     }
 
     #[test]
@@ -276,6 +290,8 @@ mod tests {
     fn test_step_names() {
         // Test all step name() variants
         assert_eq!(Step::Init.name(), "init");
+        assert_eq!(Step::CheckBmeStatus.name(), "check_bme_status");
+        assert_eq!(Step::MintAct.name(), "mint_act");
         assert_eq!(Step::CheckBalance.name(), "check_balance");
         assert_eq!(Step::EnsureAuth.name(), "ensure_auth");
         assert_eq!(Step::CreateDeployment.name(), "create_deployment");

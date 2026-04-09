@@ -99,10 +99,10 @@ profiles:
     dcloud:
       pricing:
         glm-flash:
-          denom: uakt
+          denom: uact
           amount: 500000
         qwen-coder:
-          denom: uakt
+          denom: uact
           amount: 500000
 
 deployment:
