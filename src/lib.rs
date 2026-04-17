@@ -50,6 +50,7 @@ pub mod store;
 pub mod traits;
 pub mod types;
 pub mod workflow;
+pub mod logs;
 
 #[cfg(feature = "default-client")]
 pub mod client;
@@ -86,6 +87,9 @@ pub use store::{DeploymentRecord, DeploymentStore, SessionStorage, StdoutStorage
 pub use traits::AkashBackend;
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};
+pub use logs::{LogLine, LogStreamConfig};
+#[cfg(feature = "log-streaming")]
+pub use logs::ws::WsLogStream;
 
 #[cfg(all(feature = "default-client", feature = "file-storage"))]
 pub use client::{export_sessions, import_sessions};
