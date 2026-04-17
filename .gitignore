@@ -8,6 +8,9 @@
 Cargo.lock
 # ignore proto package, plan to use chain-sdk structs (once they go to v0.14.0)
 proto/*
+!proto/console/
+!proto/src/
+!proto/Cargo.toml
 # OS
 .DS_Store
 *.swp

@@ -179,3 +179,12 @@ tree:
 # Show package info
 info:
     @cargo metadata --no-deps --format-version 1 | jq -r '.packages[0]'
+
+# Compile console API protos into Rust gRPC clients (src/gen/console.*.rs)
+gen-console:
+    @echo ">>> Compiling console API protos..."
+    cargo run --manifest-path proto/Cargo.toml --bin console-gen
+    @echo "Done — console clients generated in src/gen/"
+
+# Full proto rebuild: chain protos + console API
+gen-all: gen-proto gen-console
