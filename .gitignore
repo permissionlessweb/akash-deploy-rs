@@ -23,3 +23,5 @@ vendor
 provider-validate
 reviews
 tests/testdata/fixtures
+# Claude
+.claude/
