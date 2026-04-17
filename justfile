@@ -188,3 +188,20 @@ gen-console:
 
 # Full proto rebuild: chain protos + console API
 gen-all: gen-proto gen-console
+
+# ═══════════════════════════════════════════════════════════════
+# Python / PyPI — maturin + PyO3 bindings
+# ═══════════════════════════════════════════════════════════════
+
+# Generate Python dataclasses + Rust encode/decode registry from prost types.
+py-gen modules="console,akash":
+    @echo ">>> Generating Python bindings..."
+    ./scripts/gen/prost-to-pyo3.sh --modules {{modules}}
+
+# Build Python wheel (requires maturin: pip install maturin)
+py-build: py-gen
+    maturin build --features python --release
+
+# Install in development mode (editable)
+py-dev: py-gen
+    maturin develop --features python

@@ -96,3 +96,6 @@ pub use client::{
     broadcast_multi_signer, build_create_lease_msg, build_mint_act_msg, MultiSignerTxResult,
     SignerEntry,
 };
+
+#[cfg(feature = "python")]
+mod py;
