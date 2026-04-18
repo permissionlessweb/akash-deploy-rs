@@ -584,7 +584,7 @@ profiles:
         region: us-west
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 1000
 deployment:
   web:
@@ -658,10 +658,10 @@ profiles:
     westcoast:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 500
         api:
-          denom: uakt
+          denom: uact
           amount: 800
 deployment:
   web:
@@ -713,7 +713,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 100
 deployment:
   web:
@@ -761,7 +761,7 @@ profiles:
     dc:
       pricing:
         ml:
-          denom: uakt
+          denom: uact
           amount: 5000
 deployment:
   ml:
@@ -819,7 +819,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 100
 deployment:
   web:
@@ -856,7 +856,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 100
 deployment:
   web:
@@ -890,7 +890,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 100
 deployment:
   web:
@@ -978,7 +978,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 100
 deployment:
   web:
@@ -1042,7 +1042,7 @@ profiles:
     dc:
       pricing:
         other_service:
-          denom: uakt
+          denom: uact
           amount: 100
 deployment:
   web:
@@ -1074,7 +1074,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 100
 deployment:
   web:
@@ -1106,7 +1106,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 100
 deployment:
   web:
@@ -1146,7 +1146,7 @@ profiles:
     dc:
       pricing:
         ml:
-          denom: uakt
+          denom: uact
           amount: 5000
 deployment:
   ml:
@@ -1198,12 +1198,12 @@ profiles:
     zgroup:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 100
     agroup:
       pricing:
         api:
-          denom: uakt
+          denom: uact
           amount: 200
 deployment:
   web:

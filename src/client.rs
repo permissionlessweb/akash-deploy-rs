@@ -60,7 +60,7 @@ use crate::store::SessionStorage;
 use crate::traits::AkashBackend;
 use crate::types::*;
 
-use bip32::XPrv;
+use bip32::{DerivationPath, XPrv};
 use coins_bip39::{English, Mnemonic};
 use k256::ecdsa::{signature::hazmat::PrehashSigner, Signature, SigningKey};
 use layer_climb::prelude::*;
@@ -84,6 +84,56 @@ fn to_any<M: ProstMessage + ProstName>(msg: &M) -> layer_climb::proto::Any {
     }
 }
 
+/// Build a `MsgMintACT` as an `Any`-encoded proto message.
+///
+/// Does NOT broadcast — returns the message for inclusion in a multi-msg
+/// batch (e.g. prepended before `MsgCreateDeployment` to ensure ACT funds).
+pub fn build_mint_act_msg(owner: &str, amount_uakt: u64) -> layer_climb::proto::Any {
+    use crate::gen::akash::bme::v1 as akash_bme;
+
+    let msg = akash_bme::MsgMintAct {
+        owner: owner.to_string(),
+        to: owner.to_string(),
+        coins_to_burn: Some(crate::gen::cosmos::base::v1beta1::Coin {
+            denom: "uakt".to_string(),
+            amount: amount_uakt.to_string(),
+        }),
+    };
+
+    tracing::info!(owner, amount_uakt, "build_mint_act_msg: built (not broadcast)");
+
+    to_any(&msg)
+}
+
+/// Build a `MsgCreateLease` as an `Any`-encoded proto message.
+///
+/// Does NOT broadcast — returns the message for inclusion in a multi-msg
+/// batch (e.g. batching lease acceptances for multiple deployments in a
+/// single signed transaction via `broadcast_multi_signer`).
+pub fn build_create_lease_msg(bid: &BidId) -> layer_climb::proto::Any {
+    use crate::gen::akash::market::v1 as akash_market_v1;
+
+    let bid_id = akash_market_v1::BidId {
+        owner: bid.owner.clone(),
+        dseq: bid.dseq,
+        gseq: bid.gseq,
+        oseq: bid.oseq,
+        provider: bid.provider.clone(),
+        bseq: bid.bseq,
+    };
+
+    let msg = akash_market::MsgCreateLease {
+        bid_id: Some(bid_id),
+    };
+
+    tracing::info!(
+        owner = %bid.owner, dseq = bid.dseq, provider = %bid.provider,
+        "build_create_lease_msg: built (not broadcast)"
+    );
+
+    to_any(&msg)
+}
+
 /// Reusable gRPC query clients for Akash modules.
 ///
 /// These clients are created once and reused across all queries to avoid
@@ -95,6 +145,7 @@ pub struct QueryClients {
     pub market:
         crate::gen::akash::market::v1beta5::query_client::QueryClient<tonic::transport::Channel>,
     pub escrow: crate::gen::akash::escrow::v1::query_client::QueryClient<tonic::transport::Channel>,
+    pub bme: crate::gen::akash::bme::v1::query_client::QueryClient<tonic::transport::Channel>,
 }
 
 impl QueryClients {
@@ -102,8 +153,8 @@ impl QueryClients {
     pub async fn new(grpc_endpoint: &str) -> Result<Self, DeployError> {
         tracing::info!(endpoint = %grpc_endpoint, "connecting gRPC query clients");
         use crate::gen::akash::{
-            cert::v1 as akash_cert, escrow::v1 as akash_escrow, market::v1beta5 as akash_market,
-            provider::v1beta4 as akash_provider,
+            bme::v1 as akash_bme, cert::v1 as akash_cert, escrow::v1 as akash_escrow,
+            market::v1beta5 as akash_market, provider::v1beta4 as akash_provider,
         };
 
         tracing::debug!("  connecting cert query client...");
@@ -143,6 +194,15 @@ impl QueryClients {
             })?;
         tracing::debug!("  escrow query client connected");
 
+        tracing::debug!("  connecting bme query client...");
+        let bme = akash_bme::query_client::QueryClient::connect(grpc_endpoint.to_string())
+            .await
+            .map_err(|e| {
+                tracing::error!(%e, "failed to connect bme query client");
+                DeployError::Query(format!("Failed to connect bme client: {}", e))
+            })?;
+        tracing::debug!("  bme query client connected");
+
         tracing::info!("all gRPC query clients connected successfully");
 
         Ok(Self {
@@ -150,8 +210,10 @@ impl QueryClients {
             provider,
             market,
             escrow,
+            bme,
         })
     }
+
 }
 
 /// Akash client with integrated chain/provider communication and storage.
@@ -186,6 +248,10 @@ pub struct AkashClient<S: SessionStorage = FileBackedStorage> {
 
     /// secp256k1 signing key for JWT generation (ES256K)
     jwt_signing_key: Option<SigningKey>,
+
+    /// Cosmos REST (gRPC-Gateway) base URL. When set, Akash chain queries
+    /// (bids, leases, certs, etc.) use REST instead of gRPC.
+    rest_endpoint: Option<String>,
 }
 
 /// See [`AkashClient`] — this variant defaults to `StdoutStorage` when
@@ -208,6 +274,10 @@ pub struct AkashClient<S: SessionStorage = StdoutStorage> {
 
     /// secp256k1 signing key for JWT generation (ES256K)
     jwt_signing_key: Option<SigningKey>,
+
+    /// Cosmos REST (gRPC-Gateway) base URL. When set, Akash chain queries
+    /// (bids, leases, certs, etc.) use REST instead of gRPC.
+    rest_endpoint: Option<String>,
 }
 
 /// Intermediate result from the common client init steps (signer, chain config, RPC, gRPC).
@@ -218,6 +288,33 @@ struct ClientInit {
     jwt_signing_key: SigningKey,
 }
 
+/// Query the chain_id from a Tendermint RPC `/status` endpoint.
+///
+/// Falls back to `"akashnet-2"` if the query fails (e.g. node not up yet in tests).
+async fn query_chain_id_from_rpc(rpc_endpoint: &str) -> String {
+    let url = format!("{}/status", rpc_endpoint.trim_end_matches('/'));
+    match reqwest::get(&url).await {
+        Ok(resp) => {
+            match resp.json::<serde_json::Value>().await {
+                Ok(v) => {
+                    // Tendermint wraps result: {"result": {"node_info": {"network": "..."}}}
+                    if let Some(chain_id) = v
+                        .pointer("/result/node_info/network")
+                        .and_then(|v| v.as_str())
+                    {
+                        tracing::info!(chain_id, "auto-detected chain_id from RPC /status");
+                        return chain_id.to_string();
+                    }
+                    tracing::warn!("chain_id not found in /status response; defaulting to akashnet-2");
+                }
+                Err(e) => tracing::warn!(%e, "failed to parse /status JSON; defaulting to akashnet-2"),
+            }
+        }
+        Err(e) => tracing::warn!(%e, "failed to GET /status; defaulting to akashnet-2"),
+    }
+    "akashnet-2".to_string()
+}
+
 /// Common initialization: mnemonic → signer → chain config → signing client → gRPC clients.
 /// Storage creation is left to the caller so it can differ by feature flag.
 async fn init_client_core(
@@ -225,19 +322,39 @@ async fn init_client_core(
     rpc_endpoint: &str,
     grpc_endpoint: &str,
 ) -> Result<ClientInit, DeployError> {
+    init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, None).await
+}
+
+/// Like `init_client_core` but derives the signer and JWT key at a specific
+/// BIP44 HD index (`m/44'/118'/0'/0/{index}`).  When `hd_index` is `None`,
+/// behaviour is identical to the original `init_client_core`.
+async fn init_client_core_at_index(
+    mnemonic: &str,
+    rpc_endpoint: &str,
+    grpc_endpoint: &str,
+    hd_index: Option<u32>,
+) -> Result<ClientInit, DeployError> {
     tracing::info!("starting client initialization");
 
-    // Step 1: Create the key signer from mnemonic
+    // Step 1: Create the key signer from mnemonic (optionally at child index)
     tracing::info!("step 1/5: creating key signer from mnemonic");
-    let signer = KeySigner::new_mnemonic_str(mnemonic, None).map_err(|e| {
-        tracing::error!(?e, "failed to create signer from mnemonic");
-        DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
-    })?;
+    let derivation_path = hd_index
+        .map(|i| {
+            format!("m/44'/118'/0'/0/{}", i)
+                .parse::<DerivationPath>()
+                .map_err(|e| DeployError::Signer(format!("Invalid HD path: {}", e)))
+        })
+        .transpose()?;
+    let signer =
+        KeySigner::new_mnemonic_str(mnemonic, derivation_path.as_ref()).map_err(|e| {
+            tracing::error!(?e, "failed to create signer from mnemonic");
+            DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
+        })?;
     tracing::info!("step 1/5: key signer created successfully");
 
     // Step 2: Derive secp256k1 signing key for JWT (ES256K) from the same mnemonic
     tracing::info!("step 2/5: deriving JWT signing key (ES256K)");
-    let jwt_signing_key = derive_jwt_signing_key(mnemonic)?;
+    let jwt_signing_key = derive_jwt_signing_key_at_index(mnemonic, hd_index)?;
     tracing::info!("step 2/5: JWT signing key derived successfully");
 
     // Step 3: Set up Akash chain configuration
@@ -252,11 +369,19 @@ async fn init_client_core(
     let grpc_ep = if grpc_endpoint.is_empty() {
         None
     } else {
-        Some(grpc_endpoint.to_string())
+        // Ensure the endpoint has a scheme — tonic requires a valid URI.
+        let ep = grpc_endpoint.to_string();
+        let ep = if !ep.starts_with("http://") && !ep.starts_with("https://") {
+            format!("https://{}", ep)
+        } else {
+            ep
+        };
+        Some(ep)
     };
 
+    let chain_id = query_chain_id_from_rpc(rpc_endpoint).await;
     let chain_config = ChainConfig {
-        chain_id: ChainId::new("akashnet-2"),
+        chain_id: ChainId::new(&chain_id),
         address_kind: AddrKind::Cosmos {
             prefix: "akash".to_string(),
         },
@@ -267,8 +392,9 @@ async fn init_client_core(
         grpc_web_endpoint: None,
     };
     tracing::info!(
-        "step 3/5: chain config built (chain_id=akashnet-2, rpc={})",
-        rpc_endpoint
+        chain_id,
+        rpc = %rpc_endpoint,
+        "step 3/5: chain config built"
     );
 
     // Step 4: Create the signing client (connects to RPC)
@@ -281,17 +407,30 @@ async fn init_client_core(
         })?;
     tracing::info!(address = %client.addr, "step 4/5: signing client created successfully");
 
-    // Use QueryAndIncrement: queries sequence once, then increments locally for subsequent txs
-    client.sequence_strategy = SequenceStrategy::new(SequenceStrategyKind::QueryAndIncrement);
+    // Use Query: always queries sequence fresh from chain (safe for retries and error paths).
+    client.sequence_strategy = SequenceStrategy::new(SequenceStrategyKind::Query);
 
     let address = client.addr.clone();
 
-    // Step 5: Initialize query clients if gRPC endpoint is configured
+    // Step 5: Initialize query clients if gRPC endpoint is configured.
+    // Failure is non-fatal: log a warning and continue without gRPC.
+    // Queries will use the REST endpoint if configured, or attempt lazy gRPC init later.
     let query_clients = if let Some(ref endpoint) = grpc_ep {
         tracing::info!(endpoint = %endpoint, "step 5/5: connecting gRPC query clients");
-        let clients = QueryClients::new(endpoint).await?;
-        tracing::info!("step 5/5: gRPC query clients connected");
-        Some(clients)
+        match QueryClients::new(endpoint).await {
+            Ok(clients) => {
+                tracing::info!("step 5/5: gRPC query clients connected");
+                Some(clients)
+            }
+            Err(e) => {
+                tracing::warn!(
+                    endpoint = %endpoint,
+                    error = %e,
+                    "step 5/5: gRPC unavailable — queries will use REST or lazy-init"
+                );
+                None
+            }
+        }
     } else {
         tracing::info!("step 5/5: skipped (no gRPC endpoint configured)");
         None
@@ -340,6 +479,40 @@ impl AkashClient<FileBackedStorage> {
             address: init.address,
             query_clients: init.query_clients,
             jwt_signing_key: Some(init.jwt_signing_key),
+            rest_endpoint: None,
+        })
+    }
+
+    /// Create a new client at a specific BIP44 HD child index.
+    ///
+    /// Derives the signer and JWT key at `m/44'/118'/0'/0/{hd_index}` instead
+    /// of the default index 0.  Used by parallel deployment to give each phase
+    /// its own signing account.
+    pub async fn new_from_mnemonic_at_index(
+        mnemonic: &str,
+        hd_index: u32,
+        rpc_endpoint: &str,
+        grpc_endpoint: &str,
+    ) -> Result<Self, DeployError> {
+        let init =
+            init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, Some(hd_index))
+                .await?;
+
+        let storage = FileBackedStorage::new_default().await?;
+
+        tracing::info!(
+            address = %init.address,
+            hd_index,
+            "client initialization complete (file-storage, child account)"
+        );
+
+        Ok(Self {
+            client: init.client,
+            storage: RwLock::new(storage),
+            address: init.address,
+            query_clients: init.query_clients,
+            jwt_signing_key: Some(init.jwt_signing_key),
+            rest_endpoint: None,
         })
     }
 }
@@ -378,6 +551,34 @@ impl AkashClient<StdoutStorage> {
             address: init.address,
             query_clients: init.query_clients,
             jwt_signing_key: Some(init.jwt_signing_key),
+            rest_endpoint: None,
+        })
+    }
+
+    /// Create a new client at a specific BIP44 HD child index (stdout storage).
+    pub async fn new_from_mnemonic_at_index(
+        mnemonic: &str,
+        hd_index: u32,
+        rpc_endpoint: &str,
+        grpc_endpoint: &str,
+    ) -> Result<Self, DeployError> {
+        let init =
+            init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, Some(hd_index))
+                .await?;
+
+        tracing::info!(
+            address = %init.address,
+            hd_index,
+            "client initialization complete (stdout-storage, child account)"
+        );
+
+        Ok(Self {
+            client: init.client,
+            storage: RwLock::new(StdoutStorage::new()),
+            address: init.address,
+            query_clients: init.query_clients,
+            jwt_signing_key: Some(init.jwt_signing_key),
+            rest_endpoint: None,
         })
     }
 }
@@ -395,6 +596,7 @@ impl<S: SessionStorage> AkashClient<S> {
             address,
             query_clients: None, // Will be initialized lazily on first query
             jwt_signing_key: None,
+            rest_endpoint: None,
         }
     }
 
@@ -411,6 +613,18 @@ impl<S: SessionStorage> AkashClient<S> {
         self
     }
 
+    /// Set the REST (gRPC-Gateway) endpoint for Akash chain queries.
+    ///
+    /// When set, all Akash query methods (bids, leases, certs, providers,
+    /// escrow, balance) use the Cosmos REST API instead of gRPC, avoiding
+    /// 503 errors from unreliable gRPC endpoints.
+    ///
+    /// Endpoint format: `https://api.akashnet.net:443`
+    pub fn with_rest(mut self, endpoint: impl Into<String>) -> Self {
+        self.rest_endpoint = Some(endpoint.into());
+        self
+    }
+
     /// Get or initialize query clients.
     ///
     /// This lazily initializes the query clients on first access if they
@@ -424,6 +638,7 @@ impl<S: SessionStorage> AkashClient<S> {
                 provider: clients.provider.clone(),
                 market: clients.market.clone(),
                 escrow: clients.escrow.clone(),
+                bme: clients.bme.clone(),
             });
         }
 
@@ -465,6 +680,304 @@ impl<S: SessionStorage> AkashClient<S> {
     pub fn storage(&self) -> &RwLock<S> {
         &self.storage
     }
+
+    /// Send coins from this account to another address (cosmos.bank MsgSend).
+    ///
+    /// Common use: faucet funding, pre-test account seeding.
+    pub async fn bank_send(
+        &self,
+        to: &str,
+        amount: u128,
+        denom: &str,
+    ) -> Result<TxResult, DeployError> {
+        // MsgSend defined inline — avoids pulling in a separate cosmos-sdk proto crate.
+        #[derive(Clone, PartialEq, ::prost::Message)]
+        struct MsgSend {
+            #[prost(string, tag = "1")]
+            from_address: String,
+            #[prost(string, tag = "2")]
+            to_address: String,
+            #[prost(message, repeated, tag = "3")]
+            amount: Vec<crate::gen::cosmos::base::v1beta1::Coin>,
+        }
+        impl ::prost::Name for MsgSend {
+            const NAME: &'static str = "MsgSend";
+            const PACKAGE: &'static str = "cosmos.bank.v1beta1";
+            fn full_name() -> String {
+                "cosmos.bank.v1beta1.MsgSend".into()
+            }
+            fn type_url() -> String {
+                "/cosmos.bank.v1beta1.MsgSend".into()
+            }
+        }
+        self.broadcast_any_msg(MsgSend {
+            from_address: self.address().to_string(),
+            to_address: to.to_string(),
+            amount: vec![crate::gen::cosmos::base::v1beta1::Coin {
+                denom: denom.to_string(),
+                amount: amount.to_string(),
+            }],
+        })
+        .await
+    }
+
+    /// Send coins to multiple recipients in a single transaction.
+    ///
+    /// Builds N `MsgSend` messages (same `from_address`, different `to_address`)
+    /// and broadcasts them in one tx — single sequence number, one gas estimation,
+    /// one confirmation.  Saves ~(N-1) × block_time compared to sequential sends.
+    pub async fn bank_send_batch(
+        &self,
+        recipients: &[(&str, u128, &str)], // (to_addr, amount, denom)
+    ) -> Result<TxResult, DeployError> {
+        #[derive(Clone, PartialEq, ::prost::Message)]
+        struct MsgSend {
+            #[prost(string, tag = "1")]
+            from_address: String,
+            #[prost(string, tag = "2")]
+            to_address: String,
+            #[prost(message, repeated, tag = "3")]
+            amount: Vec<crate::gen::cosmos::base::v1beta1::Coin>,
+        }
+        impl ::prost::Name for MsgSend {
+            const NAME: &'static str = "MsgSend";
+            const PACKAGE: &'static str = "cosmos.bank.v1beta1";
+            fn full_name() -> String {
+                "cosmos.bank.v1beta1.MsgSend".into()
+            }
+            fn type_url() -> String {
+                "/cosmos.bank.v1beta1.MsgSend".into()
+            }
+        }
+
+        if recipients.is_empty() {
+            return Err(DeployError::InvalidState(
+                "bank_send_batch: empty recipients list".into(),
+            ));
+        }
+
+        let from = self.address().to_string();
+        let msgs: Vec<layer_climb::proto::Any> = recipients
+            .iter()
+            .map(|(to, amount, denom)| {
+                to_any(&MsgSend {
+                    from_address: from.clone(),
+                    to_address: to.to_string(),
+                    amount: vec![crate::gen::cosmos::base::v1beta1::Coin {
+                        denom: denom.to_string(),
+                        amount: amount.to_string(),
+                    }],
+                })
+            })
+            .collect();
+
+        tracing::info!(
+            "bank_send_batch: {} MsgSend msgs in 1 tx from {}",
+            msgs.len(),
+            from
+        );
+
+        // Log account state for diagnostics.
+        match self.client.querier.base_account(&self.address).await {
+            Ok(acct) => tracing::info!(
+                account_number = acct.account_number,
+                sequence = acct.sequence,
+                "tx: on-chain account state"
+            ),
+            Err(e) => tracing::warn!(%e, "tx: failed to query base_account"),
+        }
+
+        let mut tx = self.client.tx_builder();
+        tx.set_gas_simulate_multiplier(1.5);
+        tx.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
+        let response = tx
+            .broadcast(msgs)
+            .await
+            .map_err(|e| DeployError::Transaction {
+                code: 1,
+                log: format!("{:#}", e),
+            })?;
+        Ok(TxResult {
+            hash: response.txhash,
+            code: response.code,
+            raw_log: response.raw_log,
+            height: response.height as u64,
+        })
+    }
+
+    /// Build a `MsgCreateDeployment` as an `Any`-encoded proto message.
+    ///
+    /// Does NOT broadcast — returns the message for inclusion in a multi-signer
+    /// batch. The caller provides `dseq` so all deployments in a batch can use
+    /// the same block height.
+    pub fn build_create_deployment_msg(
+        &self,
+        owner: &str,
+        sdl_content: &str,
+        deposit_amount: u64,
+        deposit_denom: &str,
+        dseq: u64,
+    ) -> Result<layer_climb::proto::Any, DeployError> {
+        use crate::gen::akash::base::deposit::v1 as akash_deposit;
+        use crate::gen::akash::deployment::v1 as akash_deployment_v1;
+        use sha2::{Digest, Sha256};
+
+        crate::sdl::sdl::validate_sdl(sdl_content)?;
+        let groups = crate::sdl::groupspec::build_groupspecs_from_sdl(sdl_content)?;
+
+        let deployment_id = akash_deployment_v1::DeploymentId {
+            owner: owner.to_string(),
+            dseq,
+        };
+
+        let manifest_builder = crate::manifest::manifest::ManifestBuilder::new(owner, dseq);
+        let manifest_groups = manifest_builder
+            .build_from_sdl(sdl_content)
+            .map_err(|e| DeployError::Sdl(format!("Manifest build failed: {}", e)))?;
+        let manifest_json = crate::manifest::canonical::to_canonical_json(&manifest_groups)
+            .map_err(|e| DeployError::Sdl(format!("Canonical manifest JSON failed: {}", e)))?;
+
+        let sdl_hash = Sha256::digest(manifest_json.as_bytes()).to_vec();
+
+        let deposit = akash_deposit::Deposit {
+            amount: Some(crate::gen::cosmos::base::v1beta1::Coin {
+                denom: deposit_denom.to_string(),
+                amount: deposit_amount.to_string(),
+            }),
+            sources: vec![akash_deposit::Source::Balance as i32],
+        };
+
+        let msg = akash_deployment::MsgCreateDeployment {
+            id: Some(deployment_id),
+            groups,
+            hash: sdl_hash,
+            deposit: Some(deposit),
+        };
+
+        tracing::info!(
+            owner, dseq, deposit_amount, deposit_denom,
+            groups = msg.groups.len(),
+            hash = %hex::encode(&msg.hash),
+            "build_create_deployment_msg: built (not broadcast)"
+        );
+
+        Ok(to_any(&msg))
+    }
+
+    /// Broadcast any Cosmos/Akash message. Returns a TxResult on success.
+    ///
+    /// Encodes the message as a `google.protobuf.Any` and broadcasts it via
+    /// the signing client. Useful for one-off message types (provider
+    /// registration, bids, etc.) without needing a full workflow.
+    pub async fn broadcast_any_msg<M: ProstMessage + ProstName>(
+        &self,
+        msg: M,
+    ) -> Result<TxResult, DeployError> {
+        let any = to_any(&msg);
+        // Log account state so we can diagnose sequence/account_number issues.
+        match self.client.querier.base_account(&self.address).await {
+            Ok(acct) => tracing::info!(
+                account_number = acct.account_number,
+                sequence = acct.sequence,
+                "tx: on-chain account state"
+            ),
+            Err(e) => tracing::warn!(%e, "tx: failed to query base_account (account may not exist on-chain yet)"),
+        }
+        let mut tx = self.client.tx_builder();
+        tx.set_gas_simulate_multiplier(1.5);
+        tx.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
+        let response = tx
+            .broadcast([any])
+            .await
+            .map_err(|e| DeployError::Transaction {
+                code: 1,
+                log: format!("{:#}", e),
+            })?;
+        Ok(TxResult {
+            hash: response.txhash,
+            code: response.code,
+            raw_log: response.raw_log,
+            height: response.height as u64,
+        })
+    }
+
+    /// Query bids via gRPC first, falling back to REST if configured.
+    ///
+    /// gRPC is preferred because it filters by dseq server-side and supports
+    /// state filtering.  REST is used as a fallback when gRPC is unavailable.
+    async fn query_bids_impl(&self, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
+        tracing::debug!(owner, dseq, "query_bids: querying bids");
+
+        // Try gRPC first.
+        match self.query_bids_grpc(owner, dseq).await {
+            Ok(bids) => return Ok(bids),
+            Err(e) => {
+                if let Some(ref api) = self.rest_endpoint {
+                    tracing::warn!(error = %e, "query_bids: gRPC failed, falling back to REST");
+                    return crate::rest::query_bids(api, owner, dseq).await;
+                }
+                return Err(e);
+            }
+        }
+    }
+
+    async fn query_bids_grpc(&self, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
+        use crate::gen::akash::market::v1beta5 as akash_market;
+
+        let mut clients = self.get_query_clients().await?;
+
+        let response = clients
+            .market
+            .bids(akash_market::QueryBidsRequest {
+                filters: Some(akash_market::BidFilters {
+                    owner: owner.to_string(),
+                    dseq,
+                    gseq: 0,
+                    oseq: 0,
+                    provider: String::new(),
+                    state: "open".to_string(),
+                    bseq: 0,
+                }),
+                pagination: None,
+            })
+            .await
+            .map_err(|e| DeployError::Query(format!("Failed to query bids: {}", e)))?
+            .into_inner();
+
+        tracing::debug!(raw_count = response.bids.len(), "query_bids: raw gRPC response");
+
+        let bids = response
+            .bids
+            .into_iter()
+            .filter_map(|bid_response| {
+                let bid = bid_response.bid?;
+                let bid_id = bid.id?;
+                let price = bid.price?;
+
+                tracing::debug!(
+                    provider = %bid_id.provider,
+                    denom = %price.denom,
+                    amount = %price.amount,
+                    state = bid.state,
+                    "query_bids: bid"
+                );
+
+                let raw_amount = price.amount.split('.').next().unwrap_or("0").parse::<u128>().ok()?;
+                const DEC_PRECISION: u128 = 1_000_000_000_000_000_000;
+                let price_amount = (raw_amount / DEC_PRECISION) as u64;
+
+                Some(Bid {
+                    provider: bid_id.provider,
+                    price: price_amount,
+                    price_denom: price.denom.clone(),
+                    resources: Resources::default(),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        tracing::debug!(parsed_count = bids.len(), "query_bids: done");
+        Ok(bids)
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -475,6 +988,20 @@ impl<S: SessionStorage> AkashClient<S> {
 ///
 /// Uses the Cosmos HD path: m/44'/118'/0'/0/0
 fn derive_jwt_signing_key(mnemonic: &str) -> Result<SigningKey, DeployError> {
+    derive_jwt_signing_key_at_index(mnemonic, None)
+}
+
+/// Like `derive_jwt_signing_key` but derives at `m/44'/118'/0'/0/{index}` when
+/// `hd_index` is `Some`.  Falls back to index 0 when `None`.
+fn derive_jwt_signing_key_at_index(
+    mnemonic: &str,
+    hd_index: Option<u32>,
+) -> Result<SigningKey, DeployError> {
+    let path_str = match hd_index {
+        Some(i) => format!("m/44'/118'/0'/0/{}", i),
+        None => "m/44'/118'/0'/0/0".to_string(),
+    };
+
     let parsed: Mnemonic<English> = mnemonic
         .parse()
         .map_err(|e| DeployError::Jwt(format!("invalid mnemonic: {:?}", e)))?;
@@ -485,7 +1012,7 @@ fn derive_jwt_signing_key(mnemonic: &str) -> Result<SigningKey, DeployError> {
 
     let child_key = XPrv::derive_from_path(
         seed_bytes,
-        &"m/44'/118'/0'/0/0"
+        &path_str
             .parse()
             .map_err(|e| DeployError::Jwt(format!("invalid HD path: {}", e)))?,
     )
@@ -724,6 +1251,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             return Ok(Some(cert));
         }
 
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_certificate(api, owner).await;
+        }
+
         use crate::gen::akash::cert::v1 as akash_cert;
 
         // Get reusable query clients
@@ -771,6 +1303,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             .await?
         {
             return Ok(Some(info));
+        }
+
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_provider_info(api, provider).await;
         }
 
         use crate::gen::akash::provider::v1beta4 as akash_provider;
@@ -821,98 +1358,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     }
 
     async fn query_bids(&self, owner: &str, dseq: u64) -> Result<Vec<Bid>, DeployError> {
-        use crate::gen::akash::market::v1beta5 as akash_market;
-
-        tracing::debug!(owner, dseq, "query_bids: querying bids");
-
-        // Get reusable query clients
-        let mut clients = self.get_query_clients().await?;
-
-        // Execute query
-        let response = clients
-            .market
-            .bids(akash_market::QueryBidsRequest {
-                filters: Some(akash_market::BidFilters {
-                    owner: owner.to_string(),
-                    dseq,
-                    gseq: 0,                 // 0 means all groups
-                    oseq: 0,                 // 0 means all order sequences
-                    provider: String::new(), // empty means all providers
-                    state: String::new(),    // empty means all states
-                    bseq: 0,                 // 0 means all bid sequences
-                }),
-                pagination: None,
-            })
-            .await
-            .map_err(|e| DeployError::Query(format!("Failed to query bids: {}", e)))?
-            .into_inner();
-
-        tracing::debug!(
-            raw_count = response.bids.len(),
-            "query_bids: raw gRPC response"
-        );
-
-        // Convert proto bids to our domain types
-        let bids = response
-            .bids
-            .into_iter()
-            .filter_map(|bid_response| {
-                let bid = match bid_response.bid {
-                    Some(b) => b,
-                    None => {
-                        tracing::warn!("query_bids: bid_response.bid is None");
-                        return None;
-                    }
-                };
-                let bid_id = match bid.id {
-                    Some(id) => id,
-                    None => {
-                        tracing::warn!("query_bids: bid.id is None");
-                        return None;
-                    }
-                };
-                let price = match bid.price {
-                    Some(p) => p,
-                    None => {
-                        tracing::warn!(provider = %bid_id.provider, "query_bids: bid.price is None");
-                        return None;
-                    }
-                };
-
-                tracing::debug!(
-                    provider = %bid_id.provider,
-                    denom = %price.denom,
-                    amount = %price.amount,
-                    state = bid.state,
-                    "query_bids: bid"
-                );
-
-                // Parse price amount — DecCoin amounts are 18-decimal-precision
-                // fixed-point integers (e.g. "138933496000000000000" = 138.93 uakt).
-                // Parse as u128 first, then divide by 10^18 to get the uakt value.
-                let raw_amount = match price.amount.split('.').next().unwrap_or("0").parse::<u128>() {
-                    Ok(v) => v,
-                    Err(e) => {
-                        tracing::warn!(amount = %price.amount, error = %e, "query_bids: failed to parse price");
-                        return None;
-                    }
-                };
-                const DEC_PRECISION: u128 = 1_000_000_000_000_000_000; // 10^18
-                let price_uakt = (raw_amount / DEC_PRECISION) as u64;
-
-                // Extract resources (if available)
-                let resources = Resources::default(); // TODO: Parse from bid if needed
-
-                Some(Bid {
-                    provider: bid_id.provider,
-                    price_uakt,
-                    resources,
-                })
-            })
-            .collect::<Vec<_>>();
-
-        tracing::debug!(parsed_count = bids.len(), "query_bids: done");
-        Ok(bids)
+        self.query_bids_impl(owner, dseq).await
     }
 
     async fn query_lease(
@@ -924,6 +1370,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         bseq: u32,
         provider: &str,
     ) -> Result<LeaseInfo, DeployError> {
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_lease(api, owner, dseq, gseq, oseq, bseq, provider).await;
+        }
+
         use crate::gen::akash::market::v1 as akash_market_v1;
 
         // Get reusable query clients
@@ -955,7 +1406,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             .price
             .ok_or_else(|| DeployError::Query("Lease price missing".into()))?;
 
-        let price_uakt = price
+        let price_amount = price
             .amount
             .parse::<u64>()
             .map_err(|e| DeployError::Query(format!("Invalid price amount: {}", e)))?;
@@ -968,10 +1419,19 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             _ => LeaseState::Closed, // Default to closed for unknown states
         };
 
-        Ok(LeaseInfo { state, price_uakt })
+        Ok(LeaseInfo {
+            state,
+            price: price_amount,
+            price_denom: price.denom.clone(),
+        })
     }
 
     async fn query_escrow(&self, owner: &str, dseq: u64) -> Result<EscrowInfo, DeployError> {
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_escrow(api, owner, dseq).await;
+        }
+
         use crate::gen::akash::escrow::v1 as akash_escrow;
 
         // Get reusable query clients
@@ -1001,7 +1461,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             .ok_or_else(|| DeployError::Query("Escrow account state missing".into()))?;
 
         // Calculate total balance from funds (sum all uakt balances)
-        let balance_uakt = account_state
+        let balance_amount = account_state
             .funds
             .iter()
             .filter(|f| f.denom == "uakt")
@@ -1011,11 +1471,40 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         // For deposited amount, we can't easily calculate it from the current state,
         // so we'll use the same as balance for now
         // TODO: Track deposits separately if needed
-        let deposited_uakt = balance_uakt;
+        let deposited_amount = balance_amount;
 
         Ok(EscrowInfo {
-            balance_uakt,
-            deposited_uakt,
+            balance: balance_amount,
+            balance_denom: "uakt".to_string(),
+            deposited: deposited_amount,
+            deposited_denom: "uakt".to_string(),
+        })
+    }
+
+    async fn query_bme_status(&self) -> Result<BmeStatus, DeployError> {
+        // REST fallback
+        if let Some(ref api) = self.rest_endpoint {
+            return crate::rest::query_bme_status(api).await;
+        }
+
+        use crate::gen::akash::bme::v1 as akash_bme;
+
+        let mut clients = self.get_query_clients().await?;
+        let response = clients
+            .bme
+            .status(akash_bme::QueryStatusRequest {})
+            .await
+            .map_err(|e| DeployError::Query(format!("Failed to query BME status: {}", e)))?
+            .into_inner();
+
+        let status_str = akash_bme::MintStatus::try_from(response.status)
+            .map(|s| s.as_str_name().to_string())
+            .unwrap_or_else(|_| format!("unknown({})", response.status));
+
+        Ok(BmeStatus {
+            mints_allowed: response.mints_allowed,
+            status: status_str,
+            collateral_ratio: response.collateral_ratio,
         })
     }
 
@@ -1055,7 +1544,8 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         _signer: &Self::Signer,
         owner: &str,
         sdl_content: &str,
-        deposit_uakt: u64,
+        deposit_amount: u64,
+        deposit_denom: &str,
     ) -> Result<(TxResult, u64), DeployError> {
         use crate::gen::akash::base::deposit::v1 as akash_deposit;
         use crate::gen::akash::deployment::v1 as akash_deployment_v1;
@@ -1090,11 +1580,13 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
 
         let deposit = akash_deposit::Deposit {
             amount: Some(crate::gen::cosmos::base::v1beta1::Coin {
-                denom: "uakt".to_string(),
-                amount: deposit_uakt.to_string(),
+                denom: deposit_denom.to_string(),
+                amount: deposit_amount.to_string(),
             }),
+            // Use Balance only — Grant requires an authz grant which
+            // doesn't exist for fresh deployer accounts and may cause
+            // the chain to silently reject the deposit.
             sources: vec![
-                akash_deposit::Source::Grant as i32,
                 akash_deposit::Source::Balance as i32,
             ],
         };
@@ -1110,7 +1602,8 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         tracing::info!(
             owner,
             dseq,
-            deposit_uakt,
+            deposit_amount,
+            deposit_denom,
             groups = msg.groups.len(),
             hash = %hex::encode(&msg.hash),
             "MsgCreateDeployment: broadcasting"
@@ -1386,6 +1879,33 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
                 }
             }
         }
+    }
+
+    async fn broadcast_mint_act(
+        &self,
+        _signer: &Self::Signer,
+        owner: &str,
+        amount_uakt: u64,
+    ) -> Result<TxResult, DeployError> {
+        use crate::gen::akash::bme::v1 as akash_bme;
+
+        let msg = akash_bme::MsgMintAct {
+            owner: owner.to_string(),
+            to: owner.to_string(),
+            coins_to_burn: Some(crate::gen::cosmos::base::v1beta1::Coin {
+                denom: "uakt".to_string(),
+                amount: amount_uakt.to_string(),
+            }),
+        };
+
+        tracing::info!(
+            owner,
+            amount_uakt,
+            type_url = %<akash_bme::MsgMintAct as prost::Name>::type_url(),
+            "broadcasting MsgMintACT"
+        );
+
+        self.broadcast_any_msg(msg).await
     }
 
     async fn generate_jwt(&self, owner: &str) -> Result<String, DeployError> {
@@ -1699,4 +2219,269 @@ pub async fn import_sessions<S: SessionStorage>(
     }
 
     Ok(imported)
+}
+
+// ── Multi-signer transaction support ─────────────────────────────────────────
+
+/// One signer's contribution to a multi-signer transaction.
+pub struct SignerEntry<'a> {
+    /// Signer that will produce the signature for this entry.
+    pub signer: &'a dyn layer_climb::prelude::TxSigner,
+    /// On-chain account number (from `base_account`).
+    pub account_number: u64,
+    /// On-chain sequence number (from `base_account`).
+    pub sequence: u64,
+    /// Messages this signer authorises.
+    pub messages: Vec<layer_climb::proto::Any>,
+}
+
+/// Result of a confirmed multi-signer transaction.
+pub struct MultiSignerTxResult {
+    pub hash: String,
+    pub code: u32,
+    pub raw_log: String,
+    pub height: u64,
+}
+
+/// Broadcast a transaction signed by multiple independent signers.
+///
+/// Each entry in `signer_entries` provides a signer, its on-chain account info,
+/// and the messages it authorises.  Messages appear in `TxBody` in signer order.
+/// The first signer is the fee payer.
+///
+/// Uses `SIGN_MODE_DIRECT`: each signer signs a `SignDoc` with their own
+/// `account_number` but shared `body_bytes` and `auth_info_bytes`.
+pub async fn broadcast_multi_signer(
+    querier: &layer_climb::prelude::QueryClient,
+    chain_id: &str,
+    signer_entries: Vec<SignerEntry<'_>>,
+    gas_multiplier: f32,
+    poll_timeout: std::time::Duration,
+) -> Result<MultiSignerTxResult, DeployError> {
+    use layer_climb::prelude::proto_into_bytes;
+
+    if signer_entries.is_empty() {
+        return Err(DeployError::InvalidState(
+            "broadcast_multi_signer: no signer entries".into(),
+        ));
+    }
+
+    // ── 1. Build TxBody ──────────────────────────────────────────────────
+    let all_messages: Vec<layer_climb::proto::Any> = signer_entries
+        .iter()
+        .flat_map(|e| e.messages.clone())
+        .collect();
+
+    let block_height = querier.block_height().await.map_err(|e| {
+        DeployError::Query(format!("block_height for timeout: {}", e))
+    })?;
+
+    let body = layer_climb::proto::tx::TxBody {
+        messages: all_messages,
+        memo: String::new(),
+        timeout_height: block_height + 10,
+        extension_options: Vec::new(),
+        non_critical_extension_options: Vec::new(),
+        unordered: false,
+        timeout_timestamp: None,
+    };
+    let body_bytes = proto_into_bytes(&body).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode TxBody: {}", e) }
+    })?;
+
+    // Diagnostic: log signer state and message types before simulation
+    for (i, entry) in signer_entries.iter().enumerate() {
+        let type_urls: Vec<&str> = entry.messages.iter().map(|m| m.type_url.as_str()).collect();
+        tracing::info!(
+            signer = i,
+            account_number = entry.account_number,
+            sequence = entry.sequence,
+            chain_id,
+            msgs = ?type_urls,
+            "broadcast_multi_signer: signer entry"
+        );
+    }
+
+    // ── 2. Build SignerInfos (Unspecified mode for simulation) ────────────
+    let mut sim_signer_infos = Vec::with_capacity(signer_entries.len());
+    for entry in &signer_entries {
+        let si = entry
+            .signer
+            .signer_info(entry.sequence, layer_climb::proto::tx::SignMode::Unspecified)
+            .await
+            .map_err(|e| {
+                DeployError::Transaction { code: 0, log: format!("signer_info (sim): {}", e) }
+            })?;
+        sim_signer_infos.push(si);
+    }
+
+    // Simulation fee: 0 gas, correct denom
+    let sim_fee = layer_climb::proto::tx::Fee {
+        amount: vec![layer_climb::prelude::new_coin(0, &querier.chain_config.gas_denom)],
+        gas_limit: 0,
+        payer: String::new(),
+        granter: String::new(),
+    };
+
+    #[allow(deprecated)]
+    let sim_auth_info = layer_climb::proto::tx::AuthInfo {
+        signer_infos: sim_signer_infos,
+        fee: Some(sim_fee),
+        tip: None,
+    };
+    let sim_auth_bytes = proto_into_bytes(&sim_auth_info).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode sim AuthInfo: {}", e) }
+    })?;
+
+    // Build unsigned TxRaw for simulation
+    let sim_tx_raw = layer_climb::proto::tx::TxRaw {
+        body_bytes: body_bytes.clone(),
+        auth_info_bytes: sim_auth_bytes,
+        signatures: signer_entries.iter().map(|_| Vec::new()).collect(),
+    };
+    let sim_tx_bytes = proto_into_bytes(&sim_tx_raw).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode sim TxRaw: {}", e) }
+    })?;
+
+    // ── 3. Simulate gas ──────────────────────────────────────────────────
+    let sim_response = querier.simulate_tx(sim_tx_bytes).await.map_err(|e| {
+        tracing::error!(error = ?e, "broadcast_multi_signer: simulate_tx failed");
+        DeployError::Transaction { code: 0, log: format!("simulate_tx: {:#}", e) }
+    })?;
+    let gas_used = sim_response
+        .gas_info
+        .as_ref()
+        .map(|g| g.gas_used)
+        .unwrap_or(200_000);
+    let gas_units = (gas_used as f32 * gas_multiplier).ceil() as u64;
+
+    tracing::info!(
+        gas_used, gas_units, signers = signer_entries.len(),
+        "multi_signer: gas simulated"
+    );
+
+    // ── 4. Rebuild AuthInfo with real fee ────────────────────────────────
+    let fee_amount =
+        (querier.chain_config.gas_price * gas_units as f32).ceil() as u128;
+    let real_fee = layer_climb::proto::tx::Fee {
+        amount: vec![layer_climb::prelude::new_coin(
+            fee_amount,
+            &querier.chain_config.gas_denom,
+        )],
+        gas_limit: gas_units,
+        payer: String::new(),
+        granter: String::new(),
+    };
+
+    let mut real_signer_infos = Vec::with_capacity(signer_entries.len());
+    for entry in &signer_entries {
+        let si = entry
+            .signer
+            .signer_info(entry.sequence, layer_climb::proto::tx::SignMode::Direct)
+            .await
+            .map_err(|e| {
+                DeployError::Transaction { code: 0, log: format!("signer_info: {}", e) }
+            })?;
+        real_signer_infos.push(si);
+    }
+
+    #[allow(deprecated)]
+    let real_auth_info = layer_climb::proto::tx::AuthInfo {
+        signer_infos: real_signer_infos,
+        fee: Some(real_fee),
+        tip: None,
+    };
+    let auth_info_bytes = proto_into_bytes(&real_auth_info).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode AuthInfo: {}", e) }
+    })?;
+
+    // ── 5. Each signer signs its own SignDoc ─────────────────────────────
+    let mut signatures = Vec::with_capacity(signer_entries.len());
+    for entry in &signer_entries {
+        let sign_doc = layer_climb::proto::tx::SignDoc {
+            body_bytes: body_bytes.clone(),
+            auth_info_bytes: auth_info_bytes.clone(),
+            chain_id: chain_id.to_string(),
+            account_number: entry.account_number,
+        };
+        let sig = entry.signer.sign(&sign_doc).await.map_err(|e| {
+            DeployError::Transaction { code: 0, log: format!("sign: {}", e) }
+        })?;
+        signatures.push(sig);
+    }
+
+    // ── 6. Assemble and broadcast ────────────────────────────────────────
+    let tx_raw = layer_climb::proto::tx::TxRaw {
+        body_bytes,
+        auth_info_bytes,
+        signatures,
+    };
+    let tx_bytes = proto_into_bytes(&tx_raw).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode TxRaw: {}", e) }
+    })?;
+
+    tracing::info!(
+        msgs = signer_entries.iter().map(|e| e.messages.len()).sum::<usize>(),
+        signers = signer_entries.len(),
+        gas_units,
+        "multi_signer: broadcasting"
+    );
+
+    let response = querier
+        .broadcast_tx_bytes(tx_bytes, layer_climb::proto::tx::BroadcastMode::Sync)
+        .await
+        .map_err(|e| DeployError::Transaction {
+            code: 1,
+            log: format!("broadcast: {}", e),
+        })?;
+
+    if response.code() != 0 {
+        return Err(DeployError::Transaction {
+            code: response.code(),
+            log: format!(
+                "multi_signer tx failed: code={}, log={}",
+                response.code(),
+                response.raw_log()
+            ),
+        });
+    }
+
+    // Poll until confirmed on-chain
+    let confirmed = querier
+        .poll_until_tx_ready(
+            response.tx_hash(),
+            std::time::Duration::from_secs(1),
+            poll_timeout,
+        )
+        .await
+        .map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("poll_until_tx_ready: {}", e),
+        })?;
+
+    let height = confirmed.tx_response.height as u64;
+    let hash = confirmed.tx_response.txhash.clone();
+    let code = confirmed.tx_response.code;
+
+    if code != 0 {
+        return Err(DeployError::Transaction {
+            code,
+            log: format!(
+                "multi_signer tx confirmed but failed: code={}, log={}",
+                code, confirmed.tx_response.raw_log
+            ),
+        });
+    }
+
+    tracing::info!(
+        tx_hash = %hash, height, code,
+        "multi_signer: confirmed"
+    );
+
+    Ok(MultiSignerTxResult {
+        hash,
+        code,
+        raw_log: confirmed.tx_response.raw_log,
+        height,
+    })
 }

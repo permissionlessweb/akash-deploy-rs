@@ -1,0 +1,53 @@
+---
+version: "2.0"
+services:
+  terp-node:
+    image: ghcr.io/terpnetwork/terp-core:v5.1.3-oline
+    command:
+      - sh
+    args:
+      - -c
+      - terpd bootstrap --setup-only --network morocco-1 --sync-mode statesync --statesync-rpcs https://terp.rpc.m.anode.team:443 --public --pruning default --genesis-url https://raw.githubusercontent.com/terpnetwork/networks/main/mainnet/morocco-1/genesis.json && terpd start --home /terpd/.terpd
+    expose:
+      - port: 26656
+        as: 26656
+        to:
+          - global: true
+      - port: 26657
+        as: 26657
+        to:
+          - global: true
+      - port: 9090
+        as: 9090
+        to:
+          - global: true
+      - port: 1317
+        as: 1317
+        to:
+          - global: true
+profiles:
+  compute:
+    terp-node:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 4Gi
+        storage:
+          - size: 60Gi
+  placement:
+    dcloud:
+      pricing:
+        terp-node:
+          denom: uact
+          amount: 1000
+      signedBy:
+        anyOf:
+          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
+      attributes:
+        host: akash
+deployment:
+  terp-node:
+    dcloud:
+      profile: terp-node
+      count: 1

@@ -333,7 +333,7 @@ profiles:
     dcloud:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: ${PRICE}
 deployment:
   web:
@@ -609,3 +609,4 @@ This validates that your Rust code produces **identical** output to Go providers
   - orivate storage credentials
 - [ ] Add more SDL parsing examples
 - [ ] Document AkashBackend trait methods in detail
+- cloudflare dns api feature

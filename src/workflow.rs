@@ -4,8 +4,6 @@
 //! transitions between steps and calls the backend. No storage,
 //! no signing, no transport. Just logic.
 
-use tracing::subscriber;
-
 use crate::error::DeployError;
 use crate::state::{DeploymentState, Step};
 use crate::traits::AkashBackend;
@@ -15,18 +13,16 @@ use crate::AuthMode;
 /// Workflow configuration.
 #[derive(Debug, Clone)]
 pub struct WorkflowConfig {
-    /// Minimum balance required to proceed (uakt).
+    /// Minimum AKT balance required for gas (uakt).
     pub min_balance_uakt: u64,
+    /// Minimum ACT balance required for deployment deposit (uact).
+    pub min_balance_uact: u64,
     /// How long to wait between bid checks (seconds).
     pub bid_wait_seconds: u64,
     /// Max attempts to wait for bids.
     pub max_bid_wait_attempts: u32,
     /// Max attempts to wait for endpoints.
     pub max_endpoint_wait_attempts: u32,
-    /// Auto-select cheapest bid without user input.
-    pub auto_select_cheapest_bid: bool,
-    /// Trusted providers to prefer.
-    pub trusted_providers: Vec<String>,
     /// Provider authentication mode (JWT or mTLS).
     pub auth_mode: AuthMode,
 }
@@ -35,11 +31,10 @@ impl Default for WorkflowConfig {
     fn default() -> Self {
         Self {
             min_balance_uakt: 1_000_000, // 1 AKT
+            min_balance_uact: 5_000_000, // 5 ACT minimum
             bid_wait_seconds: 12,        // ~2 blocks
             max_bid_wait_attempts: 10,
             max_endpoint_wait_attempts: 30,
-            auto_select_cheapest_bid: false,
-            trusted_providers: Vec::new(),
             auth_mode: AuthMode::default(),
         }
     }
@@ -95,6 +90,8 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
 
         let result = match &state.step {
             Step::Init => self.step_init(state).await,
+            Step::CheckBmeStatus => self.step_check_bme_status(state).await,
+            Step::MintAct => self.step_mint_act(state).await,
             Step::CheckBalance => self.step_check_balance(state).await,
             Step::EnsureAuth => self.step_ensure_auth(state).await,
             Step::CreateDeployment => self.step_create_deployment(state).await,
@@ -140,6 +137,32 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             return Ok(StepResult::NeedsInput(InputRequired::ProvideSdl));
         }
 
+        state.transition(Step::CheckBmeStatus);
+        Ok(StepResult::Continue)
+    }
+
+    async fn step_check_bme_status(
+        &self,
+        state: &mut DeploymentState,
+    ) -> Result<StepResult, DeployError> {
+        let bme = self.backend.query_bme_status().await?;
+
+        if !bme.mints_allowed {
+            state.fail(
+                format!("BME circuit breaker active (status={}), minting halted", bme.status),
+                false,
+            );
+            return Ok(StepResult::Failed(
+                "BME circuit breaker active, minting halted".into(),
+            ));
+        }
+
+        tracing::info!(
+            status = %bme.status,
+            collateral_ratio = %bme.collateral_ratio,
+            "BME status: healthy"
+        );
+
         state.transition(Step::CheckBalance);
         Ok(StepResult::Continue)
     }
@@ -148,25 +171,81 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
         &self,
         state: &mut DeploymentState,
     ) -> Result<StepResult, DeployError> {
-        let balance = self.backend.query_balance(&state.owner, "uakt").await?;
+        let akt_balance = self.backend.query_balance(&state.owner, "uakt").await?;
+        let act_balance = self.backend.query_balance(&state.owner, "uact").await?;
 
-        // Check both the minimum balance threshold and that the balance covers the deposit
-        let required = std::cmp::max(self.config.min_balance_uakt, state.deposit_uakt);
-
-        if balance < required as u128 {
+        // Check AKT for gas
+        if akt_balance < self.config.min_balance_uakt as u128 {
             state.fail(
                 format!(
-                    "insufficient balance: {} uakt < {} uakt required (min={}, deposit={})",
-                    balance, required, self.config.min_balance_uakt, state.deposit_uakt
+                    "insufficient AKT for gas: {} uakt < {} uakt required",
+                    akt_balance, self.config.min_balance_uakt
                 ),
-                false, // not recoverable by retry
+                false,
             );
             return Ok(StepResult::Failed(format!(
-                "insufficient balance: {} uakt < {} uakt required",
-                balance, required
+                "insufficient AKT for gas: {} uakt < {} uakt required",
+                akt_balance, self.config.min_balance_uakt
             )));
         }
 
+        // Check ACT for deposit
+        if act_balance < state.deposit_amount as u128 {
+            let shortfall = state.deposit_amount as u128 - act_balance;
+            tracing::info!(
+                act_balance,
+                deposit_required = state.deposit_amount,
+                shortfall,
+                "insufficient ACT — will mint from AKT"
+            );
+            state.needs_mint_act = true;
+        }
+
+        state.transition(Step::MintAct);
+        Ok(StepResult::Continue)
+    }
+
+    async fn step_mint_act(
+        &self,
+        state: &mut DeploymentState,
+    ) -> Result<StepResult, DeployError> {
+        if !state.needs_mint_act {
+            state.transition(Step::EnsureAuth);
+            return Ok(StepResult::Continue);
+        }
+
+        // Mint enough AKT -> ACT to cover the deposit.
+        // BME module requires a minimum mint of 10 ACT (10_000_000 uact).
+        const MIN_MINT_UACT: u128 = 10_000_000;
+
+        let act_balance = self.backend.query_balance(&state.owner, "uact").await?;
+        let needed = (state.deposit_amount as u128).saturating_sub(act_balance);
+
+        if needed == 0 {
+            state.needs_mint_act = false;
+            state.transition(Step::EnsureAuth);
+            return Ok(StepResult::Continue);
+        }
+
+        let mint_amount = needed.max(MIN_MINT_UACT);
+
+        tracing::info!(
+            amount_uakt = mint_amount,
+            "minting ACT from AKT via BME"
+        );
+
+        let tx = self
+            .backend
+            .broadcast_mint_act(self.signer, &state.owner, mint_amount as u64)
+            .await?;
+
+        if !tx.is_success() {
+            state.fail(format!("mint ACT tx failed: {}", tx.raw_log), true);
+            return Ok(StepResult::Failed(tx.raw_log));
+        }
+
+        state.record_tx(&tx.hash);
+        state.needs_mint_act = false;
         state.transition(Step::EnsureAuth);
         Ok(StepResult::Continue)
     }
@@ -247,7 +326,7 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
 
         let (tx, dseq) = self
             .backend
-            .broadcast_create_deployment(self.signer, &state.owner, sdl, state.deposit_uakt)
+            .broadcast_create_deployment(self.signer, &state.owner, sdl, state.deposit_amount, &state.deposit_denom)
             .await?;
 
         if !tx.is_success() {
@@ -270,8 +349,20 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .dseq
             .ok_or_else(|| DeployError::InvalidState("dseq missing at WaitForBids".into()))?;
 
-        // Query bids
-        let bids = self.backend.query_bids(&state.owner, dseq).await?;
+        // Query bids — transient query errors (network, 5xx, etc.) are not fatal;
+        // treat them as "no bids yet" and let the retry loop handle them.
+        let bids = match self.backend.query_bids(&state.owner, dseq).await {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::warn!(error = %e, "query_bids failed (will retry)");
+                tokio::time::sleep(std::time::Duration::from_secs(self.config.bid_wait_seconds))
+                    .await;
+                state.transition(Step::WaitForBids {
+                    waited_blocks: waited_blocks + 1,
+                });
+                return Ok(StepResult::Continue);
+            }
+        };
 
         if !bids.is_empty() {
             state.bids = bids;
@@ -310,15 +401,6 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
 
         // If provider already selected (user provided it), proceed
         if state.selected_provider.is_some() {
-            state.transition(Step::CreateLease);
-            return Ok(StepResult::Continue);
-        }
-
-        // Auto-select if configured
-        if self.config.auto_select_cheapest_bid {
-            // Prefer trusted providers, then cheapest
-            let selected = self.auto_select_provider(&state.bids);
-            state.selected_provider = Some(selected.provider.clone());
             state.transition(Step::CreateLease);
             return Ok(StepResult::Continue);
         }
@@ -453,10 +535,38 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .await?
             .ok_or_else(|| DeployError::Provider("provider not found".into()))?;
 
-        let status = self
+        // Give the provider a few seconds on the first attempt — Kubernetes resources
+        // (Service, Pod) are created after bid acceptance, and the provider may return
+        // 404 "lease not found" if queried before it has had time to process the lease.
+        if attempts == 0 {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+
+        let status = match self
             .backend
             .query_provider_status(&provider_info.host_uri, lease, &auth)
-            .await?;
+            .await
+        {
+            Ok(s) => s,
+            // Transient provider errors (e.g. 404 "lease not found" while the provider
+            // is still setting up Kubernetes resources) are not fatal — treat them the
+            // same as a "not ready" status and let the retry loop handle them.
+            Err(e) if e.is_recoverable() => {
+                if attempts >= self.config.max_endpoint_wait_attempts {
+                    state.fail(
+                        format!("endpoints not ready after {} attempts: {}", attempts, e),
+                        true,
+                    );
+                    return Ok(StepResult::Failed("endpoints not ready".into()));
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                state.transition(Step::WaitForEndpoints {
+                    attempts: attempts + 1,
+                });
+                return Ok(StepResult::Continue);
+            }
+            Err(e) => return Err(e),
+        };
 
         if status.ready && !status.endpoints.is_empty() {
             state.endpoints = status.endpoints;
@@ -483,19 +593,6 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
     // ═══════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════
-
-    fn auto_select_provider<'b>(&self, bids: &'b [Bid]) -> &'b Bid {
-        // First try trusted providers
-        for trusted in &self.config.trusted_providers {
-            if let Some(bid) = bids.iter().find(|b| &b.provider == trusted) {
-                return bid;
-            }
-        }
-        // Otherwise cheapest
-        bids.iter()
-            .min_by_key(|b| b.price_uakt)
-            .expect("bids should not be empty")
-    }
 
     /// Provide user's provider selection.
     pub fn select_provider(state: &mut DeploymentState, provider: &str) -> Result<(), DeployError> {
@@ -580,7 +677,7 @@ profiles:
     dc:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 1000
 deployment:
   web:
@@ -713,14 +810,25 @@ deployment:
         ) -> Result<LeaseInfo, DeployError> {
             Ok(LeaseInfo {
                 state: LeaseState::Active,
-                price_uakt: 1000,
+                price: 1000,
+                price_denom: "uact".to_string(),
             })
         }
 
         async fn query_escrow(&self, _owner: &str, _dseq: u64) -> Result<EscrowInfo, DeployError> {
             Ok(EscrowInfo {
-                balance_uakt: 5_000_000,
-                deposited_uakt: 5_000_000,
+                balance: 5_000_000,
+                balance_denom: "uakt".to_string(),
+                deposited: 5_000_000,
+                deposited_denom: "uakt".to_string(),
+            })
+        }
+
+        async fn query_bme_status(&self) -> Result<BmeStatus, DeployError> {
+            Ok(BmeStatus {
+                mints_allowed: true,
+                status: "HEALTHY".to_string(),
+                collateral_ratio: "2.0".to_string(),
             })
         }
 
@@ -753,7 +861,8 @@ deployment:
             _signer: &Self::Signer,
             _owner: &str,
             _sdl_content: &str,
-            _deposit_uakt: u64,
+            _deposit_amount: u64,
+            _deposit_denom: &str,
         ) -> Result<(TxResult, u64), DeployError> {
             self.call_counts.lock().unwrap().broadcast_create_deployment += 1;
             if *self.fail_deployment_tx.lock().unwrap() {
@@ -831,6 +940,20 @@ deployment:
             })
         }
 
+        async fn broadcast_mint_act(
+            &self,
+            _signer: &Self::Signer,
+            _owner: &str,
+            _amount_uakt: u64,
+        ) -> Result<TxResult, DeployError> {
+            Ok(TxResult {
+                hash: "MINT_ACT_TX".to_string(),
+                code: 0,
+                raw_log: "success".to_string(),
+                height: 1005,
+            })
+        }
+
         async fn generate_jwt(&self, _owner: &str) -> Result<String, DeployError> {
             Ok("mock-jwt-token".to_string())
         }
@@ -903,7 +1026,6 @@ deployment:
     fn test_default_config() {
         let config = WorkflowConfig::default();
         assert_eq!(config.min_balance_uakt, 1_000_000);
-        assert!(!config.auto_select_cheapest_bid);
     }
 
     #[test]
@@ -926,7 +1048,7 @@ deployment:
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Continue));
-        assert_eq!(backend.get_call_counts().query_balance, 1);
+        assert_eq!(backend.get_call_counts().query_balance, 2);
     }
 
     #[tokio::test]
@@ -941,7 +1063,7 @@ deployment:
 
         let mut state = DeploymentState::new("test", "akash1owner");
         state.step = Step::CheckBalance;
-        state.deposit_uakt = 5_000_000;
+        state.deposit_amount = 5_000_000;
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Failed(_)));
@@ -952,7 +1074,8 @@ deployment:
         let backend = MockBackend::new();
         backend.set_bids(vec![Bid {
             provider: "akash1provider".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }]);
 
@@ -970,35 +1093,6 @@ deployment:
     }
 
     #[tokio::test]
-    async fn test_workflow_auto_select_cheapest() {
-        let backend = MockBackend::new();
-
-        let signer = MockSigner;
-        let mut config = WorkflowConfig::default();
-        config.auto_select_cheapest_bid = true;
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SelectProvider;
-        state.bids = vec![
-            Bid {
-                provider: "akash1expensive".to_string(),
-                price_uakt: 5000,
-                resources: Resources::default(),
-            },
-            Bid {
-                provider: "akash1cheap".to_string(),
-                price_uakt: 1000,
-                resources: Resources::default(),
-            },
-        ];
-
-        let result = workflow.advance(&mut state).await.unwrap();
-        assert!(matches!(result, StepResult::Continue));
-        assert_eq!(state.selected_provider, Some("akash1cheap".to_string()));
-    }
-
-    #[tokio::test]
     async fn test_workflow_endpoints_ready() {
         let backend = MockBackend::new();
         backend.set_provider_status(ProviderLeaseStatus {
@@ -1007,7 +1101,7 @@ deployment:
                 service: "web".to_string(),
                 uri: "https://web.example.com".to_string(),
                 port: 80,
-                internal_port: todo!(),
+                internal_port: 80,
             }],
         });
 
@@ -1038,7 +1132,8 @@ deployment:
         let mut state = DeploymentState::new("test", "akash1owner");
         state.bids = vec![Bid {
             provider: "akash1provider1".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }];
 
@@ -1052,7 +1147,8 @@ deployment:
         let mut state = DeploymentState::new("test", "akash1owner");
         state.bids = vec![Bid {
             provider: "akash1provider1".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }];
 
@@ -1111,7 +1207,7 @@ deployment:
 
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Continue));
-        assert!(matches!(state.step, Step::CheckBalance));
+        assert!(matches!(state.step, Step::CheckBmeStatus));
     }
 
     #[tokio::test]
@@ -1264,34 +1360,6 @@ deployment:
     }
 
     #[tokio::test]
-    async fn test_step_select_provider_with_trusted() {
-        let backend = MockBackend::new();
-        let signer = MockSigner;
-        let mut config = WorkflowConfig::default();
-        config.trusted_providers = vec!["akash1trusted".to_string()];
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SelectProvider;
-        state.bids = vec![
-            Bid {
-                provider: "akash1trusted".to_string(),
-                price_uakt: 5000,
-                resources: Resources::default(),
-            },
-            Bid {
-                provider: "akash1cheap".to_string(),
-                price_uakt: 1000,
-                resources: Resources::default(),
-            },
-        ];
-
-        let result = workflow.advance(&mut state).await.unwrap();
-        // Should need input since auto_select is false
-        assert!(matches!(result, StepResult::NeedsInput(_)));
-    }
-
-    #[tokio::test]
     async fn test_step_create_deployment_with_valid_sdl() {
         let backend = MockBackend::new();
         let signer = MockSigner;
@@ -1313,7 +1381,8 @@ deployment:
         let backend = MockBackend::new();
         backend.set_bids(vec![Bid {
             provider: "akash1provider".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }]);
 
@@ -1403,7 +1472,8 @@ deployment:
         state.step = Step::SelectProvider;
         state.bids = vec![Bid {
             provider: "akash1provider".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }];
         state.selected_provider = Some("akash1provider".to_string());
@@ -1411,64 +1481,6 @@ deployment:
         let result = workflow.advance(&mut state).await.unwrap();
         assert!(matches!(result, StepResult::Continue));
         assert!(matches!(state.step, Step::CreateLease));
-    }
-
-    #[tokio::test]
-    async fn test_workflow_select_provider_auto_select() {
-        let backend = MockBackend::new();
-        let signer = MockSigner;
-        let mut config = WorkflowConfig::default();
-        config.auto_select_cheapest_bid = true;
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SelectProvider;
-        state.bids = vec![
-            Bid {
-                provider: "akash1expensive".to_string(),
-                price_uakt: 5000,
-                resources: Resources::default(),
-            },
-            Bid {
-                provider: "akash1cheap".to_string(),
-                price_uakt: 1000,
-                resources: Resources::default(),
-            },
-        ];
-
-        let result = workflow.advance(&mut state).await.unwrap();
-        assert!(matches!(result, StepResult::Continue));
-        assert_eq!(state.selected_provider, Some("akash1cheap".to_string()));
-    }
-
-    #[tokio::test]
-    async fn test_workflow_auto_select_trusted_provider() {
-        let backend = MockBackend::new();
-        let signer = MockSigner;
-        let mut config = WorkflowConfig::default();
-        config.auto_select_cheapest_bid = true;
-        config.trusted_providers = vec!["akash1trusted".to_string()];
-        let workflow = DeploymentWorkflow::new(&backend, &signer, config);
-
-        let mut state = DeploymentState::new("test", "akash1owner");
-        state.step = Step::SelectProvider;
-        state.bids = vec![
-            Bid {
-                provider: "akash1trusted".to_string(),
-                price_uakt: 5000, // More expensive
-                resources: Resources::default(),
-            },
-            Bid {
-                provider: "akash1cheap".to_string(),
-                price_uakt: 1000, // Cheaper
-                resources: Resources::default(),
-            },
-        ];
-
-        let result = workflow.advance(&mut state).await.unwrap();
-        assert!(matches!(result, StepResult::Continue));
-        // Should select trusted provider even though it's more expensive
-        assert_eq!(state.selected_provider, Some("akash1trusted".to_string()));
     }
 
     #[tokio::test]
@@ -1516,7 +1528,8 @@ deployment:
         state.selected_provider = Some("akash1nonexistent".to_string());
         state.bids = vec![Bid {
             provider: "akash1other".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         }];
 

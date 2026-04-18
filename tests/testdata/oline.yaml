@@ -172,13 +172,13 @@ profiles:
     dcloud:
       pricing:
         oline-a-snapshot:
-          denom: uakt
+          denom: uact
           amount: 1000
         oline-a-seed:
-          denom: uakt
+          denom: uact
           amount: 1000
         oline-a-minio-ipfs:
-          denom: uakt
+          denom: uact
           amount: 1000
       signedBy:
         anyOf:

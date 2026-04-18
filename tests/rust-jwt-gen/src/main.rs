@@ -60,7 +60,6 @@ fn main() -> Result<()> {
     let output_dir = std::env::args().nth(2).expect("Usage: rust-jwt-gen <sdl_file> <output_dir>");
 
     // ── JWT GENERATION ──────────────────────────────────────────────
-
     let mnemonic_phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
     let mnemonic: Mnemonic<English> = mnemonic_phrase.parse()
         .map_err(|e| anyhow::anyhow!("Failed to create mnemonic: {:?}", e))?;

@@ -125,16 +125,16 @@ profiles:
           - 3
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 500
         api:
-          denom: uakt
+          denom: uact
           amount: 1000
         db:
-          denom: uakt
+          denom: uact
           amount: 800
         cache:
-          denom: uakt
+          denom: uact
           amount: 300
 deployment:
   web:

@@ -896,7 +896,7 @@ profiles:
     westcoast:
       pricing:
         web:
-          denom: uakt
+          denom: uact
           amount: 1000
 deployment:
   web:
@@ -930,7 +930,7 @@ profiles:
     gpu-dc:
       pricing:
         ai:
-          denom: uakt
+          denom: uact
           amount: 10000
 deployment:
   ai:
@@ -961,7 +961,7 @@ profiles:
     dc:
       pricing:
         db:
-          denom: uakt
+          denom: uact
           amount: 1000
 deployment:
   db:

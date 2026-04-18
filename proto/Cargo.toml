@@ -1,0 +1,27 @@
+[package]
+authors = ["PermissionlesWeb <permissionlessweb@proton.me"]
+edition = "2021"
+name = "akash-proto"
+description = "Protocol buffer definitions for Akash Network"
+version = "0.0.1"
+publish = false
+
+[lib]
+name = "akash_proto"
+path = "src/lib.rs"
+
+[[bin]]
+name = "proto-gen"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+pbjson-build = "0.9.0"
+prost-build = "0.14.3"
+tonic-prost-build = { version = "0.14.1" }
+walkdir = "2.5"
+
+[[bin]]
+name = "console-gen"
+path = "src/console_gen.rs"

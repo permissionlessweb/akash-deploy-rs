@@ -1,0 +1,316 @@
+=== Console API Schema Gap Report ===
+
+Total schema files scanned: 49
+Total exported schemas found: 168
+Already in registry: 74
+Missing from registry: 110
+
+--- auth (3 missing) ---
+  CreateApiKeySchema [REFINE,TRANSFORM]
+    → auth/http-schemas/api-key.schema.ts
+  UpdateApiKeySchema [REFINE,TRANSFORM]
+    → auth/http-schemas/api-key.schema.ts
+  VerifyEmailRequestSchema
+    → auth/http-schemas/verify-email.schema.ts
+
+--- billing (36 missing) ---
+  GetBalancesResponseOutputSchema
+    → billing/http-schemas/balance.schema.ts
+  GetBalancesQuerySchema
+    → billing/http-schemas/balance.schema.ts
+  SetupIntentResponseSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  PaymentMethodMarkAsDefaultInputSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  PaymentMethodSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  PaymentMethodsResponseSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  PaymentMethodResponseSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  ConfirmPaymentRequestSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  TransactionStatusSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  PaymentIntentResultSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  PaymentMethodValidationResultSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  ConfirmPaymentResponseSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  ApplyCouponRequestSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  CouponSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  ApplyCouponResponseSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  CustomerTransactionsResponseSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  CustomerTransactionsQuerySchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  CustomerTransactionsCsvExportQuerySchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  ValidatePaymentMethodRequestSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  ValidatePaymentMethodResponseSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  UpdateCustomerOrganizationRequestSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  RemovePaymentMethodParamsSchema [REFINE]
+    → billing/http-schemas/stripe.schema.ts
+  SignTxRequestInputSchema
+    → billing/http-schemas/tx.schema.ts
+  SignTxResponseOutputSchema
+    → billing/http-schemas/tx.schema.ts
+  GetUsageHistoryQuerySchema [REFINE,TRANSFORM]
+    → billing/http-schemas/usage.schema.ts
+  UsageHistoryResponseSchema [REFINE,TRANSFORM]
+    → billing/http-schemas/usage.schema.ts
+  UsageHistoryStatsResponseSchema [REFINE,TRANSFORM]
+    → billing/http-schemas/usage.schema.ts
+  WalletResponseOutputSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+  WalletResponseNo3DSOutputSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+  WalletResponse3DSOutputSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+  WalletListResponseOutputSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+  StartTrialRequestInputSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+  WalletSettingsSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+  WalletSettingsResponseSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+  CreateWalletSettingsRequestSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+  UpdateWalletSettingsRequestSchema [REFINE]
+    → billing/http-schemas/wallet.schema.ts
+
+--- block (9 missing) ---
+  GetPredictedBlockDateParamsSchema
+    → block/http-schemas/block-prediction.schema.ts
+  GetPredictionQuerySchema
+    → block/http-schemas/block-prediction.schema.ts
+  GetPredictedBlockDateResponseSchema
+    → block/http-schemas/block-prediction.schema.ts
+  GetPredictedDateHeightParamsSchema
+    → block/http-schemas/block-prediction.schema.ts
+  GetPredictedDateHeightResponseSchema
+    → block/http-schemas/block-prediction.schema.ts
+  ListBlocksQuerySchema
+    → block/http-schemas/block.schema.ts
+  ListBlocksResponseSchema
+    → block/http-schemas/block.schema.ts
+  GetBlockByHeightParamsSchema
+    → block/http-schemas/block.schema.ts
+  GetBlockByHeightResponseSchema
+    → block/http-schemas/block.schema.ts
+
+--- dashboard (11 missing) ---
+  BmeDashboardDataResponseSchema
+    → dashboard/http-schemas/bme-dashboard-data/bme-dashboard-data.schema.ts
+  BmeStatusHistoryResponseSchema
+    → dashboard/http-schemas/bme-status-history/bme-status-history.schema.ts
+  DashboardDataResponseSchema
+    → dashboard/http-schemas/dashboard-data/dashboard-data.schema.ts
+  GraphDataParamsSchema
+    → dashboard/http-schemas/graph-data/graph-data.schema.ts
+  GraphDataResponseSchema
+    → dashboard/http-schemas/graph-data/graph-data.schema.ts
+  LeasesDurationParamsSchema [REFINE,TRANSFORM]
+    → dashboard/http-schemas/leases-duration/leases-duration.schema.ts
+  LeasesDurationQuerySchema [REFINE,TRANSFORM]
+    → dashboard/http-schemas/leases-duration/leases-duration.schema.ts
+  LeasesDurationResponseSchema [REFINE,TRANSFORM]
+    → dashboard/http-schemas/leases-duration/leases-duration.schema.ts
+  MarketDataParamsSchema
+    → dashboard/http-schemas/market-data/market-data.schema.ts
+  MarketDataResponseSchema
+    → dashboard/http-schemas/market-data/market-data.schema.ts
+  NetworkCapacityResponseSchema
+    → dashboard/http-schemas/network-capacity/network-capacity.schema.ts
+
+--- deployment (9 missing) ---
+  FallbackDeploymentInfoResponseSchema [TRANSFORM]
+    → deployment/http-schemas/deployment-rpc.schema.ts
+  DeploymentSettingResponseSchema
+    → deployment/http-schemas/deployment-setting.schema.ts
+  CreateDeploymentSettingRequestSchema
+    → deployment/http-schemas/deployment-setting.schema.ts
+  FindDeploymentSettingParamsSchema
+    → deployment/http-schemas/deployment-setting.schema.ts
+  FindDeploymentSettingV2ParamsSchema
+    → deployment/http-schemas/deployment-setting.schema.ts
+  FindDeploymentSettingV2QuerySchema
+    → deployment/http-schemas/deployment-setting.schema.ts
+  CreateDeploymentSettingV2RequestSchema
+    → deployment/http-schemas/deployment-setting.schema.ts
+  FallbackLeaseListQuerySchema [TRANSFORM]
+    → deployment/http-schemas/lease-rpc.schema.ts
+  FallbackLeaseListResponseSchema [TRANSFORM]
+    → deployment/http-schemas/lease-rpc.schema.ts
+
+--- gpu (6 missing) ---
+  ListGpuQuerySchema
+    → gpu/http-schemas/gpu.schema.ts
+  ListGpuResponseSchema
+    → gpu/http-schemas/gpu.schema.ts
+  ListGpuModelsResponseSchema
+    → gpu/http-schemas/gpu.schema.ts
+  GpuBreakdownQuerySchema
+    → gpu/http-schemas/gpu.schema.ts
+  GpuBreakdownResponseSchema
+    → gpu/http-schemas/gpu.schema.ts
+  GpuPricesResponseSchema
+    → gpu/http-schemas/gpu.schema.ts
+
+--- pricing (1 missing) ---
+  PricingBodySchema
+    → pricing/http-schemas/pricing.schema.ts
+
+--- proposal (3 missing) ---
+  GetProposalListResponseSchema
+    → proposal/http-schemas/proposal.schema.ts
+  GetProposalByIdParamsSchema
+    → proposal/http-schemas/proposal.schema.ts
+  GetProposalByIdResponseSchema
+    → proposal/http-schemas/proposal.schema.ts
+
+--- provider (17 missing) ---
+  AuditorSchema
+    → provider/http-schemas/auditor.schema.ts
+  AuditorListResponseSchema
+    → provider/http-schemas/auditor.schema.ts
+  CreateJwtTokenRequestSchema
+    → provider/http-schemas/jwt-token.schema.ts
+  CreateJwtTokenResponseSchema
+    → provider/http-schemas/jwt-token.schema.ts
+  ProviderAttributesSchemaResponseSchema
+    → provider/http-schemas/provider-attributes-schema.schema.ts
+  ProviderDashboardParamsSchema
+    → provider/http-schemas/provider-dashboard.schema.ts
+  ProviderDashboardResponseSchema
+    → provider/http-schemas/provider-dashboard.schema.ts
+  ProviderDeploymentsParamsSchema
+    → provider/http-schemas/provider-deployments.schema.ts
+  ProviderDeploymentsQuerySchema
+    → provider/http-schemas/provider-deployments.schema.ts
+  ProviderDeploymentsResponseSchema
+    → provider/http-schemas/provider-deployments.schema.ts
+  ProviderEarningsParamsSchema [REFINE,TRANSFORM]
+    → provider/http-schemas/provider-earnings.schema.ts
+  ProviderEarningsQuerySchema [REFINE,TRANSFORM]
+    → provider/http-schemas/provider-earnings.schema.ts
+  ProviderEarningsResponseSchema [REFINE,TRANSFORM]
+    → provider/http-schemas/provider-earnings.schema.ts
+  ProviderGraphDataParamsSchema
+    → provider/http-schemas/provider-graph-data.schema.ts
+  ProviderGraphDataResponseSchema
+    → provider/http-schemas/provider-graph-data.schema.ts
+  ProviderRegionsResponseSchema
+    → provider/http-schemas/provider-regions.schema.ts
+  ProviderVersionsResponseSchema
+    → provider/http-schemas/provider-versions.schema.ts
+
+--- template (6 missing) ---
+  TemplateSchema
+    → template/http-schemas/template.schema.ts
+  TemplateSummarySchema
+    → template/http-schemas/template.schema.ts
+  TemplateCategorySchema
+    → template/http-schemas/template.schema.ts
+  GetTemplatesListResponseSchema
+    → template/http-schemas/template.schema.ts
+  GetTemplateByIdParamsSchema
+    → template/http-schemas/template.schema.ts
+  GetTemplateByIdResponseSchema
+    → template/http-schemas/template.schema.ts
+
+--- transaction (4 missing) ---
+  ListTransactionsQuerySchema
+    → transaction/http-schemas/transaction.schema.ts
+  ListTransactionsResponseSchema
+    → transaction/http-schemas/transaction.schema.ts
+  GetTransactionByHashParamsSchema
+    → transaction/http-schemas/transaction.schema.ts
+  GetTransactionByHashResponseSchema
+    → transaction/http-schemas/transaction.schema.ts
+
+--- user (2 missing) ---
+  UserSchema
+    → user/schemas/user.schema.ts
+  GetUserResponseOutputSchema
+    → user/schemas/user.schema.ts
+
+--- validator (3 missing) ---
+  GetValidatorListResponseSchema
+    → validator/http-schemas/validator.schema.ts
+  GetValidatorByAddressParamsSchema
+    → validator/http-schemas/validator.schema.ts
+  GetValidatorByAddressResponseSchema
+    → validator/http-schemas/validator.schema.ts
+
+=== Import paths for generate-proto.ts ===
+
+// auth
+// import { CreateApiKeySchema, UpdateApiKeySchema } from "/home/returniflost/abstract/bme/console/apps/api/src/auth/http-schemas/api-key.schema.ts";
+// import { VerifyEmailRequestSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/auth/http-schemas/verify-email.schema.ts";
+
+// billing
+// import { GetBalancesResponseOutputSchema, GetBalancesQuerySchema } from "/home/returniflost/abstract/bme/console/apps/api/src/billing/http-schemas/balance.schema.ts";
+// import { SetupIntentResponseSchema, PaymentMethodMarkAsDefaultInputSchema, PaymentMethodSchema, PaymentMethodsResponseSchema, PaymentMethodResponseSchema, ConfirmPaymentRequestSchema, TransactionStatusSchema, PaymentIntentResultSchema, PaymentMethodValidationResultSchema, ConfirmPaymentResponseSchema, ApplyCouponRequestSchema, CouponSchema, ApplyCouponResponseSchema, CustomerTransactionsResponseSchema, CustomerTransactionsQuerySchema, CustomerTransactionsCsvExportQuerySchema, ValidatePaymentMethodRequestSchema, ValidatePaymentMethodResponseSchema, UpdateCustomerOrganizationRequestSchema, RemovePaymentMethodParamsSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/billing/http-schemas/stripe.schema.ts";
+// import { SignTxRequestInputSchema, SignTxResponseOutputSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/billing/http-schemas/tx.schema.ts";
+// import { GetUsageHistoryQuerySchema, UsageHistoryResponseSchema, UsageHistoryStatsResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/billing/http-schemas/usage.schema.ts";
+// import { WalletResponseOutputSchema, WalletResponseNo3DSOutputSchema, WalletResponse3DSOutputSchema, WalletListResponseOutputSchema, StartTrialRequestInputSchema, WalletSettingsSchema, WalletSettingsResponseSchema, CreateWalletSettingsRequestSchema, UpdateWalletSettingsRequestSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/billing/http-schemas/wallet.schema.ts";
+
+// block
+// import { GetPredictedBlockDateParamsSchema, GetPredictionQuerySchema, GetPredictedBlockDateResponseSchema, GetPredictedDateHeightParamsSchema, GetPredictedDateHeightResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/block/http-schemas/block-prediction.schema.ts";
+// import { ListBlocksQuerySchema, ListBlocksResponseSchema, GetBlockByHeightParamsSchema, GetBlockByHeightResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/block/http-schemas/block.schema.ts";
+
+// dashboard
+// import { BmeDashboardDataResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/dashboard/http-schemas/bme-dashboard-data/bme-dashboard-data.schema.ts";
+// import { BmeStatusHistoryResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/dashboard/http-schemas/bme-status-history/bme-status-history.schema.ts";
+// import { DashboardDataResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/dashboard/http-schemas/dashboard-data/dashboard-data.schema.ts";
+// import { GraphDataParamsSchema, GraphDataResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/dashboard/http-schemas/graph-data/graph-data.schema.ts";
+// import { LeasesDurationParamsSchema, LeasesDurationQuerySchema, LeasesDurationResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/dashboard/http-schemas/leases-duration/leases-duration.schema.ts";
+// import { MarketDataParamsSchema, MarketDataResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/dashboard/http-schemas/market-data/market-data.schema.ts";
+// import { NetworkCapacityResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/dashboard/http-schemas/network-capacity/network-capacity.schema.ts";
+
+// deployment
+// import { FallbackDeploymentInfoResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/deployment/http-schemas/deployment-rpc.schema.ts";
+// import { DeploymentSettingResponseSchema, CreateDeploymentSettingRequestSchema, FindDeploymentSettingParamsSchema, FindDeploymentSettingV2ParamsSchema, FindDeploymentSettingV2QuerySchema, CreateDeploymentSettingV2RequestSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/deployment/http-schemas/deployment-setting.schema.ts";
+// import { FallbackLeaseListQuerySchema, FallbackLeaseListResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/deployment/http-schemas/lease-rpc.schema.ts";
+
+// gpu
+// import { ListGpuQuerySchema, ListGpuResponseSchema, ListGpuModelsResponseSchema, GpuBreakdownQuerySchema, GpuBreakdownResponseSchema, GpuPricesResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/gpu/http-schemas/gpu.schema.ts";
+
+// pricing
+// import { PricingBodySchema } from "/home/returniflost/abstract/bme/console/apps/api/src/pricing/http-schemas/pricing.schema.ts";
+
+// proposal
+// import { GetProposalListResponseSchema, GetProposalByIdParamsSchema, GetProposalByIdResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/proposal/http-schemas/proposal.schema.ts";
+
+// provider
+// import { AuditorSchema, AuditorListResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/auditor.schema.ts";
+// import { CreateJwtTokenRequestSchema, CreateJwtTokenResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/jwt-token.schema.ts";
+// import { ProviderAttributesSchemaResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/provider-attributes-schema.schema.ts";
+// import { ProviderDashboardParamsSchema, ProviderDashboardResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/provider-dashboard.schema.ts";
+// import { ProviderDeploymentsParamsSchema, ProviderDeploymentsQuerySchema, ProviderDeploymentsResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/provider-deployments.schema.ts";
+// import { ProviderEarningsParamsSchema, ProviderEarningsQuerySchema, ProviderEarningsResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/provider-earnings.schema.ts";
+// import { ProviderGraphDataParamsSchema, ProviderGraphDataResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/provider-graph-data.schema.ts";
+// import { ProviderRegionsResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/provider-regions.schema.ts";
+// import { ProviderVersionsResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/provider/http-schemas/provider-versions.schema.ts";
+
+// template
+// import { TemplateSchema, TemplateSummarySchema, TemplateCategorySchema, GetTemplatesListResponseSchema, GetTemplateByIdParamsSchema, GetTemplateByIdResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/template/http-schemas/template.schema.ts";
+
+// transaction
+// import { ListTransactionsQuerySchema, ListTransactionsResponseSchema, GetTransactionByHashParamsSchema, GetTransactionByHashResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/transaction/http-schemas/transaction.schema.ts";
+
+// user
+// import { UserSchema, GetUserResponseOutputSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/user/schemas/user.schema.ts";
+
+// validator
+// import { GetValidatorListResponseSchema, GetValidatorByAddressParamsSchema, GetValidatorByAddressResponseSchema } from "/home/returniflost/abstract/bme/console/apps/api/src/validator/http-schemas/validator.schema.ts";
+

@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bid {
     pub provider: String,
-    pub price_uakt: u64,
+    pub price: u64,
+    pub price_denom: String,
     pub resources: Resources,
 }
 
@@ -72,7 +73,8 @@ pub enum LeaseState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeaseInfo {
     pub state: LeaseState,
-    pub price_uakt: u64,
+    pub price: u64,
+    pub price_denom: String,
 }
 
 /// Certificate info from chain.
@@ -97,8 +99,10 @@ pub struct ProviderInfo {
 /// Escrow account info.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EscrowInfo {
-    pub balance_uakt: u64,
-    pub deposited_uakt: u64,
+    pub balance: u64,
+    pub balance_denom: String,
+    pub deposited: u64,
+    pub deposited_denom: String,
 }
 
 /// Transaction result from broadcast.
@@ -114,6 +118,14 @@ impl TxResult {
     pub fn is_success(&self) -> bool {
         self.code == 0
     }
+}
+
+/// BME circuit breaker status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BmeStatus {
+    pub mints_allowed: bool,
+    pub status: String,
+    pub collateral_ratio: String,
 }
 
 /// Service endpoint from provider status.
@@ -163,7 +175,8 @@ mod tests {
     fn test_bid_id_from_bid() {
         let bid = Bid {
             provider: "akash1provider".to_string(),
-            price_uakt: 1000,
+            price: 1000,
+            price_denom: "uact".to_string(),
             resources: Resources::default(),
         };
 
@@ -217,7 +230,8 @@ mod tests {
     fn test_serialization_golden() {
         let bid = Bid {
             provider: "akash1test".to_string(),
-            price_uakt: 5000,
+            price: 5000,
+            price_denom: "uact".to_string(),
             resources: Resources {
                 cpu_millicores: 1000,
                 memory_bytes: 1073741824,   // 1 GiB
@@ -229,7 +243,7 @@ mod tests {
         let json = serde_json::to_string(&bid).unwrap();
 
         // Golden test: verify exact JSON structure
-        let expected = r#"{"provider":"akash1test","price_uakt":5000,"resources":{"cpu_millicores":1000,"memory_bytes":1073741824,"storage_bytes":10737418240,"gpu_count":1}}"#;
+        let expected = r#"{"provider":"akash1test","price":5000,"price_denom":"uact","resources":{"cpu_millicores":1000,"memory_bytes":1073741824,"storage_bytes":10737418240,"gpu_count":1}}"#;
         assert_eq!(
             json, expected,
             "JSON structure changed - wire format compatibility broken"
@@ -238,7 +252,7 @@ mod tests {
         // Verify roundtrip
         let deserialized: Bid = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.provider, bid.provider);
-        assert_eq!(deserialized.price_uakt, bid.price_uakt);
+        assert_eq!(deserialized.price, bid.price);
     }
 
     #[test]
@@ -246,7 +260,8 @@ mod tests {
         // Test with extreme values
         let bid = Bid {
             provider: "akash1provider".to_string(),
-            price_uakt: u64::MAX,
+            price: u64::MAX,
+            price_denom: "uact".to_string(),
             resources: Resources {
                 cpu_millicores: u32::MAX,
                 memory_bytes: u64::MAX,
@@ -257,7 +272,7 @@ mod tests {
 
         let json = serde_json::to_string(&bid).unwrap();
         let deserialized: Bid = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.price_uakt, u64::MAX);
+        assert_eq!(deserialized.price, u64::MAX);
         assert_eq!(deserialized.resources.cpu_millicores, u32::MAX);
 
         // Test with zeros

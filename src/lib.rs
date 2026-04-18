@@ -50,9 +50,12 @@ pub mod store;
 pub mod traits;
 pub mod types;
 pub mod workflow;
+pub mod logs;
 
 #[cfg(feature = "default-client")]
 pub mod client;
+#[cfg(feature = "default-client")]
+pub mod rest;
 
 // Re-export the main types at crate root for convenience
 pub use auth::{
@@ -84,8 +87,19 @@ pub use store::{DeploymentRecord, DeploymentStore, SessionStorage, StdoutStorage
 pub use traits::AkashBackend;
 pub use types::*;
 pub use workflow::{DeploymentWorkflow, InputRequired, StepResult, WorkflowConfig};
+pub use logs::{LogLine, LogStreamConfig};
+#[cfg(feature = "log-streaming")]
+pub use logs::ws::WsLogStream;
 
 #[cfg(all(feature = "default-client", feature = "file-storage"))]
 pub use client::{export_sessions, import_sessions};
 #[cfg(feature = "default-client")]
 pub use client::{AkashClient, KeySigner};
+#[cfg(feature = "default-client")]
+pub use client::{
+    broadcast_multi_signer, build_create_lease_msg, build_mint_act_msg, MultiSignerTxResult,
+    SignerEntry,
+};
+
+#[cfg(feature = "python")]
+mod py;
