@@ -18,39 +18,6 @@ service DeploymentService {
     rpc GetWeeklyDeploymentCost(GetWeeklyDeploymentCostRequest) returns (GetWeeklyDeploymentCostResponse);
 }
 
-// Wrapper messages for map<string, repeated T> (proto3 limitation)
-message ListDeploymentsResponseDataDeploymentLeaseStatusForwarded_portList {
-    repeated ListDeploymentsResponseDataDeploymentLeaseStatusForwarded_port items = 1;
-}
-
-message ListDeploymentsResponseDataDeploymentLeaseStatusIpList {
-    repeated ListDeploymentsResponseDataDeploymentLeaseStatusIp items = 1;
-}
-
-message GetDeploymentResponseDataLeaseStatusForwarded_portList {
-    repeated GetDeploymentResponseDataLeaseStatusForwarded_port items = 1;
-}
-
-message GetDeploymentResponseDataLeaseStatusIpList {
-    repeated GetDeploymentResponseDataLeaseStatusIp items = 1;
-}
-
-message UpdateDeploymentResponseDataLeaseStatusForwarded_portList {
-    repeated UpdateDeploymentResponseDataLeaseStatusForwarded_port items = 1;
-}
-
-message UpdateDeploymentResponseDataLeaseStatusIpList {
-    repeated UpdateDeploymentResponseDataLeaseStatusIp items = 1;
-}
-
-message DepositDeploymentResponseDataLeaseStatusForwarded_portList {
-    repeated DepositDeploymentResponseDataLeaseStatusForwarded_port items = 1;
-}
-
-message DepositDeploymentResponseDataLeaseStatusIpList {
-    repeated DepositDeploymentResponseDataLeaseStatusIp items = 1;
-}
-
 message ListDeploymentsRequest {
     optional double skip = 1;
     optional double limit = 2;
@@ -109,8 +76,8 @@ message ListDeploymentsResponseDataDeploymentLeaseStatusService {
 }
 
 message ListDeploymentsResponseDataDeploymentLeaseStatus {
-    map<string, ListDeploymentsResponseDataDeploymentLeaseStatusForwarded_portList> forwarded_ports = 1;
-    map<string, ListDeploymentsResponseDataDeploymentLeaseStatusIpList> ips = 2;
+    map<string, repeated ListDeploymentsResponseDataDeploymentLeaseStatusForwarded_port> forwarded_ports = 1;
+    map<string, repeated ListDeploymentsResponseDataDeploymentLeaseStatusIp> ips = 2;
     map<string, ListDeploymentsResponseDataDeploymentLeaseStatusService> services = 3;
 }
 
@@ -244,8 +211,8 @@ message GetDeploymentResponseDataLeaseStatusService {
 }
 
 message GetDeploymentResponseDataLeaseStatus {
-    map<string, GetDeploymentResponseDataLeaseStatusForwarded_portList> forwarded_ports = 1;
-    map<string, GetDeploymentResponseDataLeaseStatusIpList> ips = 2;
+    map<string, repeated GetDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
+    map<string, repeated GetDeploymentResponseDataLeaseStatusIp> ips = 2;
     map<string, GetDeploymentResponseDataLeaseStatusService> services = 3;
 }
 
@@ -447,8 +414,8 @@ message UpdateDeploymentResponseDataLeaseStatusService {
 }
 
 message UpdateDeploymentResponseDataLeaseStatus {
-    map<string, UpdateDeploymentResponseDataLeaseStatusForwarded_portList> forwarded_ports = 1;
-    map<string, UpdateDeploymentResponseDataLeaseStatusIpList> ips = 2;
+    map<string, repeated UpdateDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
+    map<string, repeated UpdateDeploymentResponseDataLeaseStatusIp> ips = 2;
     map<string, UpdateDeploymentResponseDataLeaseStatusService> services = 3;
 }
 
@@ -587,8 +554,8 @@ message DepositDeploymentResponseDataLeaseStatusService {
 }
 
 message DepositDeploymentResponseDataLeaseStatus {
-    map<string, DepositDeploymentResponseDataLeaseStatusForwarded_portList> forwarded_ports = 1;
-    map<string, DepositDeploymentResponseDataLeaseStatusIpList> ips = 2;
+    map<string, repeated DepositDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
+    map<string, repeated DepositDeploymentResponseDataLeaseStatusIp> ips = 2;
     map<string, DepositDeploymentResponseDataLeaseStatusService> services = 3;
 }
 

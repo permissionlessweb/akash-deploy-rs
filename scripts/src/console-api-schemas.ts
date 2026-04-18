@@ -893,6 +893,448 @@ export const GetAddressTransactionsResponseSchema = z.object({
   results: z.array(TransactionSchema),
 });
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BILLING / WALLET / STRIPE (extracted from console/apps/api/src/billing/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const WalletOutputInnerSchema = z.object({
+  id: z.number().nullable(),
+  userId: z.string().nullable(),
+  creditAmount: z.number(),
+  address: z.string().nullable(),
+  denom: z.string(),
+  isTrialing: z.boolean(),
+  createdAt: z.string().nullable(),
+  requires3DS: z.boolean().optional(),
+  clientSecret: z.string().nullable().optional(),
+  paymentIntentId: z.string().nullable().optional(),
+  paymentMethodId: z.string().nullable().optional(),
+});
+
+export const WalletResponseOutputSchema = z.object({ data: WalletOutputInnerSchema });
+export const WalletListResponseOutputSchema = z.object({ data: z.array(WalletOutputInnerSchema) });
+export const StartTrialRequestInputSchema = z.object({ data: z.object({ userId: z.string() }) });
+export const WalletSettingsSchema = z.object({ autoReloadEnabled: z.boolean() });
+export const WalletSettingsResponseSchema = z.object({ data: z.object({ autoReloadEnabled: z.boolean() }) });
+export const CreateWalletSettingsRequestSchema = z.object({ data: z.object({ autoReloadEnabled: z.boolean() }) });
+
+export const SetupIntentResponseSchema = z.object({ data: z.object({ clientSecret: z.string().nullable() }) });
+
+export const PaymentMethodSchema = z.object({
+  type: z.string(),
+  validated: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
+  card: z.object({
+    brand: z.string().nullable(), last4: z.string().nullable(),
+    exp_month: z.number(), exp_year: z.number(),
+    funding: z.string().nullable().optional(),
+    country: z.string().nullable().optional(),
+    network: z.string().nullable().optional(),
+  }).nullable().optional(),
+  link: z.object({ email: z.string().nullable().optional() }).nullable().optional(),
+});
+export const PaymentMethodsResponseSchema = z.object({ data: z.array(PaymentMethodSchema) });
+export const PaymentMethodMarkAsDefaultInputSchema = z.object({ data: z.object({ id: z.string() }) });
+
+export const ConfirmPaymentRequestSchema = z.object({
+  data: z.object({
+    userId: z.string(), paymentMethodId: z.string(),
+    amount: z.number(), currency: z.string(),
+    awaitResolved: z.boolean().optional(),
+  }),
+});
+
+export const PaymentIntentResultSchema = z.object({
+  success: z.boolean(), requiresAction: z.boolean().optional(),
+  clientSecret: z.string().optional(), paymentIntentId: z.string().optional(),
+  transactionId: z.string(), transactionStatus: z.string().optional(),
+});
+export const ConfirmPaymentResponseSchema = z.object({ data: PaymentIntentResultSchema });
+
+export const ApplyCouponRequestSchema = z.object({
+  data: z.object({ couponId: z.string(), userId: z.string(), awaitResolved: z.boolean().optional() }),
+});
+export const CouponSchema = z.object({
+  id: z.string(), percent_off: z.number().nullable().optional(),
+  amount_off: z.number().nullable().optional(), valid: z.boolean().nullable().optional(),
+  name: z.string().nullable().optional(), description: z.string().nullable().optional(),
+});
+export const ApplyCouponResponseSchema = z.object({
+  data: z.object({
+    coupon: CouponSchema.nullable().optional(),
+    amountAdded: z.number().optional(),
+    transactionId: z.string().optional(), transactionStatus: z.string().optional(),
+    error: z.object({ message: z.string(), code: z.string().optional(), type: z.string().optional() }).optional(),
+  }),
+});
+
+export const CustomerTransactionsQuerySchema = z.object({
+  limit: z.number().optional(), startingAfter: z.string().optional(),
+  endingBefore: z.string().optional(), startDate: z.string().optional(), endDate: z.string().optional(),
+});
+const StripeTransactionSchema = z.object({
+  id: z.string(), amount: z.number(), currency: z.string(), status: z.string(),
+  created: z.number(), receiptUrl: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+});
+export const CustomerTransactionsResponseSchema = z.object({
+  data: z.object({ transactions: z.array(StripeTransactionSchema), hasMore: z.boolean(), nextPage: z.string().nullable().optional() }),
+});
+export const StripePricesResponseSchema = z.object({
+  data: z.array(z.object({ id: z.string(), unitAmount: z.number(), currency: z.string(), description: z.string().nullable().optional() })),
+});
+
+export const ValidatePaymentMethodRequestSchema = z.object({ data: z.object({ paymentMethodId: z.string(), paymentIntentId: z.string() }) });
+export const ValidatePaymentMethodResponseSchema = z.object({ success: z.boolean() });
+export const RemovePaymentMethodParamsSchema = z.object({ paymentMethodId: z.string() });
+export const UpdateCustomerOrganizationRequestSchema = z.object({ organization: z.string() });
+
+export const GetBalancesQuerySchema = z.object({ address: z.string().optional() });
+export const GetBalancesResponseOutputSchema = z.object({
+  data: z.object({ balance: z.number(), deployments: z.number(), total: z.number() }),
+});
+
+export const SignTxRequestInputSchema = z.object({
+  data: z.object({
+    userId: z.string(),
+    messages: z.array(z.object({ typeUrl: z.string(), value: z.string() })),
+  }),
+});
+export const SignTxResponseOutputSchema = z.object({
+  data: z.object({ code: z.number(), transactionHash: z.string(), rawLog: z.string() }),
+});
+
+export const GetUsageHistoryQuerySchema = z.object({
+  address: z.string(), startDate: z.string().optional(), endDate: z.string().optional(),
+});
+export const UsageHistoryResponseSchema = z.array(z.object({
+  date: z.string(), activeDeployments: z.number(),
+  dailyAktSpent: z.number(), totalAktSpent: z.number(),
+  dailyUsdcSpent: z.number(), totalUsdcSpent: z.number(),
+  dailyActSpent: z.number(), totalActSpent: z.number(),
+  dailyUsdSpent: z.number(), totalUsdSpent: z.number(),
+}));
+export const UsageHistoryStatsResponseSchema = z.object({
+  totalSpent: z.number(), averageSpentPerDay: z.number(),
+  totalDeployments: z.number(), averageDeploymentsPerDay: z.number(),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// USER (extracted from console/apps/api/src/user/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const UserSchema = z.object({
+  id: z.string(), userId: z.string(), username: z.string(),
+  email: z.string(), emailVerified: z.boolean(),
+  stripeCustomerId: z.string().optional().nullable(),
+  bio: z.string().optional().nullable(), subscribedToNewsletter: z.boolean(),
+  youtubeUsername: z.string().optional().nullable(),
+  twitterUsername: z.string().optional().nullable(),
+  githubUsername: z.string().optional().nullable(),
+});
+export const GetUserResponseOutputSchema = z.object({ data: UserSchema });
+export const CheckUsernameParamsSchema = z.object({ username: z.string() });
+export const CheckUsernameResponseSchema = z.object({ available: z.boolean() });
+export const UpdateUserSettingsRequestSchema = z.object({
+  username: z.string().optional(), bio: z.string().optional(),
+  youtubeUsername: z.string().optional(), twitterUsername: z.string().optional(),
+  githubUsername: z.string().optional(), subscribedToNewsletter: z.boolean().optional(),
+});
+export const VerifyEmailRequestSchema = z.object({ data: z.object({ email: z.string() }) });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD / ANALYTICS (extracted from console/apps/api/src/dashboard/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DashboardPeriodSchema = z.object({
+  date: z.string(), height: z.number(),
+  activeLeaseCount: z.number(), totalLeaseCount: z.number(), dailyLeaseCount: z.number(),
+  totalUAktSpent: z.number(), dailyUAktSpent: z.number(),
+  totalUActSpent: z.number(), dailyUActSpent: z.number(),
+  totalUUsdcSpent: z.number(), dailyUUsdcSpent: z.number(),
+  totalUUsdSpent: z.number(), dailyUUsdSpent: z.number(),
+  activeCPU: z.number(), activeGPU: z.number(), activeMemory: z.number(), activeStorage: z.number(),
+});
+
+export const DashboardDataResponseSchema = z.object({
+  chainStats: z.object({
+    height: z.number(), transactionCount: z.number(), bondedTokens: z.number(),
+    totalSupply: z.number(), communityPool: z.number(), inflation: z.number(),
+    stakingAPR: z.number().optional(),
+  }),
+  now: DashboardPeriodSchema, compare: DashboardPeriodSchema,
+  networkCapacity: z.object({
+    activeProviderCount: z.number(),
+    activeCPU: z.number(), activeGPU: z.number(), activeMemory: z.number(), activeStorage: z.number(),
+    pendingCPU: z.number(), pendingGPU: z.number(), pendingMemory: z.number(), pendingStorage: z.number(),
+    availableCPU: z.number(), availableGPU: z.number(), availableMemory: z.number(), availableStorage: z.number(),
+    totalCPU: z.number(), totalGPU: z.number(), totalMemory: z.number(), totalStorage: z.number(),
+  }),
+  networkCapacityStats: z.object({
+    currentValue: z.number(), compareValue: z.number(),
+    snapshots: z.array(z.object({ date: z.string(), value: z.number() })),
+    now: z.object({ count: z.number(), cpu: z.number(), gpu: z.number(), memory: z.number(), storage: z.number() }),
+    compare: z.object({ count: z.number(), cpu: z.number(), gpu: z.number(), memory: z.number(), storage: z.number() }),
+  }),
+  latestBlocks: z.array(z.object({
+    height: z.number(), transactionCount: z.number(), totalTransactionCount: z.number(), datetime: z.string(),
+    proposer: z.object({ address: z.string(), operatorAddress: z.string(), moniker: z.string().nullable(), avatarUrl: z.string().nullable() }),
+  })),
+  latestTransactions: z.array(z.object({
+    height: z.number(), datetime: z.string(), hash: z.string(), isSuccess: z.boolean(),
+    error: z.string().nullable(), gasUsed: z.number(), gasWanted: z.number(), fee: z.number(), memo: z.string(),
+    messages: z.array(z.object({ id: z.string(), type: z.string(), amount: z.number() })),
+  })),
+});
+
+export const GraphDataParamsSchema = z.object({ dataName: z.string() });
+export const GraphDataResponseSchema = z.object({
+  currentValue: z.number(), compareValue: z.number(),
+  snapshots: z.array(z.object({ date: z.string(), value: z.number() })),
+});
+
+const StatItemSchema = z.object({ active: z.number(), pending: z.number(), available: z.number(), total: z.number() });
+export const NetworkCapacityResponseSchema = z.object({
+  activeProviderCount: z.number(),
+  resources: z.object({
+    cpu: StatItemSchema, gpu: StatItemSchema, memory: StatItemSchema,
+    storage: z.object({ ephemeral: StatItemSchema, persistent: StatItemSchema, total: StatItemSchema }),
+  }),
+});
+
+export const MarketDataParamsSchema = z.object({ coin: z.string().optional() });
+export const MarketDataResponseSchema = z.object({
+  price: z.number(), volume: z.number(), marketCap: z.number(), marketCapRank: z.number(),
+  priceChange24h: z.number(), priceChangePercentage24: z.number(),
+});
+
+const BmePeriodSchema = z.object({
+  date: z.string(), outstandingAct: z.number(), vaultAkt: z.number(), collateralRatio: z.number(),
+  dailyAktBurnedForAct: z.number(), totalAktBurnedForAct: z.number(),
+  dailyActMinted: z.number(), totalActMinted: z.number(),
+  dailyActBurnedForAkt: z.number(), totalActBurnedForAkt: z.number(),
+  dailyAktReminted: z.number(), totalAktReminted: z.number(),
+  dailyNetAktBurned: z.number(), netAktBurned: z.number(),
+});
+export const BmeDashboardDataResponseSchema = z.object({ now: BmePeriodSchema, compare: BmePeriodSchema });
+
+export const BmeStatusHistoryResponseSchema = z.array(z.object({
+  height: z.number(), date: z.string(), previousStatus: z.string(),
+  newStatus: z.string(), collateralRatio: z.number(),
+}));
+
+export const LeasesDurationParamsSchema = z.object({ owner: z.string() });
+export const LeasesDurationQuerySchema = z.object({
+  dseq: z.string().optional(), startDate: z.string().optional(), endDate: z.string().optional(),
+});
+export const LeasesDurationResponseSchema = z.object({
+  leaseCount: z.number(), totalDurationInSeconds: z.number(), totalDurationInHours: z.number(),
+  leases: z.array(z.object({
+    dseq: z.string(), oseq: z.number(), gseq: z.number(), provider: z.string(),
+    startHeight: z.number(), startDate: z.string(), closedHeight: z.number(), closedDate: z.string(),
+    durationInBlocks: z.number(), durationInSeconds: z.number(), durationInHours: z.number(),
+  })),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GPU (extracted from console/apps/api/src/gpu/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const ListGpuQuerySchema = z.object({
+  provider: z.string().optional(), vendor: z.string().optional(),
+  model: z.string().optional(), memory_size: z.string().optional(),
+});
+export const ListGpuResponseSchema = z.object({
+  gpus: z.object({
+    total: z.object({ allocatable: z.number(), allocated: z.number() }),
+    details: z.record(z.string(), z.array(z.object({
+      model: z.string(), ram: z.string(), interface: z.string(),
+      allocatable: z.number(), allocated: z.number(),
+    }))),
+  }),
+});
+export const ListGpuModelsResponseSchema = z.array(z.object({
+  name: z.string(), models: z.array(z.object({ name: z.string(), memory: z.array(z.string()), interface: z.array(z.string()) })),
+}));
+export const GpuBreakdownQuerySchema = z.object({ vendor: z.string().optional(), model: z.string().optional() });
+export const GpuBreakdownResponseSchema = z.array(z.object({
+  date: z.string(), vendor: z.string(), model: z.string(), providerCount: z.number(),
+  nodeCount: z.number(), totalGpus: z.number(), leasedGpus: z.number(), gpuUtilization: z.number(),
+}));
+export const GpuPricesResponseSchema = z.object({
+  availability: z.object({ total: z.number(), available: z.number() }),
+  models: z.array(z.object({
+    vendor: z.string(), model: z.string(), ram: z.string(), interface: z.string(),
+    availability: z.object({ total: z.number(), available: z.number() }),
+    providerAvailability: z.object({ total: z.number(), available: z.number() }),
+    price: z.object({
+      currency: z.string(), min: z.number(), max: z.number(), avg: z.number(),
+      weightedAverage: z.number(), med: z.number(),
+    }).nullable(),
+  })),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEMPLATES (extracted from console/apps/api/src/template/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const TemplateSchema = z.object({
+  id: z.string(), name: z.string(), path: z.string(), logoUrl: z.string().nullable(),
+  summary: z.string(), readme: z.string(), deploy: z.string(),
+  persistentStorageEnabled: z.boolean(), guide: z.string().optional(),
+  githubUrl: z.string(), config: z.object({ ssh: z.boolean().optional() }),
+});
+export const TemplateSummarySchema = z.object({
+  id: z.string(), name: z.string(), logoUrl: z.string().nullable(), summary: z.string(),
+  tags: z.array(z.string()).optional(),
+});
+export const TemplateCategorySchema = z.object({ title: z.string(), templates: z.array(TemplateSummarySchema) });
+export const GetTemplatesListResponseSchema = z.object({ data: z.array(TemplateCategorySchema) });
+export const GetTemplateByIdParamsSchema = z.object({ id: z.string() });
+export const GetTemplateByIdResponseSchema = z.object({ data: TemplateSchema });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSACTIONS — on-chain (extracted from console/apps/api/src/transaction/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const ListTransactionsQuerySchema = z.object({ limit: z.number().optional() });
+export const ListTransactionsResponseSchema = z.array(z.object({
+  height: z.number(), datetime: z.string(), hash: z.string(), isSuccess: z.boolean(),
+  error: z.string().nullable(), gasUsed: z.number(), gasWanted: z.number(), fee: z.number(), memo: z.string(),
+  messages: z.array(z.object({ id: z.string(), type: z.string(), amount: z.number() })),
+}));
+export const GetTransactionByHashParamsSchema = z.object({ hash: z.string() });
+export const GetTransactionByHashResponseSchema = z.object({
+  height: z.number(), datetime: z.string(), hash: z.string(), isSuccess: z.boolean(),
+  multisigThreshold: z.number().optional(), signers: z.array(z.string()),
+  error: z.string().nullable(), gasUsed: z.number(), gasWanted: z.number(), fee: z.number(), memo: z.string(),
+  messages: z.array(z.object({ id: z.string(), type: z.string(), data: z.record(z.string()), relatedDeploymentId: z.string().optional().nullable() })),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BLOCKS (extracted from console/apps/api/src/block/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const ListBlocksQuerySchema = z.object({ limit: z.number().optional() });
+export const ListBlocksResponseSchema = z.array(z.object({
+  height: z.number(), transactionCount: z.number(), totalTransactionCount: z.number(), datetime: z.string(),
+  proposer: z.object({ address: z.string(), operatorAddress: z.string(), moniker: z.string(), avatarUrl: z.string().nullable() }),
+}));
+export const GetBlockByHeightParamsSchema = z.object({ height: z.number() });
+export const GetBlockByHeightResponseSchema = z.object({
+  height: z.number(), datetime: z.string(), hash: z.string(), gasUsed: z.number(), gasWanted: z.number(),
+  proposer: z.object({ operatorAddress: z.string(), moniker: z.string(), avatarUrl: z.string().optional(), address: z.string() }),
+  transactions: z.array(z.object({
+    hash: z.string(), isSuccess: z.boolean(), error: z.string().optional().nullable(),
+    fee: z.number(), datetime: z.string(),
+    messages: z.array(z.object({ id: z.string(), type: z.string(), amount: z.number() })),
+  })),
+});
+export const GetPredictedBlockDateParamsSchema = z.object({ height: z.number() });
+export const GetPredictedBlockDateResponseSchema = z.object({ predictedDate: z.string(), height: z.number(), blockWindow: z.number() });
+export const GetPredictedDateHeightParamsSchema = z.object({ timestamp: z.number() });
+export const GetPredictedDateHeightResponseSchema = z.object({ predictedHeight: z.number(), date: z.string(), blockWindow: z.number() });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VALIDATORS (extracted from console/apps/api/src/validator/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const GetValidatorListResponseSchema = z.array(z.object({
+  operatorAddress: z.string(), moniker: z.string(), votingPower: z.number(), commission: z.number(),
+  identity: z.string(), votingPowerRatio: z.number(), rank: z.number(), keybaseAvatarUrl: z.string().nullable(),
+}));
+export const GetValidatorByAddressParamsSchema = z.object({ address: z.string() });
+export const GetValidatorByAddressResponseSchema = z.object({
+  operatorAddress: z.string(), address: z.string().nullable(), moniker: z.string(),
+  keybaseUsername: z.string().nullable(), keybaseAvatarUrl: z.string().nullable(),
+  votingPower: z.number(), commission: z.number(), maxCommission: z.number(), maxCommissionChange: z.number(),
+  identity: z.string(), description: z.string(), website: z.string(), rank: z.number(),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROPOSALS (extracted from console/apps/api/src/proposal/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const GetProposalListResponseSchema = z.array(z.object({
+  id: z.number(), title: z.string(), status: z.string(),
+  submitTime: z.string(), votingStartTime: z.string(), votingEndTime: z.string(), totalDeposit: z.number(),
+}));
+export const GetProposalByIdParamsSchema = z.object({ id: z.number() });
+export const GetProposalByIdResponseSchema = z.object({
+  id: z.number(), title: z.string(), description: z.string(), status: z.string(),
+  submitTime: z.string(), votingStartTime: z.string(), votingEndTime: z.string(), totalDeposit: z.number(),
+  tally: z.object({ yes: z.number(), abstain: z.number(), no: z.number(), noWithVeto: z.number(), total: z.number() }),
+  paramChanges: z.array(z.object({ subspace: z.string(), key: z.string(), value: z.string() })),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROVIDER (additional — extracted from console/apps/api/src/provider/)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const AuditorSchema = z.object({ id: z.string(), name: z.string(), address: z.string(), website: z.string() });
+export const AuditorListResponseSchema = z.array(AuditorSchema);
+
+export const CreateJwtTokenRequestSchema = z.object({ ttl: z.number(), leases: z.record(z.string(), z.string()) });
+export const CreateJwtTokenResponseSchema = z.object({ token: z.string() });
+
+const ProviderPeriodSchema = z.object({
+  date: z.string(), height: z.number(), activeLeaseCount: z.number(), totalLeaseCount: z.number(), dailyLeaseCount: z.number(),
+  totalUAktEarned: z.number(), dailyUAktEarned: z.number(), totalUUsdcEarned: z.number(), dailyUUsdcEarned: z.number(),
+  totalUActEarned: z.number(), dailyUActEarned: z.number(), totalUUsdEarned: z.number(), dailyUUsdEarned: z.number(),
+  activeCPU: z.number(), activeGPU: z.number(), activeMemory: z.number(),
+  activeEphemeralStorage: z.number(), activePersistentStorage: z.number(), activeStorage: z.number(),
+});
+export const ProviderDashboardParamsSchema = z.object({ owner: z.string() });
+export const ProviderDashboardResponseSchema = z.object({ current: ProviderPeriodSchema, previous: ProviderPeriodSchema });
+
+export const ProviderDeploymentsParamsSchema = z.object({ provider: z.string(), skip: z.number(), limit: z.number() });
+export const ProviderDeploymentsQuerySchema = z.object({ status: z.string().optional() });
+export const ProviderDeploymentsResponseSchema = z.object({
+  total: z.number(),
+  deployments: z.array(z.object({
+    owner: z.string(), dseq: z.string(), denom: z.string(), createdHeight: z.number(),
+    createdDate: z.string().nullable(), status: z.string(), balance: z.number(), transferred: z.number(),
+    settledAt: z.number().nullable(),
+    resources: z.object({ cpu: z.number(), memory: z.number(), gpu: z.number(), ephemeralStorage: z.number(), persistentStorage: z.number() }),
+    leases: z.array(z.object({
+      provider: z.string(), gseq: z.number(), oseq: z.number(), price: z.number(),
+      createdHeight: z.number(), createdDate: z.string().nullable(),
+      closedHeight: z.number().nullable(), closedDate: z.string().nullable(), status: z.string(),
+      resources: z.object({ cpu: z.number(), memory: z.number(), gpu: z.number(), ephemeralStorage: z.number(), persistentStorage: z.number() }),
+    })),
+  })),
+});
+
+export const ProviderEarningsParamsSchema = z.object({ owner: z.string() });
+export const ProviderEarningsQuerySchema = z.object({ from: z.string(), to: z.string() });
+export const ProviderEarningsResponseSchema = z.object({
+  earnings: z.object({ totalUAktEarned: z.number(), totalUUsdcEarned: z.number(), totalUActEarned: z.number(), totalUUsdEarned: z.number() }),
+});
+
+export const ProviderGraphDataParamsSchema = z.object({ dataName: z.string() });
+export const ProviderGraphDataResponseSchema = z.object({
+  currentValue: z.number(), compareValue: z.number(),
+  snapshots: z.array(z.object({ date: z.string(), value: z.number() })),
+  now: z.object({ count: z.number(), cpu: z.number(), gpu: z.number(), memory: z.number(), storage: z.number() }).optional(),
+  compare: z.object({ count: z.number(), cpu: z.number(), gpu: z.number(), memory: z.number(), storage: z.number() }).optional(),
+});
+
+export const ProviderRegionsResponseSchema = z.array(z.object({
+  providers: z.array(z.string()), key: z.string(), description: z.string(), value: z.string().optional(),
+}));
+
+export const ProviderVersionsResponseSchema = z.record(z.string(), z.object({
+  version: z.string(), count: z.number(), ratio: z.number(), providers: z.array(z.string()),
+}));
+
+const ProviderAttributeTypeSchema = z.object({
+  key: z.string(), type: z.string(), required: z.boolean(), description: z.string(),
+  values: z.array(z.object({ key: z.string(), description: z.string(), value: z.string().nullable() })).nullable().optional(),
+});
+export const ProviderAttributesSchemaResponseSchema = z.record(z.string(), ProviderAttributeTypeSchema);
+
+
 // ---------------------------------------------------------------------------
 // Consolidated export map — used by generate-proto.ts
 // ---------------------------------------------------------------------------
@@ -966,6 +1408,51 @@ export const ALL_SCHEMAS = {
   GetAddressResponseSchema,
   GetAddressTransactionsParamsSchema,
   GetAddressTransactionsResponseSchema,
+
+  // Billing / Wallet / Stripe
+  WalletResponseOutputSchema, WalletListResponseOutputSchema, StartTrialRequestInputSchema,
+  WalletSettingsSchema, WalletSettingsResponseSchema, CreateWalletSettingsRequestSchema,
+  SetupIntentResponseSchema, PaymentMethodSchema, PaymentMethodsResponseSchema,
+  PaymentMethodMarkAsDefaultInputSchema, ConfirmPaymentRequestSchema, PaymentIntentResultSchema,
+  ConfirmPaymentResponseSchema, ApplyCouponRequestSchema, CouponSchema, ApplyCouponResponseSchema,
+  CustomerTransactionsQuerySchema, CustomerTransactionsResponseSchema, StripePricesResponseSchema,
+  ValidatePaymentMethodRequestSchema, ValidatePaymentMethodResponseSchema,
+  RemovePaymentMethodParamsSchema, UpdateCustomerOrganizationRequestSchema,
+  GetBalancesQuerySchema, GetBalancesResponseOutputSchema,
+  SignTxRequestInputSchema, SignTxResponseOutputSchema,
+  GetUsageHistoryQuerySchema, UsageHistoryResponseSchema, UsageHistoryStatsResponseSchema,
+  // User
+  UserSchema, GetUserResponseOutputSchema, CheckUsernameParamsSchema, CheckUsernameResponseSchema,
+  UpdateUserSettingsRequestSchema, VerifyEmailRequestSchema,
+  // Dashboard
+  DashboardDataResponseSchema, GraphDataParamsSchema, GraphDataResponseSchema,
+  NetworkCapacityResponseSchema, MarketDataParamsSchema, MarketDataResponseSchema,
+  BmeDashboardDataResponseSchema, BmeStatusHistoryResponseSchema,
+  LeasesDurationParamsSchema, LeasesDurationQuerySchema, LeasesDurationResponseSchema,
+  // GPU
+  ListGpuQuerySchema, ListGpuResponseSchema, ListGpuModelsResponseSchema,
+  GpuBreakdownQuerySchema, GpuBreakdownResponseSchema, GpuPricesResponseSchema,
+  // Templates
+  TemplateSchema, TemplateSummarySchema, TemplateCategorySchema,
+  GetTemplatesListResponseSchema, GetTemplateByIdParamsSchema, GetTemplateByIdResponseSchema,
+  // Transactions (on-chain)
+  ListTransactionsQuerySchema, ListTransactionsResponseSchema,
+  GetTransactionByHashParamsSchema, GetTransactionByHashResponseSchema,
+  // Blocks
+  ListBlocksQuerySchema, ListBlocksResponseSchema, GetBlockByHeightParamsSchema, GetBlockByHeightResponseSchema,
+  GetPredictedBlockDateParamsSchema, GetPredictedBlockDateResponseSchema,
+  GetPredictedDateHeightParamsSchema, GetPredictedDateHeightResponseSchema,
+  // Validators
+  GetValidatorListResponseSchema, GetValidatorByAddressParamsSchema, GetValidatorByAddressResponseSchema,
+  // Proposals
+  GetProposalListResponseSchema, GetProposalByIdParamsSchema, GetProposalByIdResponseSchema,
+  // Provider (additional)
+  AuditorSchema, AuditorListResponseSchema, CreateJwtTokenRequestSchema, CreateJwtTokenResponseSchema,
+  ProviderDashboardParamsSchema, ProviderDashboardResponseSchema,
+  ProviderDeploymentsParamsSchema, ProviderDeploymentsQuerySchema, ProviderDeploymentsResponseSchema,
+  ProviderEarningsParamsSchema, ProviderEarningsQuerySchema, ProviderEarningsResponseSchema,
+  ProviderGraphDataParamsSchema, ProviderGraphDataResponseSchema,
+  ProviderRegionsResponseSchema, ProviderVersionsResponseSchema, ProviderAttributesSchemaResponseSchema,
 } as const;
 
 // Re-export Zod types for downstream use

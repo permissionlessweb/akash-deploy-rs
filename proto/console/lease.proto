@@ -11,15 +11,6 @@ service LeaseService {
     rpc GetLeaseStatus(GetLeaseStatusRequest) returns (GetLeaseStatusResponse);
 }
 
-// Wrapper messages for map<string, repeated T> (proto3 limitation)
-message GetLeaseStatusResponseForwarded_portList {
-    repeated GetLeaseStatusResponseForwarded_port items = 1;
-}
-
-message GetLeaseStatusResponseIpList {
-    repeated GetLeaseStatusResponseIp items = 1;
-}
-
 message CreateLeaseRequestCertificate {
     string certPem = 1;
     string keyPem = 2;
@@ -76,7 +67,7 @@ message GetLeaseStatusResponseService {
 }
 
 message GetLeaseStatusResponse {
-    map<string, GetLeaseStatusResponseForwarded_portList> forwarded_ports = 1;
-    map<string, GetLeaseStatusResponseIpList> ips = 2;
+    map<string, repeated GetLeaseStatusResponseForwarded_port> forwarded_ports = 1;
+    map<string, repeated GetLeaseStatusResponseIp> ips = 2;
     map<string, GetLeaseStatusResponseService> services = 3;
 }

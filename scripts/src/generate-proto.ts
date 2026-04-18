@@ -75,6 +75,50 @@ import {
   GetAddressResponseSchema,
   GetAddressTransactionsParamsSchema,
   GetAddressTransactionsResponseSchema,
+
+  // Billing / Wallet / Stripe
+  WalletResponseOutputSchema, WalletListResponseOutputSchema, StartTrialRequestInputSchema,
+  WalletSettingsResponseSchema, CreateWalletSettingsRequestSchema,
+  SetupIntentResponseSchema, PaymentMethodsResponseSchema, PaymentMethodMarkAsDefaultInputSchema,
+  ConfirmPaymentRequestSchema, ConfirmPaymentResponseSchema,
+  ApplyCouponRequestSchema, ApplyCouponResponseSchema,
+  CustomerTransactionsQuerySchema, CustomerTransactionsResponseSchema,
+  ValidatePaymentMethodRequestSchema, ValidatePaymentMethodResponseSchema,
+  RemovePaymentMethodParamsSchema, UpdateCustomerOrganizationRequestSchema,
+  StripePricesResponseSchema, GetBalancesQuerySchema, GetBalancesResponseOutputSchema,
+  SignTxRequestInputSchema, SignTxResponseOutputSchema,
+  GetUsageHistoryQuerySchema, UsageHistoryResponseSchema, UsageHistoryStatsResponseSchema,
+  // User
+  GetUserResponseOutputSchema, CheckUsernameParamsSchema, CheckUsernameResponseSchema,
+  UpdateUserSettingsRequestSchema, VerifyEmailRequestSchema,
+  // Dashboard
+  DashboardDataResponseSchema, GraphDataParamsSchema, GraphDataResponseSchema,
+  NetworkCapacityResponseSchema, MarketDataParamsSchema, MarketDataResponseSchema,
+  BmeDashboardDataResponseSchema, BmeStatusHistoryResponseSchema,
+  LeasesDurationParamsSchema, LeasesDurationResponseSchema,
+  // GPU
+  ListGpuQuerySchema, ListGpuResponseSchema, ListGpuModelsResponseSchema,
+  GpuBreakdownQuerySchema, GpuBreakdownResponseSchema, GpuPricesResponseSchema,
+  // Templates
+  GetTemplatesListResponseSchema, GetTemplateByIdParamsSchema, GetTemplateByIdResponseSchema,
+  // Transactions
+  ListTransactionsQuerySchema, ListTransactionsResponseSchema,
+  GetTransactionByHashParamsSchema, GetTransactionByHashResponseSchema,
+  // Blocks
+  ListBlocksQuerySchema, ListBlocksResponseSchema, GetBlockByHeightParamsSchema, GetBlockByHeightResponseSchema,
+  GetPredictedBlockDateParamsSchema, GetPredictedBlockDateResponseSchema,
+  GetPredictedDateHeightParamsSchema, GetPredictedDateHeightResponseSchema,
+  // Validators
+  GetValidatorListResponseSchema, GetValidatorByAddressParamsSchema, GetValidatorByAddressResponseSchema,
+  // Proposals
+  GetProposalListResponseSchema, GetProposalByIdParamsSchema, GetProposalByIdResponseSchema,
+  // Provider (additional)
+  AuditorListResponseSchema, CreateJwtTokenRequestSchema, CreateJwtTokenResponseSchema,
+  ProviderDashboardParamsSchema, ProviderDashboardResponseSchema,
+  ProviderDeploymentsParamsSchema, ProviderDeploymentsResponseSchema,
+  ProviderEarningsParamsSchema, ProviderEarningsResponseSchema,
+  ProviderGraphDataParamsSchema, ProviderGraphDataResponseSchema,
+  ProviderRegionsResponseSchema, ProviderVersionsResponseSchema, ProviderAttributesSchemaResponseSchema,
   // Schema count for reporting
   ALL_SCHEMAS,
 } from "./console-api-schemas.js";
@@ -254,6 +298,185 @@ const services: Array<{
       { name: "GetAddressTransactions", request: GetAddressTransactionsParamsSchema, response: GetAddressTransactionsResponseSchema },
     ],
   },
+
+
+  // -------------------------------------------------------------------
+  // Billing / Wallet service
+  // -------------------------------------------------------------------
+  {
+    filename: "billing.proto",
+    packageName: "console.billing",
+    serviceName: "BillingService",
+    methods: [
+      { name: "GetWallet",            request: z.object({}),                      response: WalletResponseOutputSchema },
+      { name: "GetWalletList",        request: z.object({}),                      response: WalletListResponseOutputSchema },
+      { name: "StartTrial",           request: StartTrialRequestInputSchema,      response: WalletResponseOutputSchema },
+      { name: "GetWalletSettings",    request: z.object({}),                      response: WalletSettingsResponseSchema },
+      { name: "UpdateWalletSettings", request: CreateWalletSettingsRequestSchema, response: WalletSettingsResponseSchema },
+      { name: "GetBalances",          request: GetBalancesQuerySchema,            response: GetBalancesResponseOutputSchema },
+      { name: "SignAndBroadcastTx",   request: SignTxRequestInputSchema,          response: SignTxResponseOutputSchema },
+      { name: "GetUsageHistory",      request: GetUsageHistoryQuerySchema,        response: z.object({ data: UsageHistoryResponseSchema }) },
+      { name: "GetUsageHistoryStats", request: GetUsageHistoryQuerySchema,        response: UsageHistoryStatsResponseSchema },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // Stripe / Payment service
+  // -------------------------------------------------------------------
+  {
+    filename: "stripe.proto",
+    packageName: "console.stripe",
+    serviceName: "StripeService",
+    methods: [
+      { name: "SetupPaymentMethod",      request: z.object({}),                          response: SetupIntentResponseSchema },
+      { name: "ListPaymentMethods",      request: z.object({}),                          response: PaymentMethodsResponseSchema },
+      { name: "SetDefaultPaymentMethod", request: PaymentMethodMarkAsDefaultInputSchema, response: z.object({ success: z.boolean() }) },
+      { name: "RemovePaymentMethod",     request: RemovePaymentMethodParamsSchema,       response: z.object({ success: z.boolean() }) },
+      { name: "ValidatePaymentMethod",   request: ValidatePaymentMethodRequestSchema,    response: ValidatePaymentMethodResponseSchema },
+      { name: "ConfirmPayment",          request: ConfirmPaymentRequestSchema,           response: ConfirmPaymentResponseSchema },
+      { name: "ApplyCoupon",             request: ApplyCouponRequestSchema,              response: ApplyCouponResponseSchema },
+      { name: "ListTransactions",        request: CustomerTransactionsQuerySchema,       response: CustomerTransactionsResponseSchema },
+      { name: "GetPrices",              request: z.object({}),                          response: StripePricesResponseSchema },
+      { name: "UpdateOrganization",      request: UpdateCustomerOrganizationRequestSchema, response: z.object({ success: z.boolean() }) },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // User service
+  // -------------------------------------------------------------------
+  {
+    filename: "user.proto",
+    packageName: "console.user",
+    serviceName: "UserService",
+    methods: [
+      { name: "GetCurrentUser",            request: z.object({}),               response: GetUserResponseOutputSchema },
+      { name: "GetUserByUsername",          request: CheckUsernameParamsSchema,  response: GetUserResponseOutputSchema },
+      { name: "CheckUsernameAvailability",  request: CheckUsernameParamsSchema,  response: CheckUsernameResponseSchema },
+      { name: "UpdateUserSettings",        request: UpdateUserSettingsRequestSchema, response: GetUserResponseOutputSchema },
+      { name: "VerifyEmail",               request: VerifyEmailRequestSchema,   response: z.object({ success: z.boolean() }) },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // Dashboard / Analytics service
+  // -------------------------------------------------------------------
+  {
+    filename: "dashboard.proto",
+    packageName: "console.dashboard",
+    serviceName: "DashboardService",
+    methods: [
+      { name: "GetDashboardData",    request: z.object({}),           response: DashboardDataResponseSchema },
+      { name: "GetGraphData",        request: GraphDataParamsSchema,  response: GraphDataResponseSchema },
+      { name: "GetNetworkCapacity",  request: z.object({}),           response: NetworkCapacityResponseSchema },
+      { name: "GetMarketData",       request: MarketDataParamsSchema, response: MarketDataResponseSchema },
+      { name: "GetBmeDashboardData", request: z.object({}),           response: BmeDashboardDataResponseSchema },
+      { name: "GetBmeStatusHistory", request: z.object({}),           response: z.object({ data: BmeStatusHistoryResponseSchema }) },
+      { name: "GetLeasesDuration",   request: LeasesDurationParamsSchema, response: LeasesDurationResponseSchema },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // GPU service
+  // -------------------------------------------------------------------
+  {
+    filename: "gpu.proto",
+    packageName: "console.gpu",
+    serviceName: "GpuService",
+    methods: [
+      { name: "ListGpus",        request: ListGpuQuerySchema,      response: ListGpuResponseSchema },
+      { name: "ListGpuModels",   request: z.object({}),            response: z.object({ models: ListGpuModelsResponseSchema }) },
+      { name: "GetGpuBreakdown", request: GpuBreakdownQuerySchema, response: z.object({ data: GpuBreakdownResponseSchema }) },
+      { name: "GetGpuPrices",    request: z.object({}),            response: GpuPricesResponseSchema },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // Template service
+  // -------------------------------------------------------------------
+  {
+    filename: "template.proto",
+    packageName: "console.template",
+    serviceName: "TemplateService",
+    methods: [
+      { name: "ListTemplates", request: z.object({}),               response: GetTemplatesListResponseSchema },
+      { name: "GetTemplate",   request: GetTemplateByIdParamsSchema, response: GetTemplateByIdResponseSchema },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // Transaction service (on-chain)
+  // -------------------------------------------------------------------
+  {
+    filename: "transaction.proto",
+    packageName: "console.transaction",
+    serviceName: "TransactionService",
+    methods: [
+      { name: "ListTransactions",     request: ListTransactionsQuerySchema,      response: z.object({ data: ListTransactionsResponseSchema }) },
+      { name: "GetTransactionByHash", request: GetTransactionByHashParamsSchema, response: GetTransactionByHashResponseSchema },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // Block service
+  // -------------------------------------------------------------------
+  {
+    filename: "block.proto",
+    packageName: "console.block",
+    serviceName: "BlockService",
+    methods: [
+      { name: "ListBlocks",             request: ListBlocksQuerySchema,             response: z.object({ data: ListBlocksResponseSchema }) },
+      { name: "GetBlockByHeight",       request: GetBlockByHeightParamsSchema,      response: GetBlockByHeightResponseSchema },
+      { name: "GetPredictedBlockDate",  request: GetPredictedBlockDateParamsSchema, response: GetPredictedBlockDateResponseSchema },
+      { name: "GetPredictedDateHeight", request: GetPredictedDateHeightParamsSchema, response: GetPredictedDateHeightResponseSchema },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // Validator service
+  // -------------------------------------------------------------------
+  {
+    filename: "validator.proto",
+    packageName: "console.validator",
+    serviceName: "ValidatorService",
+    methods: [
+      { name: "ListValidators",        request: z.object({}),                      response: z.object({ data: GetValidatorListResponseSchema }) },
+      { name: "GetValidatorByAddress", request: GetValidatorByAddressParamsSchema, response: GetValidatorByAddressResponseSchema },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // Proposal service
+  // -------------------------------------------------------------------
+  {
+    filename: "proposal.proto",
+    packageName: "console.proposal",
+    serviceName: "ProposalService",
+    methods: [
+      { name: "ListProposals",   request: z.object({}),                  response: z.object({ data: GetProposalListResponseSchema }) },
+      { name: "GetProposalById", request: GetProposalByIdParamsSchema,   response: GetProposalByIdResponseSchema },
+    ],
+  },
+
+  // -------------------------------------------------------------------
+  // Provider (additional endpoints)
+  // -------------------------------------------------------------------
+  {
+    filename: "provider_extended.proto",
+    packageName: "console.provider.extended",
+    serviceName: "ProviderExtendedService",
+    methods: [
+      { name: "ListAuditors",              request: z.object({}),                   response: z.object({ data: AuditorListResponseSchema }) },
+      { name: "CreateJwtToken",            request: CreateJwtTokenRequestSchema,    response: CreateJwtTokenResponseSchema },
+      { name: "GetProviderDashboard",      request: ProviderDashboardParamsSchema,  response: ProviderDashboardResponseSchema },
+      { name: "GetProviderDeployments",    request: ProviderDeploymentsParamsSchema, response: ProviderDeploymentsResponseSchema },
+      { name: "GetProviderEarnings",       request: ProviderEarningsParamsSchema,   response: ProviderEarningsResponseSchema },
+      { name: "GetProviderGraphData",      request: ProviderGraphDataParamsSchema,  response: ProviderGraphDataResponseSchema },
+      { name: "GetProviderRegions",        request: z.object({}),                   response: z.object({ data: ProviderRegionsResponseSchema }) },
+      { name: "GetProviderVersions",       request: z.object({}),                   response: ProviderVersionsResponseSchema },
+      { name: "GetProviderAttributesSchema", request: z.object({}),                 response: ProviderAttributesSchemaResponseSchema },
+    ],
+  },
+
 ];
 
 // ---------------------------------------------------------------------------
