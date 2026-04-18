@@ -506,16 +506,91 @@ pub const TYPE_URLS: &[&str] = &[
     "/console.bid.ListBidsResponseDatumEscrow_account",
     "/console.bid.ListBidsResponseDatum",
     "/console.bid.ListBidsResponse",
+    "/console.billing.GetWalletRequest",
+    "/console.billing.GetWalletResponseData",
+    "/console.billing.GetWalletResponse",
+    "/console.billing.GetWalletListRequest",
+    "/console.billing.GetWalletListResponseDatum",
+    "/console.billing.GetWalletListResponse",
+    "/console.billing.StartTrialRequestData",
+    "/console.billing.StartTrialRequest",
+    "/console.billing.StartTrialResponseData",
+    "/console.billing.StartTrialResponse",
+    "/console.billing.GetWalletSettingsRequest",
+    "/console.billing.GetWalletSettingsResponseData",
+    "/console.billing.GetWalletSettingsResponse",
+    "/console.billing.UpdateWalletSettingsRequestData",
+    "/console.billing.UpdateWalletSettingsRequest",
+    "/console.billing.UpdateWalletSettingsResponseData",
+    "/console.billing.UpdateWalletSettingsResponse",
+    "/console.billing.GetBalancesRequest",
+    "/console.billing.GetBalancesResponseData",
+    "/console.billing.GetBalancesResponse",
+    "/console.billing.SignAndBroadcastTxRequestDataMessage",
+    "/console.billing.SignAndBroadcastTxRequestData",
+    "/console.billing.SignAndBroadcastTxRequest",
+    "/console.billing.SignAndBroadcastTxResponseData",
+    "/console.billing.SignAndBroadcastTxResponse",
+    "/console.billing.GetUsageHistoryRequest",
+    "/console.billing.GetUsageHistoryResponseDatum",
+    "/console.billing.GetUsageHistoryResponse",
+    "/console.billing.GetUsageHistoryStatsRequest",
+    "/console.billing.GetUsageHistoryStatsResponse",
+    "/console.block.ListBlocksRequest",
+    "/console.block.ListBlocksResponseDatumProposer",
+    "/console.block.ListBlocksResponseDatum",
+    "/console.block.ListBlocksResponse",
+    "/console.block.GetBlockByHeightRequest",
+    "/console.block.GetBlockByHeightResponseProposer",
+    "/console.block.GetBlockByHeightResponseTransactionMessage",
+    "/console.block.GetBlockByHeightResponseTransaction",
+    "/console.block.GetBlockByHeightResponse",
+    "/console.block.GetPredictedBlockDateRequest",
+    "/console.block.GetPredictedBlockDateResponse",
+    "/console.block.GetPredictedDateHeightRequest",
+    "/console.block.GetPredictedDateHeightResponse",
     "/console.certificate.CreateCertificateRequest",
     "/console.certificate.CreateCertificateResponseData",
     "/console.certificate.CreateCertificateResponse",
-    "/console.deployment.ListDeploymentsResponseDataDeploymentLeaseStatusIpList",
-    "/console.deployment.GetDeploymentResponseDataLeaseStatusForwarded_portList",
-    "/console.deployment.GetDeploymentResponseDataLeaseStatusIpList",
-    "/console.deployment.UpdateDeploymentResponseDataLeaseStatusForwarded_portList",
-    "/console.deployment.UpdateDeploymentResponseDataLeaseStatusIpList",
-    "/console.deployment.DepositDeploymentResponseDataLeaseStatusForwarded_portList",
-    "/console.deployment.DepositDeploymentResponseDataLeaseStatusIpList",
+    "/console.dashboard.GetDashboardDataRequest",
+    "/console.dashboard.GetDashboardDataResponseChainStats",
+    "/console.dashboard.GetDashboardDataResponseNow",
+    "/console.dashboard.GetDashboardDataResponseCompare",
+    "/console.dashboard.GetDashboardDataResponseNetworkCapacity",
+    "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsSnapshot",
+    "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsNow",
+    "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsCompare",
+    "/console.dashboard.GetDashboardDataResponseNetworkCapacityStats",
+    "/console.dashboard.GetDashboardDataResponseLatestBlockProposer",
+    "/console.dashboard.GetDashboardDataResponseLatestBlock",
+    "/console.dashboard.GetDashboardDataResponseLatestTransactionMessage",
+    "/console.dashboard.GetDashboardDataResponseLatestTransaction",
+    "/console.dashboard.GetDashboardDataResponse",
+    "/console.dashboard.GetGraphDataRequest",
+    "/console.dashboard.GetGraphDataResponseSnapshot",
+    "/console.dashboard.GetGraphDataResponse",
+    "/console.dashboard.GetNetworkCapacityRequest",
+    "/console.dashboard.GetNetworkCapacityResponseResourcesCpu",
+    "/console.dashboard.GetNetworkCapacityResponseResourcesGpu",
+    "/console.dashboard.GetNetworkCapacityResponseResourcesMemory",
+    "/console.dashboard.GetNetworkCapacityResponseResourcesStorageEphemeral",
+    "/console.dashboard.GetNetworkCapacityResponseResourcesStoragePersistent",
+    "/console.dashboard.GetNetworkCapacityResponseResourcesStorageTotal",
+    "/console.dashboard.GetNetworkCapacityResponseResourcesStorage",
+    "/console.dashboard.GetNetworkCapacityResponseResources",
+    "/console.dashboard.GetNetworkCapacityResponse",
+    "/console.dashboard.GetMarketDataRequest",
+    "/console.dashboard.GetMarketDataResponse",
+    "/console.dashboard.GetBmeDashboardDataRequest",
+    "/console.dashboard.GetBmeDashboardDataResponseNow",
+    "/console.dashboard.GetBmeDashboardDataResponseCompare",
+    "/console.dashboard.GetBmeDashboardDataResponse",
+    "/console.dashboard.GetBmeStatusHistoryRequest",
+    "/console.dashboard.GetBmeStatusHistoryResponseDatum",
+    "/console.dashboard.GetBmeStatusHistoryResponse",
+    "/console.dashboard.GetLeasesDurationRequest",
+    "/console.dashboard.GetLeasesDurationResponseLease",
+    "/console.dashboard.GetLeasesDurationResponse",
     "/console.deployment.ListDeploymentsRequest",
     "/console.deployment.ListDeploymentsResponseDataDeploymentDeploymentId",
     "/console.deployment.ListDeploymentsResponseDataDeploymentDeployment",
@@ -623,8 +698,25 @@ pub const TYPE_URLS: &[&str] = &[
     "/console.deployment.settings.UpdateDeploymentSettingRequestData",
     "/console.deployment.settings.UpdateDeploymentSettingRequest",
     "/console.deployment.settings.UpdateDeploymentSettingResponse",
-    "/console.lease.GetLeaseStatusResponseForwarded_portList",
-    "/console.lease.GetLeaseStatusResponseIpList",
+    "/console.gpu.ListGpusRequest",
+    "/console.gpu.ListGpusResponseGpusTotal",
+    "/console.gpu.ListGpusResponseGpusDetail",
+    "/console.gpu.ListGpusResponseGpus",
+    "/console.gpu.ListGpusResponse",
+    "/console.gpu.ListGpuModelsRequest",
+    "/console.gpu.ListGpuModelsResponseModelModel",
+    "/console.gpu.ListGpuModelsResponseModel",
+    "/console.gpu.ListGpuModelsResponse",
+    "/console.gpu.GetGpuBreakdownRequest",
+    "/console.gpu.GetGpuBreakdownResponseDatum",
+    "/console.gpu.GetGpuBreakdownResponse",
+    "/console.gpu.GetGpuPricesRequest",
+    "/console.gpu.GetGpuPricesResponseAvailability",
+    "/console.gpu.GetGpuPricesResponseModelAvailability",
+    "/console.gpu.GetGpuPricesResponseModelProviderAvailability",
+    "/console.gpu.GetGpuPricesResponseModelPrice",
+    "/console.gpu.GetGpuPricesResponseModel",
+    "/console.gpu.GetGpuPricesResponse",
     "/console.lease.CreateLeaseRequestCertificate",
     "/console.lease.CreateLeaseRequestLease",
     "/console.lease.CreateLeaseRequest",
@@ -642,6 +734,46 @@ pub const TYPE_URLS: &[&str] = &[
     "/console.pricing.GetPricingResponseResultSpec",
     "/console.pricing.GetPricingResponseResult",
     "/console.pricing.GetPricingResponse",
+    "/console.proposal.ListProposalsRequest",
+    "/console.proposal.ListProposalsResponseDatum",
+    "/console.proposal.ListProposalsResponse",
+    "/console.proposal.GetProposalByIdRequest",
+    "/console.proposal.GetProposalByIdResponseTally",
+    "/console.proposal.GetProposalByIdResponseParamChange",
+    "/console.proposal.GetProposalByIdResponse",
+    "/console.provider.extended.ListAuditorsRequest",
+    "/console.provider.extended.ListAuditorsResponseDatum",
+    "/console.provider.extended.ListAuditorsResponse",
+    "/console.provider.extended.CreateJwtTokenRequest",
+    "/console.provider.extended.CreateJwtTokenResponse",
+    "/console.provider.extended.GetProviderDashboardRequest",
+    "/console.provider.extended.GetProviderDashboardResponseCurrent",
+    "/console.provider.extended.GetProviderDashboardResponsePrevious",
+    "/console.provider.extended.GetProviderDashboardResponse",
+    "/console.provider.extended.GetProviderDeploymentsRequest",
+    "/console.provider.extended.GetProviderDeploymentsResponseDeploymentResources",
+    "/console.provider.extended.GetProviderDeploymentsResponseDeploymentLeaseResources",
+    "/console.provider.extended.GetProviderDeploymentsResponseDeploymentLease",
+    "/console.provider.extended.GetProviderDeploymentsResponseDeployment",
+    "/console.provider.extended.GetProviderDeploymentsResponse",
+    "/console.provider.extended.GetProviderEarningsRequest",
+    "/console.provider.extended.GetProviderEarningsResponseEarnings",
+    "/console.provider.extended.GetProviderEarningsResponse",
+    "/console.provider.extended.GetProviderGraphDataRequest",
+    "/console.provider.extended.GetProviderGraphDataResponseSnapshot",
+    "/console.provider.extended.GetProviderGraphDataResponseNow",
+    "/console.provider.extended.GetProviderGraphDataResponseCompare",
+    "/console.provider.extended.GetProviderGraphDataResponse",
+    "/console.provider.extended.GetProviderRegionsRequest",
+    "/console.provider.extended.GetProviderRegionsResponseDatum",
+    "/console.provider.extended.GetProviderRegionsResponse",
+    "/console.provider.extended.GetProviderVersionsRequest",
+    "/console.provider.extended.GetProviderVersionsResponseDatum",
+    "/console.provider.extended.GetProviderVersionsResponse",
+    "/console.provider.extended.GetProviderAttributesSchemaRequest",
+    "/console.provider.extended.GetProviderAttributesSchemaResponseDatumValue",
+    "/console.provider.extended.GetProviderAttributesSchemaResponseDatum",
+    "/console.provider.extended.GetProviderAttributesSchemaResponse",
     "/console.provider.ListProvidersRequest",
     "/console.provider.ListProvidersResponseProviderGpuModel",
     "/console.provider.ListProvidersResponseProviderAttribute",
@@ -667,6 +799,75 @@ pub const TYPE_URLS: &[&str] = &[
     "/console.provider.GetJwtTokenRequest",
     "/console.provider.GetJwtTokenResponseData",
     "/console.provider.GetJwtTokenResponse",
+    "/console.stripe.SetupPaymentMethodRequest",
+    "/console.stripe.SetupPaymentMethodResponseData",
+    "/console.stripe.SetupPaymentMethodResponse",
+    "/console.stripe.ListPaymentMethodsRequest",
+    "/console.stripe.ListPaymentMethodsResponseDatumCard",
+    "/console.stripe.ListPaymentMethodsResponseDatumLink",
+    "/console.stripe.ListPaymentMethodsResponseDatum",
+    "/console.stripe.ListPaymentMethodsResponse",
+    "/console.stripe.SetDefaultPaymentMethodRequestData",
+    "/console.stripe.SetDefaultPaymentMethodRequest",
+    "/console.stripe.SetDefaultPaymentMethodResponse",
+    "/console.stripe.RemovePaymentMethodRequest",
+    "/console.stripe.RemovePaymentMethodResponse",
+    "/console.stripe.ValidatePaymentMethodRequestData",
+    "/console.stripe.ValidatePaymentMethodRequest",
+    "/console.stripe.ValidatePaymentMethodResponse",
+    "/console.stripe.ConfirmPaymentRequestData",
+    "/console.stripe.ConfirmPaymentRequest",
+    "/console.stripe.ConfirmPaymentResponseData",
+    "/console.stripe.ConfirmPaymentResponse",
+    "/console.stripe.ApplyCouponRequestData",
+    "/console.stripe.ApplyCouponRequest",
+    "/console.stripe.ApplyCouponResponseDataCoupon",
+    "/console.stripe.ApplyCouponResponseDataError",
+    "/console.stripe.ApplyCouponResponseData",
+    "/console.stripe.ApplyCouponResponse",
+    "/console.stripe.ListTransactionsRequest",
+    "/console.stripe.ListTransactionsResponseDataTransaction",
+    "/console.stripe.ListTransactionsResponseData",
+    "/console.stripe.ListTransactionsResponse",
+    "/console.stripe.GetPricesRequest",
+    "/console.stripe.GetPricesResponseDatum",
+    "/console.stripe.GetPricesResponse",
+    "/console.stripe.UpdateOrganizationRequest",
+    "/console.stripe.UpdateOrganizationResponse",
+    "/console.template.ListTemplatesRequest",
+    "/console.template.ListTemplatesResponseDatumTemplate",
+    "/console.template.ListTemplatesResponseDatum",
+    "/console.template.ListTemplatesResponse",
+    "/console.template.GetTemplateRequest",
+    "/console.template.GetTemplateResponseDataConfig",
+    "/console.template.GetTemplateResponseData",
+    "/console.template.GetTemplateResponse",
+    "/console.transaction.ListTransactionsRequest",
+    "/console.transaction.ListTransactionsResponseDatumMessage",
+    "/console.transaction.ListTransactionsResponseDatum",
+    "/console.transaction.ListTransactionsResponse",
+    "/console.transaction.GetTransactionByHashRequest",
+    "/console.transaction.GetTransactionByHashResponseMessage",
+    "/console.transaction.GetTransactionByHashResponse",
+    "/console.user.GetCurrentUserRequest",
+    "/console.user.GetCurrentUserResponseData",
+    "/console.user.GetCurrentUserResponse",
+    "/console.user.GetUserByUsernameRequest",
+    "/console.user.GetUserByUsernameResponseData",
+    "/console.user.GetUserByUsernameResponse",
+    "/console.user.CheckUsernameAvailabilityRequest",
+    "/console.user.CheckUsernameAvailabilityResponse",
+    "/console.user.UpdateUserSettingsRequest",
+    "/console.user.UpdateUserSettingsResponseData",
+    "/console.user.UpdateUserSettingsResponse",
+    "/console.user.VerifyEmailRequestData",
+    "/console.user.VerifyEmailRequest",
+    "/console.user.VerifyEmailResponse",
+    "/console.validator.ListValidatorsRequest",
+    "/console.validator.ListValidatorsResponseDatum",
+    "/console.validator.ListValidatorsResponse",
+    "/console.validator.GetValidatorByAddressRequest",
+    "/console.validator.GetValidatorByAddressResponse",
 ];
 
 pub fn encode(type_url: &str, json_data: &[u8]) -> Result<Vec<u8>> {
@@ -2675,6 +2876,178 @@ pub fn encode(type_url: &str, json_data: &[u8]) -> Result<Vec<u8>> {
             let msg: crate::gen::console::bid::ListBidsResponse = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
+        "/console.billing.GetWalletRequest" => {
+            let msg: crate::gen::console::billing::GetWalletRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetWalletResponseData" => {
+            let msg: crate::gen::console::billing::GetWalletResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetWalletResponse" => {
+            let msg: crate::gen::console::billing::GetWalletResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetWalletListRequest" => {
+            let msg: crate::gen::console::billing::GetWalletListRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetWalletListResponseDatum" => {
+            let msg: crate::gen::console::billing::GetWalletListResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetWalletListResponse" => {
+            let msg: crate::gen::console::billing::GetWalletListResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.StartTrialRequestData" => {
+            let msg: crate::gen::console::billing::StartTrialRequestData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.StartTrialRequest" => {
+            let msg: crate::gen::console::billing::StartTrialRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.StartTrialResponseData" => {
+            let msg: crate::gen::console::billing::StartTrialResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.StartTrialResponse" => {
+            let msg: crate::gen::console::billing::StartTrialResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetWalletSettingsRequest" => {
+            let msg: crate::gen::console::billing::GetWalletSettingsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetWalletSettingsResponseData" => {
+            let msg: crate::gen::console::billing::GetWalletSettingsResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetWalletSettingsResponse" => {
+            let msg: crate::gen::console::billing::GetWalletSettingsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.UpdateWalletSettingsRequestData" => {
+            let msg: crate::gen::console::billing::UpdateWalletSettingsRequestData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.UpdateWalletSettingsRequest" => {
+            let msg: crate::gen::console::billing::UpdateWalletSettingsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.UpdateWalletSettingsResponseData" => {
+            let msg: crate::gen::console::billing::UpdateWalletSettingsResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.UpdateWalletSettingsResponse" => {
+            let msg: crate::gen::console::billing::UpdateWalletSettingsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetBalancesRequest" => {
+            let msg: crate::gen::console::billing::GetBalancesRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetBalancesResponseData" => {
+            let msg: crate::gen::console::billing::GetBalancesResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetBalancesResponse" => {
+            let msg: crate::gen::console::billing::GetBalancesResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.SignAndBroadcastTxRequestDataMessage" => {
+            let msg: crate::gen::console::billing::SignAndBroadcastTxRequestDataMessage = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.SignAndBroadcastTxRequestData" => {
+            let msg: crate::gen::console::billing::SignAndBroadcastTxRequestData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.SignAndBroadcastTxRequest" => {
+            let msg: crate::gen::console::billing::SignAndBroadcastTxRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.SignAndBroadcastTxResponseData" => {
+            let msg: crate::gen::console::billing::SignAndBroadcastTxResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.SignAndBroadcastTxResponse" => {
+            let msg: crate::gen::console::billing::SignAndBroadcastTxResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetUsageHistoryRequest" => {
+            let msg: crate::gen::console::billing::GetUsageHistoryRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetUsageHistoryResponseDatum" => {
+            let msg: crate::gen::console::billing::GetUsageHistoryResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetUsageHistoryResponse" => {
+            let msg: crate::gen::console::billing::GetUsageHistoryResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetUsageHistoryStatsRequest" => {
+            let msg: crate::gen::console::billing::GetUsageHistoryStatsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.billing.GetUsageHistoryStatsResponse" => {
+            let msg: crate::gen::console::billing::GetUsageHistoryStatsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.ListBlocksRequest" => {
+            let msg: crate::gen::console::block::ListBlocksRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.ListBlocksResponseDatumProposer" => {
+            let msg: crate::gen::console::block::ListBlocksResponseDatumProposer = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.ListBlocksResponseDatum" => {
+            let msg: crate::gen::console::block::ListBlocksResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.ListBlocksResponse" => {
+            let msg: crate::gen::console::block::ListBlocksResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetBlockByHeightRequest" => {
+            let msg: crate::gen::console::block::GetBlockByHeightRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetBlockByHeightResponseProposer" => {
+            let msg: crate::gen::console::block::GetBlockByHeightResponseProposer = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetBlockByHeightResponseTransactionMessage" => {
+            let msg: crate::gen::console::block::GetBlockByHeightResponseTransactionMessage = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetBlockByHeightResponseTransaction" => {
+            let msg: crate::gen::console::block::GetBlockByHeightResponseTransaction = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetBlockByHeightResponse" => {
+            let msg: crate::gen::console::block::GetBlockByHeightResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetPredictedBlockDateRequest" => {
+            let msg: crate::gen::console::block::GetPredictedBlockDateRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetPredictedBlockDateResponse" => {
+            let msg: crate::gen::console::block::GetPredictedBlockDateResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetPredictedDateHeightRequest" => {
+            let msg: crate::gen::console::block::GetPredictedDateHeightRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.block.GetPredictedDateHeightResponse" => {
+            let msg: crate::gen::console::block::GetPredictedDateHeightResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
         "/console.certificate.CreateCertificateRequest" => {
             let msg: crate::gen::console::certificate::CreateCertificateRequest = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
@@ -2687,32 +3060,160 @@ pub fn encode(type_url: &str, json_data: &[u8]) -> Result<Vec<u8>> {
             let msg: crate::gen::console::certificate::CreateCertificateResponse = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.deployment.ListDeploymentsResponseDataDeploymentLeaseStatusIpList" => {
-            let msg: crate::gen::console::deployment::ListDeploymentsResponseDataDeploymentLeaseStatusIpList = serde_json::from_slice(json_data)?;
+        "/console.dashboard.GetDashboardDataRequest" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataRequest = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.deployment.GetDeploymentResponseDataLeaseStatusForwarded_portList" => {
-            let msg: crate::gen::console::deployment::GetDeploymentResponseDataLeaseStatusForwardedPortList = serde_json::from_slice(json_data)?;
+        "/console.dashboard.GetDashboardDataResponseChainStats" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseChainStats = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.deployment.GetDeploymentResponseDataLeaseStatusIpList" => {
-            let msg: crate::gen::console::deployment::GetDeploymentResponseDataLeaseStatusIpList = serde_json::from_slice(json_data)?;
+        "/console.dashboard.GetDashboardDataResponseNow" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseNow = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.deployment.UpdateDeploymentResponseDataLeaseStatusForwarded_portList" => {
-            let msg: crate::gen::console::deployment::UpdateDeploymentResponseDataLeaseStatusForwardedPortList = serde_json::from_slice(json_data)?;
+        "/console.dashboard.GetDashboardDataResponseCompare" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseCompare = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.deployment.UpdateDeploymentResponseDataLeaseStatusIpList" => {
-            let msg: crate::gen::console::deployment::UpdateDeploymentResponseDataLeaseStatusIpList = serde_json::from_slice(json_data)?;
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacity" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacity = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.deployment.DepositDeploymentResponseDataLeaseStatusForwarded_portList" => {
-            let msg: crate::gen::console::deployment::DepositDeploymentResponseDataLeaseStatusForwardedPortList = serde_json::from_slice(json_data)?;
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsSnapshot" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacityStatsSnapshot = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.deployment.DepositDeploymentResponseDataLeaseStatusIpList" => {
-            let msg: crate::gen::console::deployment::DepositDeploymentResponseDataLeaseStatusIpList = serde_json::from_slice(json_data)?;
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsNow" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacityStatsNow = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsCompare" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacityStatsCompare = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacityStats" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacityStats = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetDashboardDataResponseLatestBlockProposer" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseLatestBlockProposer = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetDashboardDataResponseLatestBlock" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseLatestBlock = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetDashboardDataResponseLatestTransactionMessage" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseLatestTransactionMessage = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetDashboardDataResponseLatestTransaction" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponseLatestTransaction = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetDashboardDataResponse" => {
+            let msg: crate::gen::console::dashboard::GetDashboardDataResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetGraphDataRequest" => {
+            let msg: crate::gen::console::dashboard::GetGraphDataRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetGraphDataResponseSnapshot" => {
+            let msg: crate::gen::console::dashboard::GetGraphDataResponseSnapshot = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetGraphDataResponse" => {
+            let msg: crate::gen::console::dashboard::GetGraphDataResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityRequest" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesCpu" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesCpu = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesGpu" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesGpu = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesMemory" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesMemory = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesStorageEphemeral" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesStorageEphemeral = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesStoragePersistent" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesStoragePersistent = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesStorageTotal" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesStorageTotal = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesStorage" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesStorage = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResources" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponseResources = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetNetworkCapacityResponse" => {
+            let msg: crate::gen::console::dashboard::GetNetworkCapacityResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetMarketDataRequest" => {
+            let msg: crate::gen::console::dashboard::GetMarketDataRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetMarketDataResponse" => {
+            let msg: crate::gen::console::dashboard::GetMarketDataResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetBmeDashboardDataRequest" => {
+            let msg: crate::gen::console::dashboard::GetBmeDashboardDataRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetBmeDashboardDataResponseNow" => {
+            let msg: crate::gen::console::dashboard::GetBmeDashboardDataResponseNow = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetBmeDashboardDataResponseCompare" => {
+            let msg: crate::gen::console::dashboard::GetBmeDashboardDataResponseCompare = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetBmeDashboardDataResponse" => {
+            let msg: crate::gen::console::dashboard::GetBmeDashboardDataResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetBmeStatusHistoryRequest" => {
+            let msg: crate::gen::console::dashboard::GetBmeStatusHistoryRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetBmeStatusHistoryResponseDatum" => {
+            let msg: crate::gen::console::dashboard::GetBmeStatusHistoryResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetBmeStatusHistoryResponse" => {
+            let msg: crate::gen::console::dashboard::GetBmeStatusHistoryResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetLeasesDurationRequest" => {
+            let msg: crate::gen::console::dashboard::GetLeasesDurationRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetLeasesDurationResponseLease" => {
+            let msg: crate::gen::console::dashboard::GetLeasesDurationResponseLease = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.dashboard.GetLeasesDurationResponse" => {
+            let msg: crate::gen::console::dashboard::GetLeasesDurationResponse = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
         "/console.deployment.ListDeploymentsRequest" => {
@@ -3143,12 +3644,80 @@ pub fn encode(type_url: &str, json_data: &[u8]) -> Result<Vec<u8>> {
             let msg: crate::gen::console::deployment::settings::UpdateDeploymentSettingResponse = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.lease.GetLeaseStatusResponseForwarded_portList" => {
-            let msg: crate::gen::console::lease::GetLeaseStatusResponseForwardedPortList = serde_json::from_slice(json_data)?;
+        "/console.gpu.ListGpusRequest" => {
+            let msg: crate::gen::console::gpu::ListGpusRequest = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
-        "/console.lease.GetLeaseStatusResponseIpList" => {
-            let msg: crate::gen::console::lease::GetLeaseStatusResponseIpList = serde_json::from_slice(json_data)?;
+        "/console.gpu.ListGpusResponseGpusTotal" => {
+            let msg: crate::gen::console::gpu::ListGpusResponseGpusTotal = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.ListGpusResponseGpusDetail" => {
+            let msg: crate::gen::console::gpu::ListGpusResponseGpusDetail = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.ListGpusResponseGpus" => {
+            let msg: crate::gen::console::gpu::ListGpusResponseGpus = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.ListGpusResponse" => {
+            let msg: crate::gen::console::gpu::ListGpusResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.ListGpuModelsRequest" => {
+            let msg: crate::gen::console::gpu::ListGpuModelsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.ListGpuModelsResponseModelModel" => {
+            let msg: crate::gen::console::gpu::ListGpuModelsResponseModelModel = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.ListGpuModelsResponseModel" => {
+            let msg: crate::gen::console::gpu::ListGpuModelsResponseModel = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.ListGpuModelsResponse" => {
+            let msg: crate::gen::console::gpu::ListGpuModelsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuBreakdownRequest" => {
+            let msg: crate::gen::console::gpu::GetGpuBreakdownRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuBreakdownResponseDatum" => {
+            let msg: crate::gen::console::gpu::GetGpuBreakdownResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuBreakdownResponse" => {
+            let msg: crate::gen::console::gpu::GetGpuBreakdownResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuPricesRequest" => {
+            let msg: crate::gen::console::gpu::GetGpuPricesRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuPricesResponseAvailability" => {
+            let msg: crate::gen::console::gpu::GetGpuPricesResponseAvailability = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuPricesResponseModelAvailability" => {
+            let msg: crate::gen::console::gpu::GetGpuPricesResponseModelAvailability = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuPricesResponseModelProviderAvailability" => {
+            let msg: crate::gen::console::gpu::GetGpuPricesResponseModelProviderAvailability = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuPricesResponseModelPrice" => {
+            let msg: crate::gen::console::gpu::GetGpuPricesResponseModelPrice = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuPricesResponseModel" => {
+            let msg: crate::gen::console::gpu::GetGpuPricesResponseModel = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.gpu.GetGpuPricesResponse" => {
+            let msg: crate::gen::console::gpu::GetGpuPricesResponse = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
         "/console.lease.CreateLeaseRequestCertificate" => {
@@ -3217,6 +3786,166 @@ pub fn encode(type_url: &str, json_data: &[u8]) -> Result<Vec<u8>> {
         }
         "/console.pricing.GetPricingResponse" => {
             let msg: crate::gen::console::pricing::GetPricingResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.proposal.ListProposalsRequest" => {
+            let msg: crate::gen::console::proposal::ListProposalsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.proposal.ListProposalsResponseDatum" => {
+            let msg: crate::gen::console::proposal::ListProposalsResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.proposal.ListProposalsResponse" => {
+            let msg: crate::gen::console::proposal::ListProposalsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.proposal.GetProposalByIdRequest" => {
+            let msg: crate::gen::console::proposal::GetProposalByIdRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.proposal.GetProposalByIdResponseTally" => {
+            let msg: crate::gen::console::proposal::GetProposalByIdResponseTally = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.proposal.GetProposalByIdResponseParamChange" => {
+            let msg: crate::gen::console::proposal::GetProposalByIdResponseParamChange = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.proposal.GetProposalByIdResponse" => {
+            let msg: crate::gen::console::proposal::GetProposalByIdResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.ListAuditorsRequest" => {
+            let msg: crate::gen::console::provider::extended::ListAuditorsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.ListAuditorsResponseDatum" => {
+            let msg: crate::gen::console::provider::extended::ListAuditorsResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.ListAuditorsResponse" => {
+            let msg: crate::gen::console::provider::extended::ListAuditorsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.CreateJwtTokenRequest" => {
+            let msg: crate::gen::console::provider::extended::CreateJwtTokenRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.CreateJwtTokenResponse" => {
+            let msg: crate::gen::console::provider::extended::CreateJwtTokenResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDashboardRequest" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDashboardRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDashboardResponseCurrent" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDashboardResponseCurrent = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDashboardResponsePrevious" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDashboardResponsePrevious = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDashboardResponse" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDashboardResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDeploymentsRequest" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDeploymentsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponseDeploymentResources" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDeploymentsResponseDeploymentResources = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponseDeploymentLeaseResources" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDeploymentsResponseDeploymentLeaseResources = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponseDeploymentLease" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDeploymentsResponseDeploymentLease = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponseDeployment" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDeploymentsResponseDeployment = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponse" => {
+            let msg: crate::gen::console::provider::extended::GetProviderDeploymentsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderEarningsRequest" => {
+            let msg: crate::gen::console::provider::extended::GetProviderEarningsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderEarningsResponseEarnings" => {
+            let msg: crate::gen::console::provider::extended::GetProviderEarningsResponseEarnings = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderEarningsResponse" => {
+            let msg: crate::gen::console::provider::extended::GetProviderEarningsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderGraphDataRequest" => {
+            let msg: crate::gen::console::provider::extended::GetProviderGraphDataRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderGraphDataResponseSnapshot" => {
+            let msg: crate::gen::console::provider::extended::GetProviderGraphDataResponseSnapshot = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderGraphDataResponseNow" => {
+            let msg: crate::gen::console::provider::extended::GetProviderGraphDataResponseNow = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderGraphDataResponseCompare" => {
+            let msg: crate::gen::console::provider::extended::GetProviderGraphDataResponseCompare = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderGraphDataResponse" => {
+            let msg: crate::gen::console::provider::extended::GetProviderGraphDataResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderRegionsRequest" => {
+            let msg: crate::gen::console::provider::extended::GetProviderRegionsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderRegionsResponseDatum" => {
+            let msg: crate::gen::console::provider::extended::GetProviderRegionsResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderRegionsResponse" => {
+            let msg: crate::gen::console::provider::extended::GetProviderRegionsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderVersionsRequest" => {
+            let msg: crate::gen::console::provider::extended::GetProviderVersionsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderVersionsResponseDatum" => {
+            let msg: crate::gen::console::provider::extended::GetProviderVersionsResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderVersionsResponse" => {
+            let msg: crate::gen::console::provider::extended::GetProviderVersionsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderAttributesSchemaRequest" => {
+            let msg: crate::gen::console::provider::extended::GetProviderAttributesSchemaRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderAttributesSchemaResponseDatumValue" => {
+            let msg: crate::gen::console::provider::extended::GetProviderAttributesSchemaResponseDatumValue = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderAttributesSchemaResponseDatum" => {
+            let msg: crate::gen::console::provider::extended::GetProviderAttributesSchemaResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.provider.extended.GetProviderAttributesSchemaResponse" => {
+            let msg: crate::gen::console::provider::extended::GetProviderAttributesSchemaResponse = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
         "/console.provider.ListProvidersRequest" => {
@@ -3317,6 +4046,282 @@ pub fn encode(type_url: &str, json_data: &[u8]) -> Result<Vec<u8>> {
         }
         "/console.provider.GetJwtTokenResponse" => {
             let msg: crate::gen::console::provider::GetJwtTokenResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.SetupPaymentMethodRequest" => {
+            let msg: crate::gen::console::stripe::SetupPaymentMethodRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.SetupPaymentMethodResponseData" => {
+            let msg: crate::gen::console::stripe::SetupPaymentMethodResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.SetupPaymentMethodResponse" => {
+            let msg: crate::gen::console::stripe::SetupPaymentMethodResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListPaymentMethodsRequest" => {
+            let msg: crate::gen::console::stripe::ListPaymentMethodsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListPaymentMethodsResponseDatumCard" => {
+            let msg: crate::gen::console::stripe::ListPaymentMethodsResponseDatumCard = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListPaymentMethodsResponseDatumLink" => {
+            let msg: crate::gen::console::stripe::ListPaymentMethodsResponseDatumLink = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListPaymentMethodsResponseDatum" => {
+            let msg: crate::gen::console::stripe::ListPaymentMethodsResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListPaymentMethodsResponse" => {
+            let msg: crate::gen::console::stripe::ListPaymentMethodsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.SetDefaultPaymentMethodRequestData" => {
+            let msg: crate::gen::console::stripe::SetDefaultPaymentMethodRequestData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.SetDefaultPaymentMethodRequest" => {
+            let msg: crate::gen::console::stripe::SetDefaultPaymentMethodRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.SetDefaultPaymentMethodResponse" => {
+            let msg: crate::gen::console::stripe::SetDefaultPaymentMethodResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.RemovePaymentMethodRequest" => {
+            let msg: crate::gen::console::stripe::RemovePaymentMethodRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.RemovePaymentMethodResponse" => {
+            let msg: crate::gen::console::stripe::RemovePaymentMethodResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ValidatePaymentMethodRequestData" => {
+            let msg: crate::gen::console::stripe::ValidatePaymentMethodRequestData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ValidatePaymentMethodRequest" => {
+            let msg: crate::gen::console::stripe::ValidatePaymentMethodRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ValidatePaymentMethodResponse" => {
+            let msg: crate::gen::console::stripe::ValidatePaymentMethodResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ConfirmPaymentRequestData" => {
+            let msg: crate::gen::console::stripe::ConfirmPaymentRequestData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ConfirmPaymentRequest" => {
+            let msg: crate::gen::console::stripe::ConfirmPaymentRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ConfirmPaymentResponseData" => {
+            let msg: crate::gen::console::stripe::ConfirmPaymentResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ConfirmPaymentResponse" => {
+            let msg: crate::gen::console::stripe::ConfirmPaymentResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ApplyCouponRequestData" => {
+            let msg: crate::gen::console::stripe::ApplyCouponRequestData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ApplyCouponRequest" => {
+            let msg: crate::gen::console::stripe::ApplyCouponRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ApplyCouponResponseDataCoupon" => {
+            let msg: crate::gen::console::stripe::ApplyCouponResponseDataCoupon = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ApplyCouponResponseDataError" => {
+            let msg: crate::gen::console::stripe::ApplyCouponResponseDataError = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ApplyCouponResponseData" => {
+            let msg: crate::gen::console::stripe::ApplyCouponResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ApplyCouponResponse" => {
+            let msg: crate::gen::console::stripe::ApplyCouponResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListTransactionsRequest" => {
+            let msg: crate::gen::console::stripe::ListTransactionsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListTransactionsResponseDataTransaction" => {
+            let msg: crate::gen::console::stripe::ListTransactionsResponseDataTransaction = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListTransactionsResponseData" => {
+            let msg: crate::gen::console::stripe::ListTransactionsResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.ListTransactionsResponse" => {
+            let msg: crate::gen::console::stripe::ListTransactionsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.GetPricesRequest" => {
+            let msg: crate::gen::console::stripe::GetPricesRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.GetPricesResponseDatum" => {
+            let msg: crate::gen::console::stripe::GetPricesResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.GetPricesResponse" => {
+            let msg: crate::gen::console::stripe::GetPricesResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.UpdateOrganizationRequest" => {
+            let msg: crate::gen::console::stripe::UpdateOrganizationRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.stripe.UpdateOrganizationResponse" => {
+            let msg: crate::gen::console::stripe::UpdateOrganizationResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.template.ListTemplatesRequest" => {
+            let msg: crate::gen::console::template::ListTemplatesRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.template.ListTemplatesResponseDatumTemplate" => {
+            let msg: crate::gen::console::template::ListTemplatesResponseDatumTemplate = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.template.ListTemplatesResponseDatum" => {
+            let msg: crate::gen::console::template::ListTemplatesResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.template.ListTemplatesResponse" => {
+            let msg: crate::gen::console::template::ListTemplatesResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.template.GetTemplateRequest" => {
+            let msg: crate::gen::console::template::GetTemplateRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.template.GetTemplateResponseDataConfig" => {
+            let msg: crate::gen::console::template::GetTemplateResponseDataConfig = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.template.GetTemplateResponseData" => {
+            let msg: crate::gen::console::template::GetTemplateResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.template.GetTemplateResponse" => {
+            let msg: crate::gen::console::template::GetTemplateResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.transaction.ListTransactionsRequest" => {
+            let msg: crate::gen::console::transaction::ListTransactionsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.transaction.ListTransactionsResponseDatumMessage" => {
+            let msg: crate::gen::console::transaction::ListTransactionsResponseDatumMessage = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.transaction.ListTransactionsResponseDatum" => {
+            let msg: crate::gen::console::transaction::ListTransactionsResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.transaction.ListTransactionsResponse" => {
+            let msg: crate::gen::console::transaction::ListTransactionsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.transaction.GetTransactionByHashRequest" => {
+            let msg: crate::gen::console::transaction::GetTransactionByHashRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.transaction.GetTransactionByHashResponseMessage" => {
+            let msg: crate::gen::console::transaction::GetTransactionByHashResponseMessage = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.transaction.GetTransactionByHashResponse" => {
+            let msg: crate::gen::console::transaction::GetTransactionByHashResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.GetCurrentUserRequest" => {
+            let msg: crate::gen::console::user::GetCurrentUserRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.GetCurrentUserResponseData" => {
+            let msg: crate::gen::console::user::GetCurrentUserResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.GetCurrentUserResponse" => {
+            let msg: crate::gen::console::user::GetCurrentUserResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.GetUserByUsernameRequest" => {
+            let msg: crate::gen::console::user::GetUserByUsernameRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.GetUserByUsernameResponseData" => {
+            let msg: crate::gen::console::user::GetUserByUsernameResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.GetUserByUsernameResponse" => {
+            let msg: crate::gen::console::user::GetUserByUsernameResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.CheckUsernameAvailabilityRequest" => {
+            let msg: crate::gen::console::user::CheckUsernameAvailabilityRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.CheckUsernameAvailabilityResponse" => {
+            let msg: crate::gen::console::user::CheckUsernameAvailabilityResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.UpdateUserSettingsRequest" => {
+            let msg: crate::gen::console::user::UpdateUserSettingsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.UpdateUserSettingsResponseData" => {
+            let msg: crate::gen::console::user::UpdateUserSettingsResponseData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.UpdateUserSettingsResponse" => {
+            let msg: crate::gen::console::user::UpdateUserSettingsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.VerifyEmailRequestData" => {
+            let msg: crate::gen::console::user::VerifyEmailRequestData = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.VerifyEmailRequest" => {
+            let msg: crate::gen::console::user::VerifyEmailRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.user.VerifyEmailResponse" => {
+            let msg: crate::gen::console::user::VerifyEmailResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.validator.ListValidatorsRequest" => {
+            let msg: crate::gen::console::validator::ListValidatorsRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.validator.ListValidatorsResponseDatum" => {
+            let msg: crate::gen::console::validator::ListValidatorsResponseDatum = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.validator.ListValidatorsResponse" => {
+            let msg: crate::gen::console::validator::ListValidatorsResponse = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.validator.GetValidatorByAddressRequest" => {
+            let msg: crate::gen::console::validator::GetValidatorByAddressRequest = serde_json::from_slice(json_data)?;
+            Ok(msg.encode_to_vec())
+        }
+        "/console.validator.GetValidatorByAddressResponse" => {
+            let msg: crate::gen::console::validator::GetValidatorByAddressResponse = serde_json::from_slice(json_data)?;
             Ok(msg.encode_to_vec())
         }
         _ => return Err(format!("Unknown type URL: {}", type_url).into()),
@@ -5329,6 +6334,178 @@ pub fn decode(type_url: &str, proto_data: &[u8]) -> Result<Vec<u8>> {
             let msg = crate::gen::console::bid::ListBidsResponse::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
+        "/console.billing.GetWalletRequest" => {
+            let msg = crate::gen::console::billing::GetWalletRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetWalletResponseData" => {
+            let msg = crate::gen::console::billing::GetWalletResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetWalletResponse" => {
+            let msg = crate::gen::console::billing::GetWalletResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetWalletListRequest" => {
+            let msg = crate::gen::console::billing::GetWalletListRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetWalletListResponseDatum" => {
+            let msg = crate::gen::console::billing::GetWalletListResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetWalletListResponse" => {
+            let msg = crate::gen::console::billing::GetWalletListResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.StartTrialRequestData" => {
+            let msg = crate::gen::console::billing::StartTrialRequestData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.StartTrialRequest" => {
+            let msg = crate::gen::console::billing::StartTrialRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.StartTrialResponseData" => {
+            let msg = crate::gen::console::billing::StartTrialResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.StartTrialResponse" => {
+            let msg = crate::gen::console::billing::StartTrialResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetWalletSettingsRequest" => {
+            let msg = crate::gen::console::billing::GetWalletSettingsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetWalletSettingsResponseData" => {
+            let msg = crate::gen::console::billing::GetWalletSettingsResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetWalletSettingsResponse" => {
+            let msg = crate::gen::console::billing::GetWalletSettingsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.UpdateWalletSettingsRequestData" => {
+            let msg = crate::gen::console::billing::UpdateWalletSettingsRequestData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.UpdateWalletSettingsRequest" => {
+            let msg = crate::gen::console::billing::UpdateWalletSettingsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.UpdateWalletSettingsResponseData" => {
+            let msg = crate::gen::console::billing::UpdateWalletSettingsResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.UpdateWalletSettingsResponse" => {
+            let msg = crate::gen::console::billing::UpdateWalletSettingsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetBalancesRequest" => {
+            let msg = crate::gen::console::billing::GetBalancesRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetBalancesResponseData" => {
+            let msg = crate::gen::console::billing::GetBalancesResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetBalancesResponse" => {
+            let msg = crate::gen::console::billing::GetBalancesResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.SignAndBroadcastTxRequestDataMessage" => {
+            let msg = crate::gen::console::billing::SignAndBroadcastTxRequestDataMessage::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.SignAndBroadcastTxRequestData" => {
+            let msg = crate::gen::console::billing::SignAndBroadcastTxRequestData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.SignAndBroadcastTxRequest" => {
+            let msg = crate::gen::console::billing::SignAndBroadcastTxRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.SignAndBroadcastTxResponseData" => {
+            let msg = crate::gen::console::billing::SignAndBroadcastTxResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.SignAndBroadcastTxResponse" => {
+            let msg = crate::gen::console::billing::SignAndBroadcastTxResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetUsageHistoryRequest" => {
+            let msg = crate::gen::console::billing::GetUsageHistoryRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetUsageHistoryResponseDatum" => {
+            let msg = crate::gen::console::billing::GetUsageHistoryResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetUsageHistoryResponse" => {
+            let msg = crate::gen::console::billing::GetUsageHistoryResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetUsageHistoryStatsRequest" => {
+            let msg = crate::gen::console::billing::GetUsageHistoryStatsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.billing.GetUsageHistoryStatsResponse" => {
+            let msg = crate::gen::console::billing::GetUsageHistoryStatsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.ListBlocksRequest" => {
+            let msg = crate::gen::console::block::ListBlocksRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.ListBlocksResponseDatumProposer" => {
+            let msg = crate::gen::console::block::ListBlocksResponseDatumProposer::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.ListBlocksResponseDatum" => {
+            let msg = crate::gen::console::block::ListBlocksResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.ListBlocksResponse" => {
+            let msg = crate::gen::console::block::ListBlocksResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetBlockByHeightRequest" => {
+            let msg = crate::gen::console::block::GetBlockByHeightRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetBlockByHeightResponseProposer" => {
+            let msg = crate::gen::console::block::GetBlockByHeightResponseProposer::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetBlockByHeightResponseTransactionMessage" => {
+            let msg = crate::gen::console::block::GetBlockByHeightResponseTransactionMessage::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetBlockByHeightResponseTransaction" => {
+            let msg = crate::gen::console::block::GetBlockByHeightResponseTransaction::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetBlockByHeightResponse" => {
+            let msg = crate::gen::console::block::GetBlockByHeightResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetPredictedBlockDateRequest" => {
+            let msg = crate::gen::console::block::GetPredictedBlockDateRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetPredictedBlockDateResponse" => {
+            let msg = crate::gen::console::block::GetPredictedBlockDateResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetPredictedDateHeightRequest" => {
+            let msg = crate::gen::console::block::GetPredictedDateHeightRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.block.GetPredictedDateHeightResponse" => {
+            let msg = crate::gen::console::block::GetPredictedDateHeightResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
         "/console.certificate.CreateCertificateRequest" => {
             let msg = crate::gen::console::certificate::CreateCertificateRequest::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
@@ -5341,32 +6518,160 @@ pub fn decode(type_url: &str, proto_data: &[u8]) -> Result<Vec<u8>> {
             let msg = crate::gen::console::certificate::CreateCertificateResponse::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.deployment.ListDeploymentsResponseDataDeploymentLeaseStatusIpList" => {
-            let msg = crate::gen::console::deployment::ListDeploymentsResponseDataDeploymentLeaseStatusIpList::decode(proto_data)?;
+        "/console.dashboard.GetDashboardDataRequest" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataRequest::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.deployment.GetDeploymentResponseDataLeaseStatusForwarded_portList" => {
-            let msg = crate::gen::console::deployment::GetDeploymentResponseDataLeaseStatusForwardedPortList::decode(proto_data)?;
+        "/console.dashboard.GetDashboardDataResponseChainStats" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseChainStats::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.deployment.GetDeploymentResponseDataLeaseStatusIpList" => {
-            let msg = crate::gen::console::deployment::GetDeploymentResponseDataLeaseStatusIpList::decode(proto_data)?;
+        "/console.dashboard.GetDashboardDataResponseNow" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseNow::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.deployment.UpdateDeploymentResponseDataLeaseStatusForwarded_portList" => {
-            let msg = crate::gen::console::deployment::UpdateDeploymentResponseDataLeaseStatusForwardedPortList::decode(proto_data)?;
+        "/console.dashboard.GetDashboardDataResponseCompare" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseCompare::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.deployment.UpdateDeploymentResponseDataLeaseStatusIpList" => {
-            let msg = crate::gen::console::deployment::UpdateDeploymentResponseDataLeaseStatusIpList::decode(proto_data)?;
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacity" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacity::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.deployment.DepositDeploymentResponseDataLeaseStatusForwarded_portList" => {
-            let msg = crate::gen::console::deployment::DepositDeploymentResponseDataLeaseStatusForwardedPortList::decode(proto_data)?;
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsSnapshot" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacityStatsSnapshot::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.deployment.DepositDeploymentResponseDataLeaseStatusIpList" => {
-            let msg = crate::gen::console::deployment::DepositDeploymentResponseDataLeaseStatusIpList::decode(proto_data)?;
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsNow" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacityStatsNow::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacityStatsCompare" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacityStatsCompare::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetDashboardDataResponseNetworkCapacityStats" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseNetworkCapacityStats::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetDashboardDataResponseLatestBlockProposer" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseLatestBlockProposer::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetDashboardDataResponseLatestBlock" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseLatestBlock::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetDashboardDataResponseLatestTransactionMessage" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseLatestTransactionMessage::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetDashboardDataResponseLatestTransaction" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponseLatestTransaction::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetDashboardDataResponse" => {
+            let msg = crate::gen::console::dashboard::GetDashboardDataResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetGraphDataRequest" => {
+            let msg = crate::gen::console::dashboard::GetGraphDataRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetGraphDataResponseSnapshot" => {
+            let msg = crate::gen::console::dashboard::GetGraphDataResponseSnapshot::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetGraphDataResponse" => {
+            let msg = crate::gen::console::dashboard::GetGraphDataResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityRequest" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesCpu" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesCpu::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesGpu" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesGpu::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesMemory" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesMemory::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesStorageEphemeral" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesStorageEphemeral::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesStoragePersistent" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesStoragePersistent::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesStorageTotal" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesStorageTotal::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResourcesStorage" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponseResourcesStorage::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponseResources" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponseResources::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetNetworkCapacityResponse" => {
+            let msg = crate::gen::console::dashboard::GetNetworkCapacityResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetMarketDataRequest" => {
+            let msg = crate::gen::console::dashboard::GetMarketDataRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetMarketDataResponse" => {
+            let msg = crate::gen::console::dashboard::GetMarketDataResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetBmeDashboardDataRequest" => {
+            let msg = crate::gen::console::dashboard::GetBmeDashboardDataRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetBmeDashboardDataResponseNow" => {
+            let msg = crate::gen::console::dashboard::GetBmeDashboardDataResponseNow::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetBmeDashboardDataResponseCompare" => {
+            let msg = crate::gen::console::dashboard::GetBmeDashboardDataResponseCompare::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetBmeDashboardDataResponse" => {
+            let msg = crate::gen::console::dashboard::GetBmeDashboardDataResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetBmeStatusHistoryRequest" => {
+            let msg = crate::gen::console::dashboard::GetBmeStatusHistoryRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetBmeStatusHistoryResponseDatum" => {
+            let msg = crate::gen::console::dashboard::GetBmeStatusHistoryResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetBmeStatusHistoryResponse" => {
+            let msg = crate::gen::console::dashboard::GetBmeStatusHistoryResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetLeasesDurationRequest" => {
+            let msg = crate::gen::console::dashboard::GetLeasesDurationRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetLeasesDurationResponseLease" => {
+            let msg = crate::gen::console::dashboard::GetLeasesDurationResponseLease::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.dashboard.GetLeasesDurationResponse" => {
+            let msg = crate::gen::console::dashboard::GetLeasesDurationResponse::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
         "/console.deployment.ListDeploymentsRequest" => {
@@ -5797,12 +7102,80 @@ pub fn decode(type_url: &str, proto_data: &[u8]) -> Result<Vec<u8>> {
             let msg = crate::gen::console::deployment::settings::UpdateDeploymentSettingResponse::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.lease.GetLeaseStatusResponseForwarded_portList" => {
-            let msg = crate::gen::console::lease::GetLeaseStatusResponseForwardedPortList::decode(proto_data)?;
+        "/console.gpu.ListGpusRequest" => {
+            let msg = crate::gen::console::gpu::ListGpusRequest::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
-        "/console.lease.GetLeaseStatusResponseIpList" => {
-            let msg = crate::gen::console::lease::GetLeaseStatusResponseIpList::decode(proto_data)?;
+        "/console.gpu.ListGpusResponseGpusTotal" => {
+            let msg = crate::gen::console::gpu::ListGpusResponseGpusTotal::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.ListGpusResponseGpusDetail" => {
+            let msg = crate::gen::console::gpu::ListGpusResponseGpusDetail::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.ListGpusResponseGpus" => {
+            let msg = crate::gen::console::gpu::ListGpusResponseGpus::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.ListGpusResponse" => {
+            let msg = crate::gen::console::gpu::ListGpusResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.ListGpuModelsRequest" => {
+            let msg = crate::gen::console::gpu::ListGpuModelsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.ListGpuModelsResponseModelModel" => {
+            let msg = crate::gen::console::gpu::ListGpuModelsResponseModelModel::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.ListGpuModelsResponseModel" => {
+            let msg = crate::gen::console::gpu::ListGpuModelsResponseModel::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.ListGpuModelsResponse" => {
+            let msg = crate::gen::console::gpu::ListGpuModelsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuBreakdownRequest" => {
+            let msg = crate::gen::console::gpu::GetGpuBreakdownRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuBreakdownResponseDatum" => {
+            let msg = crate::gen::console::gpu::GetGpuBreakdownResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuBreakdownResponse" => {
+            let msg = crate::gen::console::gpu::GetGpuBreakdownResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuPricesRequest" => {
+            let msg = crate::gen::console::gpu::GetGpuPricesRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuPricesResponseAvailability" => {
+            let msg = crate::gen::console::gpu::GetGpuPricesResponseAvailability::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuPricesResponseModelAvailability" => {
+            let msg = crate::gen::console::gpu::GetGpuPricesResponseModelAvailability::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuPricesResponseModelProviderAvailability" => {
+            let msg = crate::gen::console::gpu::GetGpuPricesResponseModelProviderAvailability::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuPricesResponseModelPrice" => {
+            let msg = crate::gen::console::gpu::GetGpuPricesResponseModelPrice::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuPricesResponseModel" => {
+            let msg = crate::gen::console::gpu::GetGpuPricesResponseModel::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.gpu.GetGpuPricesResponse" => {
+            let msg = crate::gen::console::gpu::GetGpuPricesResponse::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
         "/console.lease.CreateLeaseRequestCertificate" => {
@@ -5871,6 +7244,166 @@ pub fn decode(type_url: &str, proto_data: &[u8]) -> Result<Vec<u8>> {
         }
         "/console.pricing.GetPricingResponse" => {
             let msg = crate::gen::console::pricing::GetPricingResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.proposal.ListProposalsRequest" => {
+            let msg = crate::gen::console::proposal::ListProposalsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.proposal.ListProposalsResponseDatum" => {
+            let msg = crate::gen::console::proposal::ListProposalsResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.proposal.ListProposalsResponse" => {
+            let msg = crate::gen::console::proposal::ListProposalsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.proposal.GetProposalByIdRequest" => {
+            let msg = crate::gen::console::proposal::GetProposalByIdRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.proposal.GetProposalByIdResponseTally" => {
+            let msg = crate::gen::console::proposal::GetProposalByIdResponseTally::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.proposal.GetProposalByIdResponseParamChange" => {
+            let msg = crate::gen::console::proposal::GetProposalByIdResponseParamChange::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.proposal.GetProposalByIdResponse" => {
+            let msg = crate::gen::console::proposal::GetProposalByIdResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.ListAuditorsRequest" => {
+            let msg = crate::gen::console::provider::extended::ListAuditorsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.ListAuditorsResponseDatum" => {
+            let msg = crate::gen::console::provider::extended::ListAuditorsResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.ListAuditorsResponse" => {
+            let msg = crate::gen::console::provider::extended::ListAuditorsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.CreateJwtTokenRequest" => {
+            let msg = crate::gen::console::provider::extended::CreateJwtTokenRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.CreateJwtTokenResponse" => {
+            let msg = crate::gen::console::provider::extended::CreateJwtTokenResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDashboardRequest" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDashboardRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDashboardResponseCurrent" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDashboardResponseCurrent::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDashboardResponsePrevious" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDashboardResponsePrevious::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDashboardResponse" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDashboardResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDeploymentsRequest" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDeploymentsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponseDeploymentResources" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDeploymentsResponseDeploymentResources::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponseDeploymentLeaseResources" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDeploymentsResponseDeploymentLeaseResources::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponseDeploymentLease" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDeploymentsResponseDeploymentLease::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponseDeployment" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDeploymentsResponseDeployment::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderDeploymentsResponse" => {
+            let msg = crate::gen::console::provider::extended::GetProviderDeploymentsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderEarningsRequest" => {
+            let msg = crate::gen::console::provider::extended::GetProviderEarningsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderEarningsResponseEarnings" => {
+            let msg = crate::gen::console::provider::extended::GetProviderEarningsResponseEarnings::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderEarningsResponse" => {
+            let msg = crate::gen::console::provider::extended::GetProviderEarningsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderGraphDataRequest" => {
+            let msg = crate::gen::console::provider::extended::GetProviderGraphDataRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderGraphDataResponseSnapshot" => {
+            let msg = crate::gen::console::provider::extended::GetProviderGraphDataResponseSnapshot::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderGraphDataResponseNow" => {
+            let msg = crate::gen::console::provider::extended::GetProviderGraphDataResponseNow::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderGraphDataResponseCompare" => {
+            let msg = crate::gen::console::provider::extended::GetProviderGraphDataResponseCompare::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderGraphDataResponse" => {
+            let msg = crate::gen::console::provider::extended::GetProviderGraphDataResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderRegionsRequest" => {
+            let msg = crate::gen::console::provider::extended::GetProviderRegionsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderRegionsResponseDatum" => {
+            let msg = crate::gen::console::provider::extended::GetProviderRegionsResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderRegionsResponse" => {
+            let msg = crate::gen::console::provider::extended::GetProviderRegionsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderVersionsRequest" => {
+            let msg = crate::gen::console::provider::extended::GetProviderVersionsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderVersionsResponseDatum" => {
+            let msg = crate::gen::console::provider::extended::GetProviderVersionsResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderVersionsResponse" => {
+            let msg = crate::gen::console::provider::extended::GetProviderVersionsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderAttributesSchemaRequest" => {
+            let msg = crate::gen::console::provider::extended::GetProviderAttributesSchemaRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderAttributesSchemaResponseDatumValue" => {
+            let msg = crate::gen::console::provider::extended::GetProviderAttributesSchemaResponseDatumValue::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderAttributesSchemaResponseDatum" => {
+            let msg = crate::gen::console::provider::extended::GetProviderAttributesSchemaResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.provider.extended.GetProviderAttributesSchemaResponse" => {
+            let msg = crate::gen::console::provider::extended::GetProviderAttributesSchemaResponse::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
         "/console.provider.ListProvidersRequest" => {
@@ -5971,6 +7504,282 @@ pub fn decode(type_url: &str, proto_data: &[u8]) -> Result<Vec<u8>> {
         }
         "/console.provider.GetJwtTokenResponse" => {
             let msg = crate::gen::console::provider::GetJwtTokenResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.SetupPaymentMethodRequest" => {
+            let msg = crate::gen::console::stripe::SetupPaymentMethodRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.SetupPaymentMethodResponseData" => {
+            let msg = crate::gen::console::stripe::SetupPaymentMethodResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.SetupPaymentMethodResponse" => {
+            let msg = crate::gen::console::stripe::SetupPaymentMethodResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListPaymentMethodsRequest" => {
+            let msg = crate::gen::console::stripe::ListPaymentMethodsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListPaymentMethodsResponseDatumCard" => {
+            let msg = crate::gen::console::stripe::ListPaymentMethodsResponseDatumCard::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListPaymentMethodsResponseDatumLink" => {
+            let msg = crate::gen::console::stripe::ListPaymentMethodsResponseDatumLink::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListPaymentMethodsResponseDatum" => {
+            let msg = crate::gen::console::stripe::ListPaymentMethodsResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListPaymentMethodsResponse" => {
+            let msg = crate::gen::console::stripe::ListPaymentMethodsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.SetDefaultPaymentMethodRequestData" => {
+            let msg = crate::gen::console::stripe::SetDefaultPaymentMethodRequestData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.SetDefaultPaymentMethodRequest" => {
+            let msg = crate::gen::console::stripe::SetDefaultPaymentMethodRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.SetDefaultPaymentMethodResponse" => {
+            let msg = crate::gen::console::stripe::SetDefaultPaymentMethodResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.RemovePaymentMethodRequest" => {
+            let msg = crate::gen::console::stripe::RemovePaymentMethodRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.RemovePaymentMethodResponse" => {
+            let msg = crate::gen::console::stripe::RemovePaymentMethodResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ValidatePaymentMethodRequestData" => {
+            let msg = crate::gen::console::stripe::ValidatePaymentMethodRequestData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ValidatePaymentMethodRequest" => {
+            let msg = crate::gen::console::stripe::ValidatePaymentMethodRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ValidatePaymentMethodResponse" => {
+            let msg = crate::gen::console::stripe::ValidatePaymentMethodResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ConfirmPaymentRequestData" => {
+            let msg = crate::gen::console::stripe::ConfirmPaymentRequestData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ConfirmPaymentRequest" => {
+            let msg = crate::gen::console::stripe::ConfirmPaymentRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ConfirmPaymentResponseData" => {
+            let msg = crate::gen::console::stripe::ConfirmPaymentResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ConfirmPaymentResponse" => {
+            let msg = crate::gen::console::stripe::ConfirmPaymentResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ApplyCouponRequestData" => {
+            let msg = crate::gen::console::stripe::ApplyCouponRequestData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ApplyCouponRequest" => {
+            let msg = crate::gen::console::stripe::ApplyCouponRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ApplyCouponResponseDataCoupon" => {
+            let msg = crate::gen::console::stripe::ApplyCouponResponseDataCoupon::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ApplyCouponResponseDataError" => {
+            let msg = crate::gen::console::stripe::ApplyCouponResponseDataError::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ApplyCouponResponseData" => {
+            let msg = crate::gen::console::stripe::ApplyCouponResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ApplyCouponResponse" => {
+            let msg = crate::gen::console::stripe::ApplyCouponResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListTransactionsRequest" => {
+            let msg = crate::gen::console::stripe::ListTransactionsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListTransactionsResponseDataTransaction" => {
+            let msg = crate::gen::console::stripe::ListTransactionsResponseDataTransaction::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListTransactionsResponseData" => {
+            let msg = crate::gen::console::stripe::ListTransactionsResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.ListTransactionsResponse" => {
+            let msg = crate::gen::console::stripe::ListTransactionsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.GetPricesRequest" => {
+            let msg = crate::gen::console::stripe::GetPricesRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.GetPricesResponseDatum" => {
+            let msg = crate::gen::console::stripe::GetPricesResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.GetPricesResponse" => {
+            let msg = crate::gen::console::stripe::GetPricesResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.UpdateOrganizationRequest" => {
+            let msg = crate::gen::console::stripe::UpdateOrganizationRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.stripe.UpdateOrganizationResponse" => {
+            let msg = crate::gen::console::stripe::UpdateOrganizationResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.template.ListTemplatesRequest" => {
+            let msg = crate::gen::console::template::ListTemplatesRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.template.ListTemplatesResponseDatumTemplate" => {
+            let msg = crate::gen::console::template::ListTemplatesResponseDatumTemplate::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.template.ListTemplatesResponseDatum" => {
+            let msg = crate::gen::console::template::ListTemplatesResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.template.ListTemplatesResponse" => {
+            let msg = crate::gen::console::template::ListTemplatesResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.template.GetTemplateRequest" => {
+            let msg = crate::gen::console::template::GetTemplateRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.template.GetTemplateResponseDataConfig" => {
+            let msg = crate::gen::console::template::GetTemplateResponseDataConfig::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.template.GetTemplateResponseData" => {
+            let msg = crate::gen::console::template::GetTemplateResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.template.GetTemplateResponse" => {
+            let msg = crate::gen::console::template::GetTemplateResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.transaction.ListTransactionsRequest" => {
+            let msg = crate::gen::console::transaction::ListTransactionsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.transaction.ListTransactionsResponseDatumMessage" => {
+            let msg = crate::gen::console::transaction::ListTransactionsResponseDatumMessage::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.transaction.ListTransactionsResponseDatum" => {
+            let msg = crate::gen::console::transaction::ListTransactionsResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.transaction.ListTransactionsResponse" => {
+            let msg = crate::gen::console::transaction::ListTransactionsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.transaction.GetTransactionByHashRequest" => {
+            let msg = crate::gen::console::transaction::GetTransactionByHashRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.transaction.GetTransactionByHashResponseMessage" => {
+            let msg = crate::gen::console::transaction::GetTransactionByHashResponseMessage::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.transaction.GetTransactionByHashResponse" => {
+            let msg = crate::gen::console::transaction::GetTransactionByHashResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.GetCurrentUserRequest" => {
+            let msg = crate::gen::console::user::GetCurrentUserRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.GetCurrentUserResponseData" => {
+            let msg = crate::gen::console::user::GetCurrentUserResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.GetCurrentUserResponse" => {
+            let msg = crate::gen::console::user::GetCurrentUserResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.GetUserByUsernameRequest" => {
+            let msg = crate::gen::console::user::GetUserByUsernameRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.GetUserByUsernameResponseData" => {
+            let msg = crate::gen::console::user::GetUserByUsernameResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.GetUserByUsernameResponse" => {
+            let msg = crate::gen::console::user::GetUserByUsernameResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.CheckUsernameAvailabilityRequest" => {
+            let msg = crate::gen::console::user::CheckUsernameAvailabilityRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.CheckUsernameAvailabilityResponse" => {
+            let msg = crate::gen::console::user::CheckUsernameAvailabilityResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.UpdateUserSettingsRequest" => {
+            let msg = crate::gen::console::user::UpdateUserSettingsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.UpdateUserSettingsResponseData" => {
+            let msg = crate::gen::console::user::UpdateUserSettingsResponseData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.UpdateUserSettingsResponse" => {
+            let msg = crate::gen::console::user::UpdateUserSettingsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.VerifyEmailRequestData" => {
+            let msg = crate::gen::console::user::VerifyEmailRequestData::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.VerifyEmailRequest" => {
+            let msg = crate::gen::console::user::VerifyEmailRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.user.VerifyEmailResponse" => {
+            let msg = crate::gen::console::user::VerifyEmailResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.validator.ListValidatorsRequest" => {
+            let msg = crate::gen::console::validator::ListValidatorsRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.validator.ListValidatorsResponseDatum" => {
+            let msg = crate::gen::console::validator::ListValidatorsResponseDatum::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.validator.ListValidatorsResponse" => {
+            let msg = crate::gen::console::validator::ListValidatorsResponse::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.validator.GetValidatorByAddressRequest" => {
+            let msg = crate::gen::console::validator::GetValidatorByAddressRequest::decode(proto_data)?;
+            Ok(serde_json::to_vec(&msg)?)
+        }
+        "/console.validator.GetValidatorByAddressResponse" => {
+            let msg = crate::gen::console::validator::GetValidatorByAddressResponse::decode(proto_data)?;
             Ok(serde_json::to_vec(&msg)?)
         }
         _ => return Err(format!("Unknown type URL: {}", type_url).into()),

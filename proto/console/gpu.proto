@@ -35,7 +35,7 @@ message ListGpusResponseGpusDetail {
 
 message ListGpusResponseGpus {
     ListGpusResponseGpusTotal total = 1;
-    map<string, repeated ListGpusResponseGpusDetail> details = 2;
+    map<string, ListGpusResponseGpusDetail> details = 2;
 }
 
 message ListGpusResponse {

@@ -67,7 +67,7 @@ message GetLeaseStatusResponseService {
 }
 
 message GetLeaseStatusResponse {
-    map<string, repeated GetLeaseStatusResponseForwarded_port> forwarded_ports = 1;
-    map<string, repeated GetLeaseStatusResponseIp> ips = 2;
+    map<string, GetLeaseStatusResponseForwarded_port> forwarded_ports = 1;
+    map<string, GetLeaseStatusResponseIp> ips = 2;
     map<string, GetLeaseStatusResponseService> services = 3;
 }

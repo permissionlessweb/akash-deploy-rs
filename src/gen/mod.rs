@@ -221,36 +221,28 @@ pub mod prelude {
     // Cosmos base types
     pub use super::cosmos::base::v1beta1::*;
 }
+
 // ── Console API (auto-generated from Zod schemas) ──
 pub mod console {
-    pub mod address {
-        include!("console.address.rs");
-    }
-    pub mod auth {
-        include!("console.auth.rs");
-    }
-    pub mod bid {
-        include!("console.bid.rs");
-    }
-    pub mod certificate {
-        include!("console.certificate.rs");
-    }
-    pub mod deployment {
-        include!("console.deployment.rs");
-    }
-    pub mod deployment_settings {
-        include!("console.deployment.settings.rs");
-    }
-    pub mod lease {
-        include!("console.lease.rs");
-    }
-    pub mod network {
-        include!("console.network.rs");
-    }
-    pub mod pricing {
-        include!("console.pricing.rs");
-    }
-    pub mod provider {
-        include!("console.provider.rs");
-    }
+    pub mod address { include!("console.address.rs"); }
+    pub mod auth { include!("console.auth.rs"); }
+    pub mod bid { include!("console.bid.rs"); }
+    pub mod billing { include!("console.billing.rs"); }
+    pub mod block { include!("console.block.rs"); }
+    pub mod certificate { include!("console.certificate.rs"); }
+    pub mod dashboard { include!("console.dashboard.rs"); }
+    pub mod deployment { include!("console.deployment.rs"); }
+    pub mod deployment_settings { include!("console.deployment.settings.rs"); }
+    pub mod gpu { include!("console.gpu.rs"); }
+    pub mod lease { include!("console.lease.rs"); }
+    pub mod network { include!("console.network.rs"); }
+    pub mod pricing { include!("console.pricing.rs"); }
+    pub mod proposal { include!("console.proposal.rs"); }
+    pub mod provider_extended { include!("console.provider.extended.rs"); }
+    pub mod provider { include!("console.provider.rs"); }
+    pub mod stripe { include!("console.stripe.rs"); }
+    pub mod template { include!("console.template.rs"); }
+    pub mod transaction { include!("console.transaction.rs"); }
+    pub mod user { include!("console.user.rs"); }
+    pub mod validator { include!("console.validator.rs"); }
 }

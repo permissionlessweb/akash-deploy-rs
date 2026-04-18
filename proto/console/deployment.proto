@@ -76,8 +76,8 @@ message ListDeploymentsResponseDataDeploymentLeaseStatusService {
 }
 
 message ListDeploymentsResponseDataDeploymentLeaseStatus {
-    map<string, repeated ListDeploymentsResponseDataDeploymentLeaseStatusForwarded_port> forwarded_ports = 1;
-    map<string, repeated ListDeploymentsResponseDataDeploymentLeaseStatusIp> ips = 2;
+    map<string, ListDeploymentsResponseDataDeploymentLeaseStatusForwarded_port> forwarded_ports = 1;
+    map<string, ListDeploymentsResponseDataDeploymentLeaseStatusIp> ips = 2;
     map<string, ListDeploymentsResponseDataDeploymentLeaseStatusService> services = 3;
 }
 
@@ -211,8 +211,8 @@ message GetDeploymentResponseDataLeaseStatusService {
 }
 
 message GetDeploymentResponseDataLeaseStatus {
-    map<string, repeated GetDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
-    map<string, repeated GetDeploymentResponseDataLeaseStatusIp> ips = 2;
+    map<string, GetDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
+    map<string, GetDeploymentResponseDataLeaseStatusIp> ips = 2;
     map<string, GetDeploymentResponseDataLeaseStatusService> services = 3;
 }
 
@@ -414,8 +414,8 @@ message UpdateDeploymentResponseDataLeaseStatusService {
 }
 
 message UpdateDeploymentResponseDataLeaseStatus {
-    map<string, repeated UpdateDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
-    map<string, repeated UpdateDeploymentResponseDataLeaseStatusIp> ips = 2;
+    map<string, UpdateDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
+    map<string, UpdateDeploymentResponseDataLeaseStatusIp> ips = 2;
     map<string, UpdateDeploymentResponseDataLeaseStatusService> services = 3;
 }
 
@@ -554,8 +554,8 @@ message DepositDeploymentResponseDataLeaseStatusService {
 }
 
 message DepositDeploymentResponseDataLeaseStatus {
-    map<string, repeated DepositDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
-    map<string, repeated DepositDeploymentResponseDataLeaseStatusIp> ips = 2;
+    map<string, DepositDeploymentResponseDataLeaseStatusForwarded_port> forwarded_ports = 1;
+    map<string, DepositDeploymentResponseDataLeaseStatusIp> ips = 2;
     map<string, DepositDeploymentResponseDataLeaseStatusService> services = 3;
 }
 
