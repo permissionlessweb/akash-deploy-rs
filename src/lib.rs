@@ -75,7 +75,7 @@ pub use manifest::{
 };
 #[cfg(feature = "sdl-templates")]
 pub use sdl::template::{
-    apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,
+    apply_template, apply_template_partial, extract_variables, substitute_partial, validate_template, SdlTemplate, TemplateDefaults,
     TemplateVariables,
 };
 pub use state::{DeploymentState, Step};
@@ -97,7 +97,7 @@ pub use client::{export_sessions, import_sessions};
 pub use client::{AkashClient, KeySigner};
 #[cfg(feature = "default-client")]
 pub use client::{
-    broadcast_multi_signer, build_create_lease_msg, build_mint_act_msg, MultiSignerTxResult,
+    broadcast_multi_signer, build_close_deployment_msg, build_create_lease_msg, build_mint_act_msg, MultiSignerTxResult,
     SignerEntry,
 };
 

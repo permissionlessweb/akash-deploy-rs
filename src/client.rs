@@ -134,6 +134,24 @@ pub fn build_create_lease_msg(bid: &BidId) -> layer_climb::proto::Any {
     to_any(&msg)
 }
 
+/// Build a `MsgCloseDeployment` as an `Any`-encoded proto message.
+///
+/// Does NOT broadcast — returns the message for inclusion in a multi-msg
+/// batch (e.g. batching close operations for multiple deployments in a
+/// single signed transaction via `broadcast_multi_signer`).
+pub fn build_close_deployment_msg(owner: &str, dseq: u64) -> layer_climb::proto::Any {
+    use crate::gen::akash::deployment::v1 as akash_deployment_v1;
+
+    let msg = akash_deployment::MsgCloseDeployment {
+        id: Some(akash_deployment_v1::DeploymentId {
+            owner: owner.to_string(),
+            dseq,
+        }),
+    };
+
+    to_any(&msg)
+}
+
 /// Reusable gRPC query clients for Akash modules.
 ///
 /// These clients are created once and reused across all queries to avoid
