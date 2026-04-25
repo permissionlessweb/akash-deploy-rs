@@ -270,6 +270,10 @@ pub struct AkashClient<S: SessionStorage = FileBackedStorage> {
     /// Cosmos REST (gRPC-Gateway) base URL. When set, Akash chain queries
     /// (bids, leases, certs, etc.) use REST instead of gRPC.
     rest_endpoint: Option<String>,
+
+    /// AuthZ granter address. When set, all broadcast messages are wrapped
+    /// in `MsgExec` and `Fee.granter` is set for fee delegation.
+    authz_granter: Option<String>,
 }
 
 /// See [`AkashClient`] — this variant defaults to `StdoutStorage` when
@@ -296,6 +300,10 @@ pub struct AkashClient<S: SessionStorage = StdoutStorage> {
     /// Cosmos REST (gRPC-Gateway) base URL. When set, Akash chain queries
     /// (bids, leases, certs, etc.) use REST instead of gRPC.
     rest_endpoint: Option<String>,
+
+    /// AuthZ granter address. When set, all broadcast messages are wrapped
+    /// in `MsgExec` and `Fee.granter` is set for fee delegation.
+    authz_granter: Option<String>,
 }
 
 /// Intermediate result from the common client init steps (signer, chain config, RPC, gRPC).
@@ -498,6 +506,7 @@ impl AkashClient<FileBackedStorage> {
             query_clients: init.query_clients,
             jwt_signing_key: Some(init.jwt_signing_key),
             rest_endpoint: None,
+            authz_granter: None,
         })
     }
 
@@ -531,6 +540,7 @@ impl AkashClient<FileBackedStorage> {
             query_clients: init.query_clients,
             jwt_signing_key: Some(init.jwt_signing_key),
             rest_endpoint: None,
+            authz_granter: None,
         })
     }
 }
@@ -570,6 +580,7 @@ impl AkashClient<StdoutStorage> {
             query_clients: init.query_clients,
             jwt_signing_key: Some(init.jwt_signing_key),
             rest_endpoint: None,
+            authz_granter: None,
         })
     }
 
@@ -597,6 +608,7 @@ impl AkashClient<StdoutStorage> {
             query_clients: init.query_clients,
             jwt_signing_key: Some(init.jwt_signing_key),
             rest_endpoint: None,
+            authz_granter: None,
         })
     }
 }
@@ -615,6 +627,7 @@ impl<S: SessionStorage> AkashClient<S> {
             query_clients: None, // Will be initialized lazily on first query
             jwt_signing_key: None,
             rest_endpoint: None,
+            authz_granter: None,
         }
     }
 
@@ -641,6 +654,32 @@ impl<S: SessionStorage> AkashClient<S> {
     pub fn with_rest(mut self, endpoint: impl Into<String>) -> Self {
         self.rest_endpoint = Some(endpoint.into());
         self
+    }
+
+    /// Enable AuthZ delegation mode.
+    ///
+    /// When set, broadcast methods wrap all messages in `MsgExec` and set
+    /// `Fee.granter` so the granter pays gas via FeeGrant.
+    pub fn with_authz_granter(mut self, granter: impl Into<String>) -> Self {
+        self.authz_granter = Some(granter.into());
+        self
+    }
+
+    /// Prepare a message for broadcast, applying AuthZ wrapping if configured.
+    ///
+    /// Returns the (possibly wrapped) message and configures the tx_builder
+    /// with `fee_granter` when in authz mode.
+    fn authz_prepare_msg(
+        &self,
+        msg: layer_climb::proto::Any,
+        tx_builder: &mut layer_climb::prelude::TxBuilder<'_>,
+    ) -> layer_climb::proto::Any {
+        if let Some(ref granter) = self.authz_granter {
+            tx_builder.set_fee_granter(granter);
+            crate::authz::wrap_in_msg_exec(&self.address.to_string(), &[msg])
+        } else {
+            msg
+        }
     }
 
     /// Get or initialize query clients.
@@ -892,6 +931,7 @@ impl<S: SessionStorage> AkashClient<S> {
         msg: M,
     ) -> Result<TxResult, DeployError> {
         let any = to_any(&msg);
+
         // Log account state so we can diagnose sequence/account_number issues.
         match self.client.querier.base_account(&self.address).await {
             Ok(acct) => tracing::info!(
@@ -904,8 +944,9 @@ impl<S: SessionStorage> AkashClient<S> {
         let mut tx = self.client.tx_builder();
         tx.set_gas_simulate_multiplier(1.5);
         tx.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
+        let broadcast_msg = self.authz_prepare_msg(any, &mut tx);
         let response = tx
-            .broadcast([any])
+            .broadcast([broadcast_msg])
             .await
             .map_err(|e| DeployError::Transaction {
                 code: 1,
@@ -1535,14 +1576,15 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
     ) -> Result<TxResult, DeployError> {
         use crate::gen::akash::cert::v1 as akash_cert;
 
-        let response = self
-            .client
-            .tx_builder()
-            .broadcast([to_any(&akash_cert::MsgCreateCertificate {
-                owner: owner.to_string(),
-                cert: cert_pem.to_vec(),
-                pubkey: pubkey_pem.to_vec(),
-            })])
+        let mut tx_builder = self.client.tx_builder();
+        let cert_msg = to_any(&akash_cert::MsgCreateCertificate {
+            owner: owner.to_string(),
+            cert: cert_pem.to_vec(),
+            pubkey: pubkey_pem.to_vec(),
+        });
+        let broadcast_msg = self.authz_prepare_msg(cert_msg, &mut tx_builder);
+        let response = tx_builder
+            .broadcast([broadcast_msg])
             .await
             .map_err(|e| DeployError::Transaction {
                 code: 1,
@@ -1634,7 +1676,8 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         tx_builder.set_gas_simulate_multiplier(1.4);
         tx_builder.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
 
-        let broadcast_result = tx_builder.broadcast([to_any(&msg)]).await;
+        let broadcast_msg = self.authz_prepare_msg(to_any(&msg), &mut tx_builder);
+        let broadcast_result = tx_builder.broadcast([broadcast_msg]).await;
 
         match broadcast_result {
             Ok(response) => {
@@ -1768,7 +1811,8 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         tx_builder.set_gas_simulate_multiplier(1.4);
         tx_builder.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
 
-        let broadcast_result = tx_builder.broadcast([to_any(&msg)]).await;
+        let broadcast_msg = self.authz_prepare_msg(to_any(&msg), &mut tx_builder);
+        let broadcast_result = tx_builder.broadcast([broadcast_msg]).await;
 
         match broadcast_result {
             Ok(response) => {
@@ -1867,11 +1911,11 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
         tx_builder.set_gas_simulate_multiplier(1.4);
         tx_builder.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
 
-        let broadcast_result = tx_builder
-            .broadcast([to_any(&akash_deployment::MsgCloseDeployment {
-                id: Some(deployment_id),
-            })])
-            .await;
+        let close_msg = to_any(&akash_deployment::MsgCloseDeployment {
+            id: Some(deployment_id),
+        });
+        let broadcast_msg = self.authz_prepare_msg(close_msg, &mut tx_builder);
+        let broadcast_result = tx_builder.broadcast([broadcast_msg]).await;
 
         match broadcast_result {
             Ok(response) => Ok(TxResult {
@@ -2495,6 +2539,212 @@ pub async fn broadcast_multi_signer(
         tx_hash = %hash, height, code,
         "multi_signer: confirmed"
     );
+
+    Ok(MultiSignerTxResult {
+        hash,
+        code,
+        raw_log: confirmed.tx_response.raw_log,
+        height,
+    })
+}
+
+/// Broadcast messages with a fee granter (for AuthZ fee delegation).
+///
+/// Similar to `broadcast_multi_signer` but for a single signer with
+/// `Fee.granter` set so the granter's account pays gas via FeeGrant.
+/// The signer is the grantee; the granter pays fees.
+pub async fn broadcast_with_fee_granter(
+    querier: &layer_climb::prelude::QueryClient,
+    chain_id: &str,
+    signer: &dyn layer_climb::prelude::TxSigner,
+    account_number: u64,
+    sequence: u64,
+    messages: Vec<layer_climb::proto::Any>,
+    fee_granter: &str,
+    gas_multiplier: f32,
+    poll_timeout: std::time::Duration,
+) -> Result<MultiSignerTxResult, DeployError> {
+    use layer_climb::prelude::proto_into_bytes;
+
+    if messages.is_empty() {
+        return Err(DeployError::InvalidState(
+            "broadcast_with_fee_granter: no messages".into(),
+        ));
+    }
+
+    let msg_count = messages.len();
+
+    // ── 1. Build TxBody ──────────────────────────────────────────────────
+    let block_height = querier.block_height().await.map_err(|e| {
+        DeployError::Query(format!("block_height for timeout: {}", e))
+    })?;
+
+    let body = layer_climb::proto::tx::TxBody {
+        messages,
+        memo: String::new(),
+        timeout_height: block_height + 10,
+        extension_options: Vec::new(),
+        non_critical_extension_options: Vec::new(),
+        unordered: false,
+        timeout_timestamp: None,
+    };
+    let body_bytes = proto_into_bytes(&body).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode TxBody: {}", e) }
+    })?;
+
+    // ── 2. Build SignerInfo for simulation ────────────────────────────────
+    let sim_si = signer
+        .signer_info(sequence, layer_climb::proto::tx::SignMode::Unspecified)
+        .await
+        .map_err(|e| {
+            DeployError::Transaction { code: 0, log: format!("signer_info (sim): {}", e) }
+        })?;
+
+    let sim_fee = layer_climb::proto::tx::Fee {
+        amount: vec![layer_climb::prelude::new_coin(0, &querier.chain_config.gas_denom)],
+        gas_limit: 0,
+        payer: String::new(),
+        granter: fee_granter.to_string(),
+    };
+
+    #[allow(deprecated)]
+    let sim_auth_info = layer_climb::proto::tx::AuthInfo {
+        signer_infos: vec![sim_si],
+        fee: Some(sim_fee),
+        tip: None,
+    };
+    let sim_auth_bytes = proto_into_bytes(&sim_auth_info).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode sim AuthInfo: {}", e) }
+    })?;
+
+    let sim_tx_raw = layer_climb::proto::tx::TxRaw {
+        body_bytes: body_bytes.clone(),
+        auth_info_bytes: sim_auth_bytes,
+        signatures: vec![Vec::new()],
+    };
+    let sim_tx_bytes = proto_into_bytes(&sim_tx_raw).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode sim TxRaw: {}", e) }
+    })?;
+
+    // ── 3. Simulate gas ──────────────────────────────────────────────────
+    let sim_response = querier.simulate_tx(sim_tx_bytes).await.map_err(|e| {
+        tracing::error!(error = ?e, "broadcast_with_fee_granter: simulate_tx failed");
+        DeployError::Transaction { code: 0, log: format!("simulate_tx: {:#}", e) }
+    })?;
+    let gas_used = sim_response
+        .gas_info
+        .as_ref()
+        .map(|g| g.gas_used)
+        .unwrap_or(200_000);
+    let gas_units = (gas_used as f32 * gas_multiplier).ceil() as u64;
+
+    tracing::info!(gas_used, gas_units, fee_granter, "fee_granter: gas simulated");
+
+    // ── 4. Rebuild AuthInfo with real fee ────────────────────────────────
+    let fee_amount =
+        (querier.chain_config.gas_price * gas_units as f32).ceil() as u128;
+    let real_fee = layer_climb::proto::tx::Fee {
+        amount: vec![layer_climb::prelude::new_coin(
+            fee_amount,
+            &querier.chain_config.gas_denom,
+        )],
+        gas_limit: gas_units,
+        payer: String::new(),
+        granter: fee_granter.to_string(),
+    };
+
+    let real_si = signer
+        .signer_info(sequence, layer_climb::proto::tx::SignMode::Direct)
+        .await
+        .map_err(|e| {
+            DeployError::Transaction { code: 0, log: format!("signer_info: {}", e) }
+        })?;
+
+    #[allow(deprecated)]
+    let real_auth_info = layer_climb::proto::tx::AuthInfo {
+        signer_infos: vec![real_si],
+        fee: Some(real_fee),
+        tip: None,
+    };
+    let auth_info_bytes = proto_into_bytes(&real_auth_info).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode AuthInfo: {}", e) }
+    })?;
+
+    // ── 5. Sign ──────────────────────────────────────────────────────────
+    let sign_doc = layer_climb::proto::tx::SignDoc {
+        body_bytes: body_bytes.clone(),
+        auth_info_bytes: auth_info_bytes.clone(),
+        chain_id: chain_id.to_string(),
+        account_number,
+    };
+    let sig = signer.sign(&sign_doc).await.map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("sign: {}", e) }
+    })?;
+
+    // ── 6. Assemble and broadcast ────────────────────────────────────────
+    let tx_raw = layer_climb::proto::tx::TxRaw {
+        body_bytes,
+        auth_info_bytes,
+        signatures: vec![sig],
+    };
+    let tx_bytes = proto_into_bytes(&tx_raw).map_err(|e| {
+        DeployError::Transaction { code: 0, log: format!("encode TxRaw: {}", e) }
+    })?;
+
+    tracing::info!(
+        msgs = msg_count,
+        gas_units,
+        fee_granter,
+        "fee_granter: broadcasting"
+    );
+
+    let response = querier
+        .broadcast_tx_bytes(tx_bytes, layer_climb::proto::tx::BroadcastMode::Sync)
+        .await
+        .map_err(|e| DeployError::Transaction {
+            code: 1,
+            log: format!("broadcast: {}", e),
+        })?;
+
+    if response.code() != 0 {
+        return Err(DeployError::Transaction {
+            code: response.code(),
+            log: format!(
+                "fee_granter tx failed: code={}, log={}",
+                response.code(),
+                response.raw_log()
+            ),
+        });
+    }
+
+    // Poll until confirmed on-chain
+    let confirmed = querier
+        .poll_until_tx_ready(
+            response.tx_hash(),
+            std::time::Duration::from_secs(1),
+            poll_timeout,
+        )
+        .await
+        .map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("poll_until_tx_ready: {}", e),
+        })?;
+
+    let height = confirmed.tx_response.height as u64;
+    let hash = confirmed.tx_response.txhash.clone();
+    let code = confirmed.tx_response.code;
+
+    if code != 0 {
+        return Err(DeployError::Transaction {
+            code,
+            log: format!(
+                "fee_granter tx confirmed but failed: code={}, log={}",
+                code, confirmed.tx_response.raw_log
+            ),
+        });
+    }
+
+    tracing::info!(tx_hash = %hash, height, code, fee_granter, "fee_granter: confirmed");
 
     Ok(MultiSignerTxResult {
         hash,
