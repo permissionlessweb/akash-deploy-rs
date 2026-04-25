@@ -353,6 +353,62 @@ emit_methods() {
   echo "        return json.dumps(asdict(self))"
 }
 
+# ── Generate Python __init__.py ──────────────────────────────────────
+
+generate_py_init() {
+  local files=("$@")
+  local init_file="$PY_OUT_DIR/__init__.py"
+
+  # Collect all module names
+  local modules=()
+  for rs_file in "${files[@]}"; do
+    local basename
+    basename="$(basename "$rs_file" .rs)"
+    local py_module
+    py_module="$(filename_to_py_module "$basename")"
+    modules+=("$py_module")
+  done
+
+  # Sort modules
+  IFS=$'\n' sorted=($(sort <<<"${modules[*]}"))
+  unset IFS
+
+  {
+    echo '"""'
+    echo 'akash-deploy: Python bindings for Akash Network proto types.'
+    echo ''
+    echo 'Includes both on-chain Akash types and Console API types.'
+    echo ''
+    echo 'Usage:'
+    echo '    from akash_deploy.console_deployment import ListDeploymentsRequest'
+    echo '    from akash_deploy.console_provider import ListProvidersRequest'
+    echo ''
+    echo 'Low-level encode/decode (requires native extension — run `just py-build`):'
+    echo '    from akash_deploy._native import encode_message, decode_message, registered_types'
+    echo '"""'
+    echo ''
+    echo '# Re-export generated modules (populated by `just py-gen`)'
+    echo 'try:'
+    echo '    from akash_deploy import ('
+    for mod in "${sorted[@]}"; do
+      echo "        $mod,"
+    done
+    echo '    )'
+    echo 'except ImportError:'
+    echo '    # Generated modules not yet present — run `just py-gen`'
+    echo '    pass'
+    echo ''
+    echo '__all__ = ['
+    for mod in "${sorted[@]}"; do
+      echo "    \"$mod\","
+    done
+    echo ']'
+    echo ''
+  } > "$init_file"
+
+  echo "  → $init_file ($(wc -l < "$init_file") lines, ${#sorted[@]} modules)"
+}
+
 # ── Generate Rust py_gen.rs ───────────────────────────────────────────
 
 generate_rust_registry() {
@@ -450,6 +506,10 @@ echo "Python dataclasses:"
 for rs_file in "${matching_files[@]}"; do
   parse_file_py "$rs_file"
 done
+
+echo ""
+echo "Python __init__.py:"
+generate_py_init "${matching_files[@]}"
 
 echo ""
 echo "Rust registry:"

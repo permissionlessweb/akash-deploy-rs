@@ -514,8 +514,26 @@ impl<'a, B: AkashBackend> DeploymentWorkflow<'a, B> {
             .send_manifest(&provider_info.host_uri, lease, &manifest, &auth)
             .await?;
 
-        state.transition(Step::WaitForEndpoints { attempts: 0 });
-        Ok(StepResult::Continue)
+        // Query lease status once to capture forwarded ports/endpoints.
+        // The provider assigns ports at manifest acceptance — no polling needed.
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        match self.backend
+            .query_provider_status(&provider_info.host_uri, lease, &auth)
+            .await
+        {
+            Ok(status) if !status.endpoints.is_empty() => {
+                state.endpoints = status.endpoints;
+            }
+            Ok(_) => {
+                tracing::info!("provider returned no endpoints yet — continuing without them");
+            }
+            Err(e) => {
+                tracing::warn!("endpoint query after manifest failed (non-fatal): {}", e);
+            }
+        }
+
+        state.transition(Step::Complete);
+        Ok(StepResult::Complete)
     }
 
     async fn step_wait_for_endpoints(

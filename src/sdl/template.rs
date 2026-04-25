@@ -492,3 +492,162 @@ services:
         assert!(result.is_err());
     }
 }
+
+// ── Partial substitution (pass through unresolved vars) ──────────────────────
+
+/// Apply template substitution, passing through unresolved variables.
+///
+/// Unlike `apply_template`, this does NOT error on missing variables — it
+/// leaves `${VAR}` intact in the output. This is essential for SDLs that
+/// contain shell variables (e.g. `${CONFIG_DIR}`) alongside template
+/// variables (e.g. `${HEADSCALE_DOMAIN}`).
+pub fn apply_template_partial(
+    template: &str,
+    variables: &TemplateVariables,
+    defaults: &TemplateDefaults,
+) -> Result<String, DeployError> {
+    let mut values = defaults.clone();
+    values.extend(variables.clone());
+
+    let yaml_value: serde_yaml::Value = serde_yaml::from_str(template)
+        .map_err(|e| DeployError::Template(format!("Template is not valid YAML: {}", e)))?;
+
+    let substituted = substitute_yaml_value_partial(&yaml_value, &values)?;
+
+    serde_yaml::to_string(&substituted)
+        .map_err(|e| DeployError::Template(format!("Failed to serialize result: {}", e)))
+}
+
+/// Recursively substitute variables in a YAML value, skipping unresolved ones.
+fn substitute_yaml_value_partial(
+    value: &serde_yaml::Value,
+    values: &HashMap<String, String>,
+) -> Result<serde_yaml::Value, DeployError> {
+    match value {
+        serde_yaml::Value::String(s) => {
+            let substituted = substitute_string_partial(s, values);
+            Ok(serde_yaml::Value::String(substituted))
+        }
+        serde_yaml::Value::Mapping(map) => {
+            let mut new_map = serde_yaml::Mapping::new();
+            for (k, v) in map {
+                let new_value = substitute_yaml_value_partial(v, values)?;
+                new_map.insert(k.clone(), new_value);
+            }
+            Ok(serde_yaml::Value::Mapping(new_map))
+        }
+        serde_yaml::Value::Sequence(seq) => {
+            let new_seq: Result<Vec<_>, _> = seq
+                .iter()
+                .map(|v| substitute_yaml_value_partial(v, values))
+                .collect();
+            Ok(serde_yaml::Value::Sequence(new_seq?))
+        }
+        other => Ok(other.clone()),
+    }
+}
+
+/// Substitute variables in a string, passing through unresolved `${VAR}` intact.
+fn substitute_string_partial(s: &str, values: &HashMap<String, String>) -> String {
+    let mut result = String::new();
+    let chars: Vec<char> = s.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        if chars[i] == '$' && i + 1 < chars.len() && chars[i + 1] == '{' {
+            let placeholder_start = i;
+            i += 2; // Skip ${
+
+            let start = i;
+            while i < chars.len() && chars[i] != '}' {
+                i += 1;
+            }
+
+            if i >= chars.len() {
+                // Unclosed — pass through raw text
+                result.push_str(&s[placeholder_start..]);
+                break;
+            }
+
+            let var_name: String = chars[start..i].iter().collect();
+            i += 1; // Skip }
+
+            match values.get(&var_name) {
+                Some(value) => result.push_str(value),
+                None => {
+                    // Pass through unresolved
+                    result.push_str("${");
+                    result.push_str(&var_name);
+                    result.push('}');
+                }
+            }
+        } else {
+            result.push(chars[i]);
+            i += 1;
+        }
+    }
+
+    result
+}
+
+impl SdlTemplate {
+    /// Apply partial substitution — resolves known variables, passes through unknown ones.
+    ///
+    /// Use this for SDLs that mix template variables with shell runtime variables.
+    pub fn apply_partial(
+        &self,
+        variables: &TemplateVariables,
+        defaults: &TemplateDefaults,
+    ) -> Result<String, DeployError> {
+        apply_template_partial(&self.content, variables, defaults)
+    }
+}
+
+#[cfg(test)]
+mod partial_tests {
+    use super::*;
+
+    #[test]
+    fn test_partial_passes_through_unknown() {
+        let template = r#"
+version: "2.0"
+services:
+  web:
+    image: ${IMAGE}
+    command:
+      - sh
+    args:
+      - -c
+      - CONFIG_DIR=/etc/app && mkdir -p ${CONFIG_DIR}
+"#;
+        let mut defaults = HashMap::new();
+        defaults.insert("IMAGE".into(), "nginx:1.25".into());
+
+        let result = apply_template_partial(template, &HashMap::new(), &defaults).unwrap();
+        assert!(result.contains("nginx:1.25"), "IMAGE should be substituted");
+        assert!(result.contains("${CONFIG_DIR}"), "CONFIG_DIR should pass through");
+    }
+
+    #[test]
+    fn test_partial_on_sdl_template() {
+        let tmpl = SdlTemplate::new("image: ${IMAGE}\ndir: ${SHELL_VAR}").unwrap();
+        let mut defaults = HashMap::new();
+        defaults.insert("IMAGE".into(), "nginx".into());
+
+        let result = tmpl.apply_partial(&HashMap::new(), &defaults).unwrap();
+        assert!(result.contains("nginx"));
+        assert!(result.contains("${SHELL_VAR}"));
+    }
+}
+
+/// Raw text-based `${VAR}` substitution that passes through unresolved variables.
+///
+/// This is the recommended entry point for callers that need text-level substitution
+/// without YAML round-tripping. Unlike `apply_template` / `apply_template_partial`,
+/// this operates on raw text and preserves formatting exactly.
+///
+/// Returns the substituted string directly — never errors, since unresolved
+/// variables are passed through as-is.
+pub fn substitute_partial(template: &str, values: &HashMap<String, String>) -> String {
+    substitute_string_partial(template, values)
+}

@@ -53,6 +53,8 @@ pub mod workflow;
 pub mod logs;
 
 #[cfg(feature = "default-client")]
+pub mod authz;
+#[cfg(feature = "default-client")]
 pub mod client;
 #[cfg(feature = "default-client")]
 pub mod rest;
@@ -75,7 +77,7 @@ pub use manifest::{
 };
 #[cfg(feature = "sdl-templates")]
 pub use sdl::template::{
-    apply_template, extract_variables, validate_template, SdlTemplate, TemplateDefaults,
+    apply_template, apply_template_partial, extract_variables, substitute_partial, validate_template, SdlTemplate, TemplateDefaults,
     TemplateVariables,
 };
 pub use state::{DeploymentState, Step};
@@ -97,8 +99,13 @@ pub use client::{export_sessions, import_sessions};
 pub use client::{AkashClient, KeySigner};
 #[cfg(feature = "default-client")]
 pub use client::{
-    broadcast_multi_signer, build_create_lease_msg, build_mint_act_msg, MultiSignerTxResult,
-    SignerEntry,
+    broadcast_multi_signer, broadcast_with_fee_granter, build_close_deployment_msg,
+    build_create_lease_msg, build_mint_act_msg, MultiSignerTxResult, SignerEntry,
+};
+#[cfg(feature = "default-client")]
+pub use authz::{
+    authz_msg_type_urls, build_authz_grant_msgs, build_authz_revoke_msgs,
+    build_feegrant_msg, build_feegrant_revoke_msg, wrap_in_msg_exec, AuthzConfig,
 };
 
 #[cfg(feature = "python")]
