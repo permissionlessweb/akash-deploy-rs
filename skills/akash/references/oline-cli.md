@@ -2,6 +2,18 @@
 
 Deployment orchestrator for Akash validator sentry arrays, websites, and DNS. Built on akash-deploy-rs.
 
+References/Documentation Workflow
+Tools:
+- zed-to-proto
+- prost-to-pyo3
+- examples embedded in binary
+- cli-reference
+- dedicated skill
+- qmd
+- githem
+- trailmark
+
+
 ## Commands
 
 | Command | Purpose |
