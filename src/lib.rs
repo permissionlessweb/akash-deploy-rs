@@ -99,8 +99,9 @@ pub use client::{export_sessions, import_sessions};
 pub use client::{AkashClient, KeySigner};
 #[cfg(feature = "default-client")]
 pub use client::{
-    broadcast_multi_signer, broadcast_with_fee_granter, build_close_deployment_msg,
-    build_create_lease_msg, build_mint_act_msg, MultiSignerTxResult, SignerEntry,
+    broadcast_multi_signer, broadcast_with_fee_granter, build_bank_send_msg,
+    build_close_deployment_msg, build_create_lease_msg, build_mint_act_msg,
+    MultiSignerTxResult, SignerEntry,
 };
 #[cfg(feature = "default-client")]
 pub use authz::{

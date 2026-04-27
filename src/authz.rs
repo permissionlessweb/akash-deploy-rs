@@ -115,9 +115,14 @@ pub fn build_feegrant_msg(
         expiration: exp_timestamp,
     };
 
+    // The fee grant must allow MsgExec (the outer message the grantee broadcasts)
+    // in addition to the inner deployment message types.
+    let mut allowed_messages = authz_msg_type_urls();
+    allowed_messages.push(<layer_climb::proto::authz::MsgExec as ProstName>::type_url());
+
     let allowed = AllowedMsgAllowance {
         allowance: Some(to_any(&basic)),
-        allowed_messages: authz_msg_type_urls(),
+        allowed_messages,
     };
 
     let msg = MsgGrantAllowance {

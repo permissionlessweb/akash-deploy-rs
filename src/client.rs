@@ -100,7 +100,11 @@ pub fn build_mint_act_msg(owner: &str, amount_uakt: u64) -> layer_climb::proto::
         }),
     };
 
-    tracing::info!(owner, amount_uakt, "build_mint_act_msg: built (not broadcast)");
+    tracing::info!(
+        owner,
+        amount_uakt,
+        "build_mint_act_msg: built (not broadcast)"
+    );
 
     to_any(&msg)
 }
@@ -150,6 +154,46 @@ pub fn build_close_deployment_msg(owner: &str, dseq: u64) -> layer_climb::proto:
     };
 
     to_any(&msg)
+}
+
+/// Build a `MsgSend` as an `Any`-encoded proto message.
+///
+/// Does NOT broadcast — returns the message for inclusion in a multi-msg batch.
+pub fn build_bank_send_msg(
+    from: &str,
+    to: &str,
+    amount: u64,
+    denom: &str,
+) -> layer_climb::proto::Any {
+    // MsgSend defined inline to avoid pulling cosmos bank proto as a top-level dep.
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    struct MsgSend {
+        #[prost(string, tag = "1")]
+        from_address: String,
+        #[prost(string, tag = "2")]
+        to_address: String,
+        #[prost(message, repeated, tag = "3")]
+        amount: Vec<crate::gen::cosmos::base::v1beta1::Coin>,
+    }
+    impl ::prost::Name for MsgSend {
+        const NAME: &'static str = "MsgSend";
+        const PACKAGE: &'static str = "cosmos.bank.v1beta1";
+        fn full_name() -> String {
+            "cosmos.bank.v1beta1.MsgSend".into()
+        }
+        fn type_url() -> String {
+            "/cosmos.bank.v1beta1.MsgSend".into()
+        }
+    }
+
+    to_any(&MsgSend {
+        from_address: from.to_string(),
+        to_address: to.to_string(),
+        amount: vec![crate::gen::cosmos::base::v1beta1::Coin {
+            denom: denom.to_string(),
+            amount: amount.to_string(),
+        }],
+    })
 }
 
 /// Reusable gRPC query clients for Akash modules.
@@ -231,7 +275,6 @@ impl QueryClients {
             bme,
         })
     }
-
 }
 
 /// Akash client with integrated chain/provider communication and storage.
@@ -331,9 +374,13 @@ async fn query_chain_id_from_rpc(rpc_endpoint: &str) -> String {
                         tracing::info!(chain_id, "auto-detected chain_id from RPC /status");
                         return chain_id.to_string();
                     }
-                    tracing::warn!("chain_id not found in /status response; defaulting to akashnet-2");
+                    tracing::warn!(
+                        "chain_id not found in /status response; defaulting to akashnet-2"
+                    );
                 }
-                Err(e) => tracing::warn!(%e, "failed to parse /status JSON; defaulting to akashnet-2"),
+                Err(e) => {
+                    tracing::warn!(%e, "failed to parse /status JSON; defaulting to akashnet-2")
+                }
             }
         }
         Err(e) => tracing::warn!(%e, "failed to GET /status; defaulting to akashnet-2"),
@@ -371,11 +418,10 @@ async fn init_client_core_at_index(
                 .map_err(|e| DeployError::Signer(format!("Invalid HD path: {}", e)))
         })
         .transpose()?;
-    let signer =
-        KeySigner::new_mnemonic_str(mnemonic, derivation_path.as_ref()).map_err(|e| {
-            tracing::error!(?e, "failed to create signer from mnemonic");
-            DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
-        })?;
+    let signer = KeySigner::new_mnemonic_str(mnemonic, derivation_path.as_ref()).map_err(|e| {
+        tracing::error!(?e, "failed to create signer from mnemonic");
+        DeployError::Signer(format!("Failed to create signer from mnemonic: {}", e))
+    })?;
     tracing::info!("step 1/5: key signer created successfully");
 
     // Step 2: Derive secp256k1 signing key for JWT (ES256K) from the same mnemonic
@@ -521,9 +567,8 @@ impl AkashClient<FileBackedStorage> {
         rpc_endpoint: &str,
         grpc_endpoint: &str,
     ) -> Result<Self, DeployError> {
-        let init =
-            init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, Some(hd_index))
-                .await?;
+        let init = init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, Some(hd_index))
+            .await?;
 
         let storage = FileBackedStorage::new_default().await?;
 
@@ -591,9 +636,8 @@ impl AkashClient<StdoutStorage> {
         rpc_endpoint: &str,
         grpc_endpoint: &str,
     ) -> Result<Self, DeployError> {
-        let init =
-            init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, Some(hd_index))
-                .await?;
+        let init = init_client_core_at_index(mnemonic, rpc_endpoint, grpc_endpoint, Some(hd_index))
+            .await?;
 
         tracing::info!(
             address = %init.address,
@@ -939,19 +983,21 @@ impl<S: SessionStorage> AkashClient<S> {
                 sequence = acct.sequence,
                 "tx: on-chain account state"
             ),
-            Err(e) => tracing::warn!(%e, "tx: failed to query base_account (account may not exist on-chain yet)"),
+            Err(e) => {
+                tracing::warn!(%e, "tx: failed to query base_account (account may not exist on-chain yet)")
+            }
         }
         let mut tx = self.client.tx_builder();
         tx.set_gas_simulate_multiplier(1.5);
         tx.set_broadcast_poll_timeout_duration(std::time::Duration::from_secs(60));
         let broadcast_msg = self.authz_prepare_msg(any, &mut tx);
-        let response = tx
-            .broadcast([broadcast_msg])
-            .await
-            .map_err(|e| DeployError::Transaction {
-                code: 1,
-                log: format!("{:#}", e),
-            })?;
+        let response =
+            tx.broadcast([broadcast_msg])
+                .await
+                .map_err(|e| DeployError::Transaction {
+                    code: 1,
+                    log: format!("{:#}", e),
+                })?;
         Ok(TxResult {
             hash: response.txhash,
             code: response.code,
@@ -1003,7 +1049,10 @@ impl<S: SessionStorage> AkashClient<S> {
             .map_err(|e| DeployError::Query(format!("Failed to query bids: {}", e)))?
             .into_inner();
 
-        tracing::debug!(raw_count = response.bids.len(), "query_bids: raw gRPC response");
+        tracing::debug!(
+            raw_count = response.bids.len(),
+            "query_bids: raw gRPC response"
+        );
 
         let bids = response
             .bids
@@ -1021,7 +1070,13 @@ impl<S: SessionStorage> AkashClient<S> {
                     "query_bids: bid"
                 );
 
-                let raw_amount = price.amount.split('.').next().unwrap_or("0").parse::<u128>().ok()?;
+                let raw_amount = price
+                    .amount
+                    .split('.')
+                    .next()
+                    .unwrap_or("0")
+                    .parse::<u128>()
+                    .ok()?;
                 const DEC_PRECISION: u128 = 1_000_000_000_000_000_000;
                 let price_amount = (raw_amount / DEC_PRECISION) as u64;
 
@@ -1583,13 +1638,14 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             pubkey: pubkey_pem.to_vec(),
         });
         let broadcast_msg = self.authz_prepare_msg(cert_msg, &mut tx_builder);
-        let response = tx_builder
-            .broadcast([broadcast_msg])
-            .await
-            .map_err(|e| DeployError::Transaction {
-                code: 1,
-                log: format!("Failed to broadcast certificate creation: {}", e),
-            })?;
+        let response =
+            tx_builder
+                .broadcast([broadcast_msg])
+                .await
+                .map_err(|e| DeployError::Transaction {
+                    code: 1,
+                    log: format!("Failed to broadcast certificate creation: {}", e),
+                })?;
 
         Ok(TxResult {
             hash: response.txhash,
@@ -1646,9 +1702,7 @@ impl<S: SessionStorage> AkashBackend for AkashClient<S> {
             // Use Balance only — Grant requires an authz grant which
             // doesn't exist for fresh deployer accounts and may cause
             // the chain to silently reject the deposit.
-            sources: vec![
-                akash_deposit::Source::Balance as i32,
-            ],
+            sources: vec![akash_deposit::Source::Balance as i32],
         };
 
         // Build the full message
@@ -2334,9 +2388,10 @@ pub async fn broadcast_multi_signer(
         .flat_map(|e| e.messages.clone())
         .collect();
 
-    let block_height = querier.block_height().await.map_err(|e| {
-        DeployError::Query(format!("block_height for timeout: {}", e))
-    })?;
+    let block_height = querier
+        .block_height()
+        .await
+        .map_err(|e| DeployError::Query(format!("block_height for timeout: {}", e)))?;
 
     let body = layer_climb::proto::tx::TxBody {
         messages: all_messages,
@@ -2347,8 +2402,9 @@ pub async fn broadcast_multi_signer(
         unordered: false,
         timeout_timestamp: None,
     };
-    let body_bytes = proto_into_bytes(&body).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode TxBody: {}", e) }
+    let body_bytes = proto_into_bytes(&body).map_err(|e| DeployError::Transaction {
+        code: 0,
+        log: format!("encode TxBody: {}", e),
     })?;
 
     // Diagnostic: log signer state and message types before simulation
@@ -2369,17 +2425,24 @@ pub async fn broadcast_multi_signer(
     for entry in &signer_entries {
         let si = entry
             .signer
-            .signer_info(entry.sequence, layer_climb::proto::tx::SignMode::Unspecified)
+            .signer_info(
+                entry.sequence,
+                layer_climb::proto::tx::SignMode::Unspecified,
+            )
             .await
-            .map_err(|e| {
-                DeployError::Transaction { code: 0, log: format!("signer_info (sim): {}", e) }
+            .map_err(|e| DeployError::Transaction {
+                code: 0,
+                log: format!("signer_info (sim): {}", e),
             })?;
         sim_signer_infos.push(si);
     }
 
     // Simulation fee: 0 gas, correct denom
     let sim_fee = layer_climb::proto::tx::Fee {
-        amount: vec![layer_climb::prelude::new_coin(0, &querier.chain_config.gas_denom)],
+        amount: vec![layer_climb::prelude::new_coin(
+            0,
+            &querier.chain_config.gas_denom,
+        )],
         gas_limit: 0,
         payer: String::new(),
         granter: String::new(),
@@ -2391,9 +2454,11 @@ pub async fn broadcast_multi_signer(
         fee: Some(sim_fee),
         tip: None,
     };
-    let sim_auth_bytes = proto_into_bytes(&sim_auth_info).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode sim AuthInfo: {}", e) }
-    })?;
+    let sim_auth_bytes =
+        proto_into_bytes(&sim_auth_info).map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("encode sim AuthInfo: {}", e),
+        })?;
 
     // Build unsigned TxRaw for simulation
     let sim_tx_raw = layer_climb::proto::tx::TxRaw {
@@ -2401,14 +2466,18 @@ pub async fn broadcast_multi_signer(
         auth_info_bytes: sim_auth_bytes,
         signatures: signer_entries.iter().map(|_| Vec::new()).collect(),
     };
-    let sim_tx_bytes = proto_into_bytes(&sim_tx_raw).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode sim TxRaw: {}", e) }
+    let sim_tx_bytes = proto_into_bytes(&sim_tx_raw).map_err(|e| DeployError::Transaction {
+        code: 0,
+        log: format!("encode sim TxRaw: {}", e),
     })?;
 
     // ── 3. Simulate gas ──────────────────────────────────────────────────
     let sim_response = querier.simulate_tx(sim_tx_bytes).await.map_err(|e| {
         tracing::error!(error = ?e, "broadcast_multi_signer: simulate_tx failed");
-        DeployError::Transaction { code: 0, log: format!("simulate_tx: {:#}", e) }
+        DeployError::Transaction {
+            code: 0,
+            log: format!("simulate_tx: {:#}", e),
+        }
     })?;
     let gas_used = sim_response
         .gas_info
@@ -2418,13 +2487,14 @@ pub async fn broadcast_multi_signer(
     let gas_units = (gas_used as f32 * gas_multiplier).ceil() as u64;
 
     tracing::info!(
-        gas_used, gas_units, signers = signer_entries.len(),
+        gas_used,
+        gas_units,
+        signers = signer_entries.len(),
         "multi_signer: gas simulated"
     );
 
     // ── 4. Rebuild AuthInfo with real fee ────────────────────────────────
-    let fee_amount =
-        (querier.chain_config.gas_price * gas_units as f32).ceil() as u128;
+    let fee_amount = (querier.chain_config.gas_price * gas_units as f32).ceil() as u128;
     let real_fee = layer_climb::proto::tx::Fee {
         amount: vec![layer_climb::prelude::new_coin(
             fee_amount,
@@ -2441,8 +2511,9 @@ pub async fn broadcast_multi_signer(
             .signer
             .signer_info(entry.sequence, layer_climb::proto::tx::SignMode::Direct)
             .await
-            .map_err(|e| {
-                DeployError::Transaction { code: 0, log: format!("signer_info: {}", e) }
+            .map_err(|e| DeployError::Transaction {
+                code: 0,
+                log: format!("signer_info: {}", e),
             })?;
         real_signer_infos.push(si);
     }
@@ -2453,9 +2524,11 @@ pub async fn broadcast_multi_signer(
         fee: Some(real_fee),
         tip: None,
     };
-    let auth_info_bytes = proto_into_bytes(&real_auth_info).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode AuthInfo: {}", e) }
-    })?;
+    let auth_info_bytes =
+        proto_into_bytes(&real_auth_info).map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("encode AuthInfo: {}", e),
+        })?;
 
     // ── 5. Each signer signs its own SignDoc ─────────────────────────────
     let mut signatures = Vec::with_capacity(signer_entries.len());
@@ -2466,9 +2539,14 @@ pub async fn broadcast_multi_signer(
             chain_id: chain_id.to_string(),
             account_number: entry.account_number,
         };
-        let sig = entry.signer.sign(&sign_doc).await.map_err(|e| {
-            DeployError::Transaction { code: 0, log: format!("sign: {}", e) }
-        })?;
+        let sig = entry
+            .signer
+            .sign(&sign_doc)
+            .await
+            .map_err(|e| DeployError::Transaction {
+                code: 0,
+                log: format!("sign: {}", e),
+            })?;
         signatures.push(sig);
     }
 
@@ -2478,12 +2556,16 @@ pub async fn broadcast_multi_signer(
         auth_info_bytes,
         signatures,
     };
-    let tx_bytes = proto_into_bytes(&tx_raw).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode TxRaw: {}", e) }
+    let tx_bytes = proto_into_bytes(&tx_raw).map_err(|e| DeployError::Transaction {
+        code: 0,
+        log: format!("encode TxRaw: {}", e),
     })?;
 
     tracing::info!(
-        msgs = signer_entries.iter().map(|e| e.messages.len()).sum::<usize>(),
+        msgs = signer_entries
+            .iter()
+            .map(|e| e.messages.len())
+            .sum::<usize>(),
         signers = signer_entries.len(),
         gas_units,
         "multi_signer: broadcasting"
@@ -2575,9 +2657,10 @@ pub async fn broadcast_with_fee_granter(
     let msg_count = messages.len();
 
     // ── 1. Build TxBody ──────────────────────────────────────────────────
-    let block_height = querier.block_height().await.map_err(|e| {
-        DeployError::Query(format!("block_height for timeout: {}", e))
-    })?;
+    let block_height = querier
+        .block_height()
+        .await
+        .map_err(|e| DeployError::Query(format!("block_height for timeout: {}", e)))?;
 
     let body = layer_climb::proto::tx::TxBody {
         messages,
@@ -2588,20 +2671,25 @@ pub async fn broadcast_with_fee_granter(
         unordered: false,
         timeout_timestamp: None,
     };
-    let body_bytes = proto_into_bytes(&body).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode TxBody: {}", e) }
+    let body_bytes = proto_into_bytes(&body).map_err(|e| DeployError::Transaction {
+        code: 0,
+        log: format!("encode TxBody: {}", e),
     })?;
 
     // ── 2. Build SignerInfo for simulation ────────────────────────────────
     let sim_si = signer
         .signer_info(sequence, layer_climb::proto::tx::SignMode::Unspecified)
         .await
-        .map_err(|e| {
-            DeployError::Transaction { code: 0, log: format!("signer_info (sim): {}", e) }
+        .map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("signer_info (sim): {}", e),
         })?;
 
     let sim_fee = layer_climb::proto::tx::Fee {
-        amount: vec![layer_climb::prelude::new_coin(0, &querier.chain_config.gas_denom)],
+        amount: vec![layer_climb::prelude::new_coin(
+            0,
+            &querier.chain_config.gas_denom,
+        )],
         gas_limit: 0,
         payer: String::new(),
         granter: fee_granter.to_string(),
@@ -2613,23 +2701,29 @@ pub async fn broadcast_with_fee_granter(
         fee: Some(sim_fee),
         tip: None,
     };
-    let sim_auth_bytes = proto_into_bytes(&sim_auth_info).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode sim AuthInfo: {}", e) }
-    })?;
+    let sim_auth_bytes =
+        proto_into_bytes(&sim_auth_info).map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("encode sim AuthInfo: {}", e),
+        })?;
 
     let sim_tx_raw = layer_climb::proto::tx::TxRaw {
         body_bytes: body_bytes.clone(),
         auth_info_bytes: sim_auth_bytes,
         signatures: vec![Vec::new()],
     };
-    let sim_tx_bytes = proto_into_bytes(&sim_tx_raw).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode sim TxRaw: {}", e) }
+    let sim_tx_bytes = proto_into_bytes(&sim_tx_raw).map_err(|e| DeployError::Transaction {
+        code: 0,
+        log: format!("encode sim TxRaw: {}", e),
     })?;
 
     // ── 3. Simulate gas ──────────────────────────────────────────────────
     let sim_response = querier.simulate_tx(sim_tx_bytes).await.map_err(|e| {
         tracing::error!(error = ?e, "broadcast_with_fee_granter: simulate_tx failed");
-        DeployError::Transaction { code: 0, log: format!("simulate_tx: {:#}", e) }
+        DeployError::Transaction {
+            code: 0,
+            log: format!("simulate_tx: {:#}", e),
+        }
     })?;
     let gas_used = sim_response
         .gas_info
@@ -2638,11 +2732,15 @@ pub async fn broadcast_with_fee_granter(
         .unwrap_or(200_000);
     let gas_units = (gas_used as f32 * gas_multiplier).ceil() as u64;
 
-    tracing::info!(gas_used, gas_units, fee_granter, "fee_granter: gas simulated");
+    tracing::info!(
+        gas_used,
+        gas_units,
+        fee_granter,
+        "fee_granter: gas simulated"
+    );
 
     // ── 4. Rebuild AuthInfo with real fee ────────────────────────────────
-    let fee_amount =
-        (querier.chain_config.gas_price * gas_units as f32).ceil() as u128;
+    let fee_amount = (querier.chain_config.gas_price * gas_units as f32).ceil() as u128;
     let real_fee = layer_climb::proto::tx::Fee {
         amount: vec![layer_climb::prelude::new_coin(
             fee_amount,
@@ -2656,8 +2754,9 @@ pub async fn broadcast_with_fee_granter(
     let real_si = signer
         .signer_info(sequence, layer_climb::proto::tx::SignMode::Direct)
         .await
-        .map_err(|e| {
-            DeployError::Transaction { code: 0, log: format!("signer_info: {}", e) }
+        .map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("signer_info: {}", e),
         })?;
 
     #[allow(deprecated)]
@@ -2666,9 +2765,11 @@ pub async fn broadcast_with_fee_granter(
         fee: Some(real_fee),
         tip: None,
     };
-    let auth_info_bytes = proto_into_bytes(&real_auth_info).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode AuthInfo: {}", e) }
-    })?;
+    let auth_info_bytes =
+        proto_into_bytes(&real_auth_info).map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("encode AuthInfo: {}", e),
+        })?;
 
     // ── 5. Sign ──────────────────────────────────────────────────────────
     let sign_doc = layer_climb::proto::tx::SignDoc {
@@ -2677,9 +2778,13 @@ pub async fn broadcast_with_fee_granter(
         chain_id: chain_id.to_string(),
         account_number,
     };
-    let sig = signer.sign(&sign_doc).await.map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("sign: {}", e) }
-    })?;
+    let sig = signer
+        .sign(&sign_doc)
+        .await
+        .map_err(|e| DeployError::Transaction {
+            code: 0,
+            log: format!("sign: {}", e),
+        })?;
 
     // ── 6. Assemble and broadcast ────────────────────────────────────────
     let tx_raw = layer_climb::proto::tx::TxRaw {
@@ -2687,8 +2792,9 @@ pub async fn broadcast_with_fee_granter(
         auth_info_bytes,
         signatures: vec![sig],
     };
-    let tx_bytes = proto_into_bytes(&tx_raw).map_err(|e| {
-        DeployError::Transaction { code: 0, log: format!("encode TxRaw: {}", e) }
+    let tx_bytes = proto_into_bytes(&tx_raw).map_err(|e| DeployError::Transaction {
+        code: 0,
+        log: format!("encode TxRaw: {}", e),
     })?;
 
     tracing::info!(
