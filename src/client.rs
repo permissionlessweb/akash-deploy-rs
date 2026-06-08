@@ -1101,9 +1101,9 @@ impl<S: SessionStorage> AkashClient<S> {
 /// Derive secp256k1 signing key from mnemonic for JWT ES256K signing.
 ///
 /// Uses the Cosmos HD path: m/44'/118'/0'/0/0
-fn derive_jwt_signing_key(mnemonic: &str) -> Result<SigningKey, DeployError> {
-    derive_jwt_signing_key_at_index(mnemonic, None)
-}
+// fn derive_jwt_signing_key(mnemonic: &str) -> Result<SigningKey, DeployError> {
+//     derive_jwt_signing_key_at_index(mnemonic, None)
+// }
 
 /// Like `derive_jwt_signing_key` but derives at `m/44'/118'/0'/0/{index}` when
 /// `hd_index` is `Some`.  Falls back to index 0 when `None`.

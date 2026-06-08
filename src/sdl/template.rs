@@ -58,6 +58,18 @@ pub struct SdlTemplate {
     pub variables: Vec<String>,
 }
 
+/// Raw text-based `${VAR}` substitution that passes through unresolved variables.
+///
+/// This is the recommended entry point for callers that need text-level substitution
+/// without YAML round-tripping. Unlike `apply_template` / `apply_template_partial`,
+/// this operates on raw text and preserves formatting exactly.
+///
+/// Returns the substituted string directly — never errors, since unresolved
+/// variables are passed through as-is.
+pub fn substitute_partial(template: &str, values: &HashMap<String, String>) -> String {
+    substitute_string_partial(template, values)
+}
+
 impl SdlTemplate {
     /// Create a new template from SDL content.
     ///
@@ -216,9 +228,20 @@ pub fn apply_template(
     let mut values = defaults.clone();
     values.extend(variables.clone());
 
-    // Parse as YAML to preserve structure
-    let yaml_value: serde_yaml::Value = serde_yaml::from_str(template)
-        .map_err(|e| DeployError::Template(format!("Template is not valid YAML: {}", e)))?;
+    let yaml_value: serde_yaml::Value = serde_yaml::from_str(template).map_err(|e| {
+        DeployError::Template(format!(
+            "Template is not valid YAML: {}\n\n→ Error around these lines:\n{}",
+            e,
+            template
+                .lines()
+                .enumerate()
+                .skip(20) // adjust to see line ~27
+                .take(20)
+                .map(|(i, line)| format!("{:3}: {}", i + 1, line))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ))
+    })?;
 
     // Recursively substitute in the YAML structure
     let substituted = substitute_yaml_value(&yaml_value, &values)?;
@@ -625,7 +648,10 @@ services:
 
         let result = apply_template_partial(template, &HashMap::new(), &defaults).unwrap();
         assert!(result.contains("nginx:1.25"), "IMAGE should be substituted");
-        assert!(result.contains("${CONFIG_DIR}"), "CONFIG_DIR should pass through");
+        assert!(
+            result.contains("${CONFIG_DIR}"),
+            "CONFIG_DIR should pass through"
+        );
     }
 
     #[test]
@@ -638,16 +664,4 @@ services:
         assert!(result.contains("nginx"));
         assert!(result.contains("${SHELL_VAR}"));
     }
-}
-
-/// Raw text-based `${VAR}` substitution that passes through unresolved variables.
-///
-/// This is the recommended entry point for callers that need text-level substitution
-/// without YAML round-tripping. Unlike `apply_template` / `apply_template_partial`,
-/// this operates on raw text and preserves formatting exactly.
-///
-/// Returns the substituted string directly — never errors, since unresolved
-/// variables are passed through as-is.
-pub fn substitute_partial(template: &str, values: &HashMap<String, String>) -> String {
-    substitute_string_partial(template, values)
 }
