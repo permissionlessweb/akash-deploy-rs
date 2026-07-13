@@ -130,8 +130,16 @@ pub mod akash {
         pub mod v1 {
             include!("akash.oracle.v1.rs");
         }
+        pub mod v2 {
+            include!("akash.oracle.v2.rs");
+        }
     }
     pub mod provider {
+        pub mod lease {
+            pub mod v1 {
+                include!("akash.provider.lease.v1.rs");
+            }
+        }
         pub mod v1 {
             include!("akash.provider.v1.rs");
         }

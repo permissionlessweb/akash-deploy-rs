@@ -176,6 +176,14 @@ pub struct NodeResources {
     pub volumes_attached: ::core::option::Option<ResourcePair>,
     #[prost(message, optional, tag = "6")]
     pub volumes_mounted: ::core::option::Option<ResourcePair>,
+    /// GPUInterconnect reports node GPU-interconnect HCA capacity.
+    /// Capacity/Allocatable/Allocated are populated by the inventory
+    /// operator from k8s allocatable for whichever
+    /// rdma/rdma_shared_device\_\* extended resource the cluster's device
+    /// plugin publishes (the `rdma/*` prefix is the device plugin's
+    /// naming convention; see NodeCapabilities.interconnect_resource_name).
+    #[prost(message, optional, tag = "7")]
+    pub gpu_interconnect: ::core::option::Option<ResourcePair>,
 }
 impl ::prost::Name for NodeResources {
     const NAME: &'static str = "NodeResources";
@@ -193,6 +201,29 @@ impl ::prost::Name for NodeResources {
 pub struct NodeCapabilities {
     #[prost(string, repeated, tag = "1")]
     pub storage_classes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Kubernetes extended-resource name the cluster's device plugin publishes
+    /// for GPU interconnect HCAs (e.g. rdma/rdma_shared_device_ib for an
+    /// InfiniBand fabric, rdma/rdma_shared_device_eth for RoCE). The
+    /// `rdma/*` prefix is the device-plugin's own convention (Mellanox/NVIDIA)
+    /// and stays unchanged here. Empty when the node has no GPU interconnect
+    /// capability. Discovered by the inventory operator from k8s allocatable.
+    #[prost(string, tag = "2")]
+    pub interconnect_resource_name: ::prost::alloc::string::String,
+    /// GPU interconnect fabric type. "infiniband" or "roce". Internal /
+    /// informational — the SDL surface is fabric-agnostic; tenants only
+    /// declare `interconnect: \[\]` or `interconnect: { group: <name> }`.
+    /// Derived from /sys/class/infiniband/<dev>/ports/1/link_layer on the
+    /// host node.
+    #[prost(string, tag = "3")]
+    pub interconnect_fabric: ::prost::alloc::string::String,
+    /// NCCL HCA device-name prefixes present on this node, one per distinct
+    /// family (e.g. \["mlx5"\], or \["mlx5","bnxt_re"\] on a mixed-vendor host).
+    /// Same key for IB and RoCE since NCCL uses the IB verbs API for both.
+    /// Joined with commas and injected as NCCL_IB_HCA when scheduling GPU
+    /// interconnect workloads — NCCL accepts comma-separated device prefixes
+    /// natively. Discovered from /sys/class/infiniband/<dev> on the host.
+    #[prost(string, repeated, tag = "4")]
+    pub nccl_hca_prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 impl ::prost::Name for NodeCapabilities {
     const NAME: &'static str = "NodeCapabilities";

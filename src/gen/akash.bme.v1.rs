@@ -168,6 +168,9 @@ pub struct LedgerPendingRecord {
     /// denom_to_mint
     #[prost(string, tag = "4")]
     pub denom_to_mint: ::prost::alloc::string::String,
+    /// attempts is the number of times this record has been processed and failed with a retriable error
+    #[prost(uint32, tag = "5")]
+    pub attempts: u32,
 }
 impl ::prost::Name for LedgerPendingRecord {
     const NAME: &'static str = "LedgerPendingRecord";
@@ -177,6 +180,114 @@ impl ::prost::Name for LedgerPendingRecord {
     }
     fn type_url() -> ::prost::alloc::string::String {
         "/akash.bme.v1.LedgerPendingRecord".into()
+    }
+}
+/// LedgerCanceledRecord
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LedgerCanceledRecord {
+    /// owner source of the coins to be burned
+    #[prost(string, tag = "1")]
+    pub owner: ::prost::alloc::string::String,
+    /// cancel_reason
+    #[prost(enumeration = "ledger_canceled_record::BmCancelReason", tag = "2")]
+    pub cancel_reason: i32,
+    /// to destination of the minted coins.
+    /// if minted coin is ACT, "to" must be same as signer
+    #[prost(string, tag = "3")]
+    pub to: ::prost::alloc::string::String,
+    /// coins_to_burn
+    #[prost(message, optional, tag = "4")]
+    pub coins_to_burn: ::core::option::Option<
+        super::super::super::cosmos::base::v1beta1::Coin,
+    >,
+    /// denom_to_mint
+    #[prost(string, tag = "5")]
+    pub denom_to_mint: ::prost::alloc::string::String,
+}
+/// Nested message and enum types in `LedgerCanceledRecord`.
+pub mod ledger_canceled_record {
+    /// BMCancelReason is an enum indicating reasons of failure for burn/mint request
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum BmCancelReason {
+        /// Prefix should start with 0 in enum. So declaring dummy state.
+        Unknown = 0,
+        /// BMCancelReasonEpsilon the result of conversion is below the smallest meaningful difference (10^-6)
+        Epsilon = 1,
+        /// BMCancelReasonZeroPrice oracle price is zero
+        ZeroPrice = 2,
+        /// BMCancelReasonInsufficientFunds insufficient vault/supply funds
+        InsufficientFunds = 3,
+        /// BMCancelReasonInvalidDenom denomination is not registered
+        InvalidDenom = 4,
+        /// BMCancelReasonInvalidAmount zero or invalid burn amount
+        InvalidAmount = 5,
+        /// BMCancelReasonMinimumMint mint output below minimum threshold
+        MinimumMint = 6,
+        /// BMCancelReasonMintFailed bank MintCoins operation failed
+        MintFailed = 7,
+        /// BMCancelReasonBurnFailed bank BurnCoins operation failed
+        BurnFailed = 8,
+        /// BMCancelReasonMaxAttempts exceeded maximum pending processing attempts
+        MaxAttempts = 9,
+    }
+    impl BmCancelReason {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Self::Unknown => "unknown",
+                Self::Epsilon => "epsilon",
+                Self::ZeroPrice => "zero_price",
+                Self::InsufficientFunds => "insufficient_funds",
+                Self::InvalidDenom => "invalid_denom",
+                Self::InvalidAmount => "invalid_amount",
+                Self::MinimumMint => "minimum_mint",
+                Self::MintFailed => "mint_failed",
+                Self::BurnFailed => "burn_failed",
+                Self::MaxAttempts => "max_attempts",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "unknown" => Some(Self::Unknown),
+                "epsilon" => Some(Self::Epsilon),
+                "zero_price" => Some(Self::ZeroPrice),
+                "insufficient_funds" => Some(Self::InsufficientFunds),
+                "invalid_denom" => Some(Self::InvalidDenom),
+                "invalid_amount" => Some(Self::InvalidAmount),
+                "minimum_mint" => Some(Self::MinimumMint),
+                "mint_failed" => Some(Self::MintFailed),
+                "burn_failed" => Some(Self::BurnFailed),
+                "max_attempts" => Some(Self::MaxAttempts),
+                _ => None,
+            }
+        }
+    }
+}
+impl ::prost::Name for LedgerCanceledRecord {
+    const NAME: &'static str = "LedgerCanceledRecord";
+    const PACKAGE: &'static str = "akash.bme.v1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.bme.v1.LedgerCanceledRecord".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.bme.v1.LedgerCanceledRecord".into()
     }
 }
 /// LedgerRecord stores information of burn/mint event of token A burn to mint token B
@@ -202,8 +313,10 @@ pub struct LedgerRecord {
     #[prost(message, optional, tag = "6")]
     pub minted: ::core::option::Option<CoinPrice>,
     #[prost(message, optional, tag = "7")]
-    pub remint_credit_issued: ::core::option::Option<CoinPrice>,
+    pub spread: ::core::option::Option<super::super::super::cosmos::base::v1beta1::Coin>,
     #[prost(message, optional, tag = "8")]
+    pub remint_credit_issued: ::core::option::Option<CoinPrice>,
+    #[prost(message, optional, tag = "9")]
     pub remint_credit_accrued: ::core::option::Option<CoinPrice>,
 }
 impl ::prost::Name for LedgerRecord {
@@ -235,23 +348,6 @@ impl ::prost::Name for Status {
     }
     fn type_url() -> ::prost::alloc::string::String {
         "/akash.bme.v1.Status".into()
-    }
-}
-/// MintEpoch stores information about mint epoch
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MintEpoch {
-    #[prost(int64, tag = "1")]
-    pub next_epoch: i64,
-}
-impl ::prost::Name for MintEpoch {
-    const NAME: &'static str = "MintEpoch";
-    const PACKAGE: &'static str = "akash.bme.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.bme.v1.MintEpoch".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.bme.v1.MintEpoch".into()
     }
 }
 /// MintStatus indicates the current state of mint
@@ -310,6 +406,9 @@ pub enum LedgerRecordStatus {
     /// LEDGER_RECORD_STATUS_EXECUTED indicates the burn/mint operation has been
     /// successfully completed and tokens have been burned and minted
     Executed = 2,
+    /// LEDGER_RECORD_STATUS_CANCELED indicates the burn/mint operation has encountered error and funds have been returned to the owner
+    /// successfully completed and tokens have been burned and minted
+    Canceled = 3,
 }
 impl LedgerRecordStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -321,6 +420,7 @@ impl LedgerRecordStatus {
             Self::Invalid => "ledger_record_status_invalid",
             Self::Pending => "ledger_record_status_pending",
             Self::Executed => "ledger_record_status_executed",
+            Self::Canceled => "ledger_record_status_canceled",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -329,6 +429,7 @@ impl LedgerRecordStatus {
             "ledger_record_status_invalid" => Some(Self::Invalid),
             "ledger_record_status_pending" => Some(Self::Pending),
             "ledger_record_status_executed" => Some(Self::Executed),
+            "ledger_record_status_canceled" => Some(Self::Canceled),
             _ => None,
         }
     }
@@ -357,10 +458,10 @@ impl ::prost::Name for EventMintStatusChange {
         "/akash.bme.v1.EventMintStatusChange".into()
     }
 }
-/// EventVaultSeeded is emitted when the vault is seeded with AKT
+/// EventVaultFunded is emitted when the vault is seeded with AKT
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventVaultSeeded {
+pub struct EventVaultFunded {
     /// amount is the AKT amount added to vault
     #[prost(message, optional, tag = "1")]
     pub amount: ::core::option::Option<super::super::super::cosmos::base::v1beta1::Coin>,
@@ -373,14 +474,14 @@ pub struct EventVaultSeeded {
         super::super::super::cosmos::base::v1beta1::Coin,
     >,
 }
-impl ::prost::Name for EventVaultSeeded {
-    const NAME: &'static str = "EventVaultSeeded";
+impl ::prost::Name for EventVaultFunded {
+    const NAME: &'static str = "EventVaultFunded";
     const PACKAGE: &'static str = "akash.bme.v1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.bme.v1.EventVaultSeeded".into()
+        "akash.bme.v1.EventVaultFunded".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.bme.v1.EventVaultSeeded".into()
+        "/akash.bme.v1.EventVaultFunded".into()
     }
 }
 /// EventLedgerRecordExecuted emitted information of burn/mint event of token A burn to mint token B
@@ -390,6 +491,30 @@ pub struct EventLedgerRecordExecuted {
     /// burned_from source address of the tokens burned
     #[prost(message, optional, tag = "1")]
     pub id: ::core::option::Option<LedgerRecordId>,
+    /// burned_from source address of the tokens burned
+    #[prost(string, tag = "2")]
+    pub burned_from: ::prost::alloc::string::String,
+    /// minted_to destination address of the tokens minted
+    #[prost(string, tag = "3")]
+    pub minted_to: ::prost::alloc::string::String,
+    /// module is module account performing burn
+    #[prost(string, tag = "4")]
+    pub burner: ::prost::alloc::string::String,
+    /// module is module account performing mint
+    #[prost(string, tag = "5")]
+    pub minter: ::prost::alloc::string::String,
+    /// burned is the coin burned at price
+    #[prost(message, optional, tag = "6")]
+    pub burned: ::core::option::Option<CoinPrice>,
+    /// minted is coin minted at price
+    #[prost(message, optional, tag = "7")]
+    pub minted: ::core::option::Option<CoinPrice>,
+    #[prost(message, optional, tag = "8")]
+    pub spread: ::core::option::Option<super::super::super::cosmos::base::v1beta1::Coin>,
+    #[prost(message, optional, tag = "9")]
+    pub remint_credit_issued: ::core::option::Option<CoinPrice>,
+    #[prost(message, optional, tag = "10")]
+    pub remint_credit_accrued: ::core::option::Option<CoinPrice>,
 }
 impl ::prost::Name for EventLedgerRecordExecuted {
     const NAME: &'static str = "EventLedgerRecordExecuted";
@@ -401,9 +526,74 @@ impl ::prost::Name for EventLedgerRecordExecuted {
         "/akash.bme.v1.EventLedgerRecordExecuted".into()
     }
 }
+/// EventLedgerRecordCanceled emitted information of unsuccessful burn/mint event
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventLedgerRecordCanceled {
+    /// burned_from source address of the tokens burned
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<LedgerRecordId>,
+    /// fail_reason
+    #[prost(enumeration = "ledger_canceled_record::BmCancelReason", tag = "2")]
+    pub cancel_reason: i32,
+    /// owner source of the coins to be burned
+    #[prost(string, tag = "3")]
+    pub owner: ::prost::alloc::string::String,
+    /// to destination of the minted coins.
+    /// if minted coin is ACT, "to" must be same as signer
+    #[prost(string, tag = "4")]
+    pub to: ::prost::alloc::string::String,
+    /// coins_to_burn
+    #[prost(message, optional, tag = "5")]
+    pub coins_to_burn: ::core::option::Option<
+        super::super::super::cosmos::base::v1beta1::Coin,
+    >,
+    /// denom_to_mint
+    #[prost(string, tag = "6")]
+    pub denom_to_mint: ::prost::alloc::string::String,
+}
+impl ::prost::Name for EventLedgerRecordCanceled {
+    const NAME: &'static str = "EventLedgerRecordCanceled";
+    const PACKAGE: &'static str = "akash.bme.v1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.bme.v1.EventLedgerRecordCanceled".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.bme.v1.EventLedgerRecordCanceled".into()
+    }
+}
+/// LedgerRecordFilters defines filters used to filter ledger records
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LedgerRecordFilters {
+    /// source is the account address of the user who initiated the burn/mint
+    #[prost(string, tag = "1")]
+    pub source: ::prost::alloc::string::String,
+    /// denom filters by the burn denomination
+    #[prost(string, tag = "2")]
+    pub denom: ::prost::alloc::string::String,
+    /// to_denom filters by the mint denomination
+    #[prost(string, tag = "3")]
+    pub to_denom: ::prost::alloc::string::String,
+    /// status filters by record status (pending, executed or failed).
+    /// Uses the string representation of LedgerRecordStatus enum values.
+    /// If empty, returns both pending and executed records.
+    #[prost(string, tag = "4")]
+    pub status: ::prost::alloc::string::String,
+}
+impl ::prost::Name for LedgerRecordFilters {
+    const NAME: &'static str = "LedgerRecordFilters";
+    const PACKAGE: &'static str = "akash.bme.v1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.bme.v1.LedgerRecordFilters".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.bme.v1.LedgerRecordFilters".into()
+    }
+}
 /// Params defines the parameters for the BME module
 #[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Params {
     /// circuit_breaker_warn_threshold is the CR below which warning is triggered
     /// Stored as basis points * 100 (e.g., 9500 = 0.95)
@@ -429,7 +619,7 @@ pub struct Params {
     ///   then runway_blocks = (110*(0.1*2) + 110) = 132
     /// ```
     #[prost(uint32, tag = "4")]
-    pub epoch_blocks_backoff: u32,
+    pub epoch_blocks_backoff_percent: u32,
     /// mint_spread_bps is the spread in basis points applied during ACT mint
     /// (default: 25 bps = 0.25%)
     #[prost(uint32, tag = "6")]
@@ -438,6 +628,19 @@ pub struct Params {
     /// (default: 0 for no provider tax)
     #[prost(uint32, tag = "7")]
     pub settle_spread_bps: u32,
+    /// max_endblocker_records is the deterministic upper bound on pending ledger
+    /// records processed in a single EndBlocker invocation.
+    #[prost(uint32, tag = "8")]
+    pub max_endblocker_records: u32,
+    /// min_mint minimum amount of ACT required to be minted in the new transaction
+    #[prost(message, repeated, tag = "9")]
+    pub min_mint: ::prost::alloc::vec::Vec<
+        super::super::super::cosmos::base::v1beta1::Coin,
+    >,
+    /// max_pending_attempts is the maximum number of EndBlocker processing attempts
+    /// for a pending record before it is canceled. Applies to retriable errors only.
+    #[prost(uint32, tag = "10")]
+    pub max_pending_attempts: u32,
 }
 impl ::prost::Name for Params {
     const NAME: &'static str = "Params";
@@ -465,7 +668,7 @@ impl ::prost::Name for QueryParamsRequest {
 }
 /// QueryParamsResponse is the response type for the Query/Params RPC method
 #[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryParamsResponse {
     #[prost(message, optional, tag = "1")]
     pub params: ::core::option::Option<Params>,
@@ -556,6 +759,93 @@ impl ::prost::Name for QueryStatusResponse {
     }
     fn type_url() -> ::prost::alloc::string::String {
         "/akash.bme.v1.QueryStatusResponse".into()
+    }
+}
+/// QueryLedgerRecordEntry wraps a ledger record with its ID and status
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryLedgerRecordEntry {
+    /// id is the unique identifier of the ledger record
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<LedgerRecordId>,
+    /// status indicates whether this record is pending or executed
+    #[prost(enumeration = "LedgerRecordStatus", tag = "2")]
+    pub status: i32,
+    /// record contains either a pending or executed record
+    #[prost(oneof = "query_ledger_record_entry::Record", tags = "3, 4, 5")]
+    pub record: ::core::option::Option<query_ledger_record_entry::Record>,
+}
+/// Nested message and enum types in `QueryLedgerRecordEntry`.
+pub mod query_ledger_record_entry {
+    /// record contains either a pending or executed record
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Record {
+        /// pending_record is set when the record status is pending
+        #[prost(message, tag = "3")]
+        PendingRecord(super::LedgerPendingRecord),
+        /// executed_record is set when the record status is executed
+        #[prost(message, tag = "4")]
+        ExecutedRecord(super::LedgerRecord),
+        /// canceled_record is set when the record status is failed
+        #[prost(message, tag = "5")]
+        CanceledRecord(super::LedgerCanceledRecord),
+    }
+}
+impl ::prost::Name for QueryLedgerRecordEntry {
+    const NAME: &'static str = "QueryLedgerRecordEntry";
+    const PACKAGE: &'static str = "akash.bme.v1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.bme.v1.QueryLedgerRecordEntry".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.bme.v1.QueryLedgerRecordEntry".into()
+    }
+}
+/// QueryLedgerRecordsRequest is the request type for the Query/LedgerRecords RPC method
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryLedgerRecordsRequest {
+    /// filters holds the ledger record fields to filter the request
+    #[prost(message, optional, tag = "1")]
+    pub filters: ::core::option::Option<LedgerRecordFilters>,
+    /// pagination defines the pagination for the request
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<
+        super::super::super::cosmos::base::query::v1beta1::PageRequest,
+    >,
+}
+impl ::prost::Name for QueryLedgerRecordsRequest {
+    const NAME: &'static str = "QueryLedgerRecordsRequest";
+    const PACKAGE: &'static str = "akash.bme.v1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.bme.v1.QueryLedgerRecordsRequest".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.bme.v1.QueryLedgerRecordsRequest".into()
+    }
+}
+/// QueryLedgerRecordsResponse is the response type for the Query/LedgerRecords RPC method
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryLedgerRecordsResponse {
+    /// records is a list of ledger records matching the filters
+    #[prost(message, repeated, tag = "1")]
+    pub records: ::prost::alloc::vec::Vec<QueryLedgerRecordEntry>,
+    /// pagination contains the information about response pagination
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<
+        super::super::super::cosmos::base::query::v1beta1::PageResponse,
+    >,
+}
+impl ::prost::Name for QueryLedgerRecordsResponse {
+    const NAME: &'static str = "QueryLedgerRecordsResponse";
+    const PACKAGE: &'static str = "akash.bme.v1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.bme.v1.QueryLedgerRecordsResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.bme.v1.QueryLedgerRecordsResponse".into()
     }
 }
 /// Generated client implementations.
@@ -724,6 +1014,31 @@ pub mod query_client {
             req.extensions_mut().insert(GrpcMethod::new("akash.bme.v1.Query", "Status"));
             self.inner.unary(req, path, codec).await
         }
+        /// LedgerRecords queries ledger records with optional filters for status, source, denom, to_denom
+        pub async fn ledger_records(
+            &mut self,
+            request: impl tonic::IntoRequest<super::QueryLedgerRecordsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::QueryLedgerRecordsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/akash.bme.v1.Query/LedgerRecords",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("akash.bme.v1.Query", "LedgerRecords"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -762,6 +1077,14 @@ pub mod query_server {
             request: tonic::Request<super::QueryStatusRequest>,
         ) -> std::result::Result<
             tonic::Response<super::QueryStatusResponse>,
+            tonic::Status,
+        >;
+        /// LedgerRecords queries ledger records with optional filters for status, source, denom, to_denom
+        async fn ledger_records(
+            &self,
+            request: tonic::Request<super::QueryLedgerRecordsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::QueryLedgerRecordsResponse>,
             tonic::Status,
         >;
     }
@@ -973,6 +1296,51 @@ pub mod query_server {
                     };
                     Box::pin(fut)
                 }
+                "/akash.bme.v1.Query/LedgerRecords" => {
+                    #[allow(non_camel_case_types)]
+                    struct LedgerRecordsSvc<T: Query>(pub Arc<T>);
+                    impl<
+                        T: Query,
+                    > tonic::server::UnaryService<super::QueryLedgerRecordsRequest>
+                    for LedgerRecordsSvc<T> {
+                        type Response = super::QueryLedgerRecordsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::QueryLedgerRecordsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Query>::ledger_records(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = LedgerRecordsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 _ => {
                     Box::pin(async move {
                         let mut response = http::Response::new(
@@ -1015,7 +1383,7 @@ pub mod query_server {
 }
 /// MsgUpdateParams defines the message for updating module parameters
 #[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MsgUpdateParams {
     /// authority is the address that controls the module (governance)
     #[prost(string, tag = "1")]
@@ -1048,11 +1416,11 @@ impl ::prost::Name for MsgUpdateParamsResponse {
         "/akash.bme.v1.MsgUpdateParamsResponse".into()
     }
 }
-/// MsgSeedVault defines the message for seeding the BME vault with AKT
+/// MsgFundVault defines the message for funding the BME vault with AKT
 /// This is used to provide an initial volatility buffer
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgSeedVault {
+pub struct MsgFundVault {
     /// authority is the address that controls the module (governance)
     #[prost(string, tag = "1")]
     pub authority: ::prost::alloc::string::String,
@@ -1063,32 +1431,28 @@ pub struct MsgSeedVault {
     #[prost(string, tag = "3")]
     pub source: ::prost::alloc::string::String,
 }
-impl ::prost::Name for MsgSeedVault {
-    const NAME: &'static str = "MsgSeedVault";
+impl ::prost::Name for MsgFundVault {
+    const NAME: &'static str = "MsgFundVault";
     const PACKAGE: &'static str = "akash.bme.v1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.bme.v1.MsgSeedVault".into()
+        "akash.bme.v1.MsgFundVault".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.bme.v1.MsgSeedVault".into()
+        "/akash.bme.v1.MsgFundVault".into()
     }
 }
-/// MsgSeedVaultResponse is the response type for MsgSeedVault
+/// MsgFundVaultResponse is the response type for MsgFundVault
 #[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct MsgSeedVaultResponse {
-    /// vault_akt is the new vault AKT balance
-    #[prost(string, tag = "1")]
-    pub vault_akt: ::prost::alloc::string::String,
-}
-impl ::prost::Name for MsgSeedVaultResponse {
-    const NAME: &'static str = "MsgSeedVaultResponse";
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MsgFundVaultResponse {}
+impl ::prost::Name for MsgFundVaultResponse {
+    const NAME: &'static str = "MsgFundVaultResponse";
     const PACKAGE: &'static str = "akash.bme.v1";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.bme.v1.MsgSeedVaultResponse".into()
+        "akash.bme.v1.MsgFundVaultResponse".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.bme.v1.MsgSeedVaultResponse".into()
+        "/akash.bme.v1.MsgFundVaultResponse".into()
     }
 }
 /// MsgBurnMint defines the message for burning one token to mint another
@@ -1430,6 +1794,33 @@ pub mod msg_client {
             req.extensions_mut().insert(GrpcMethod::new("akash.bme.v1.Msg", "BurnACT"));
             self.inner.unary(req, path, codec).await
         }
+        /// FundVault seeds the BME vault with AKT from a designated source (e.g., community pool).
+        /// This provides the initial volatility buffer required for burn/mint operations.
+        /// Can only be executed through governance proposals.
+        pub async fn fund_vault(
+            &mut self,
+            request: impl tonic::IntoRequest<super::MsgFundVault>,
+        ) -> std::result::Result<
+            tonic::Response<super::MsgFundVaultResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/akash.bme.v1.Msg/FundVault",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("akash.bme.v1.Msg", "FundVault"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -1483,6 +1874,16 @@ pub mod msg_server {
             request: tonic::Request<super::MsgBurnAct>,
         ) -> std::result::Result<
             tonic::Response<super::MsgBurnActResponse>,
+            tonic::Status,
+        >;
+        /// FundVault seeds the BME vault with AKT from a designated source (e.g., community pool).
+        /// This provides the initial volatility buffer required for burn/mint operations.
+        /// Can only be executed through governance proposals.
+        async fn fund_vault(
+            &self,
+            request: tonic::Request<super::MsgFundVault>,
+        ) -> std::result::Result<
+            tonic::Response<super::MsgFundVaultResponse>,
             tonic::Status,
         >;
     }
@@ -1722,6 +2123,49 @@ pub mod msg_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = BurnACTSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/akash.bme.v1.Msg/FundVault" => {
+                    #[allow(non_camel_case_types)]
+                    struct FundVaultSvc<T: Msg>(pub Arc<T>);
+                    impl<T: Msg> tonic::server::UnaryService<super::MsgFundVault>
+                    for FundVaultSvc<T> {
+                        type Response = super::MsgFundVaultResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::MsgFundVault>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Msg>::fund_vault(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = FundVaultSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

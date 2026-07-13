@@ -841,11 +841,12 @@ pub mod msg_server {
 /// The authorization can be restricted to specific scopes (deployment or bid) to limit
 /// what types of deposits the grantee is authorized to make on behalf of the granter.
 #[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DepositAuthorization {
     /// SpendLimit is the maximum amount the grantee is authorized to spend from the granter's account.
     /// This limit applies cumulatively across all deposit operations within the authorized scopes.
     /// Once this limit is reached, the authorization becomes invalid and no further deposits can be made.
+    /// Deprecated: use spend_limits instead
     #[prost(message, optional, tag = "1")]
     pub spend_limit: ::core::option::Option<
         super::super::super::cosmos::base::v1beta1::Coin,
@@ -860,6 +861,13 @@ pub struct DepositAuthorization {
         tag = "2"
     )]
     pub scopes: ::prost::alloc::vec::Vec<i32>,
+    /// SpendLimits specifies the maximum amount per denomination the grantee is authorized to spend.
+    /// Each entry represents the limit for a specific denomination, enforced independently.
+    /// Once an individual denomination's limit is exhausted, no further deposits can be made in that denomination.
+    #[prost(message, repeated, tag = "3")]
+    pub spend_limits: ::prost::alloc::vec::Vec<
+        super::super::super::cosmos::base::v1beta1::Coin,
+    >,
 }
 /// Nested message and enum types in `DepositAuthorization`.
 pub mod deposit_authorization {

@@ -76,6 +76,10 @@ pub struct Deployment {
     /// CreatedAt indicates when the deployment was created as a block height value.
     #[prost(int64, tag = "4")]
     pub created_at: i64,
+    /// reclamation stores the deployment's reclamation requirements for persistence.
+    /// Needed so that StartGroup can propagate reclamation to newly created orders.
+    #[prost(message, optional, tag = "5")]
+    pub reclamation: ::core::option::Option<DeploymentReclamation>,
 }
 /// Nested message and enum types in `Deployment`.
 pub mod deployment {
@@ -132,6 +136,25 @@ impl ::prost::Name for Deployment {
     }
     fn type_url() -> ::prost::alloc::string::String {
         "/akash.deployment.v1.Deployment".into()
+    }
+}
+/// DeploymentReclamation defines the tenant's reclamation requirements.
+/// Stored on the Deployment and propagated to Orders.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeploymentReclamation {
+    /// min_window is the minimum reclamation window the tenant requires.
+    #[prost(message, optional, tag = "1")]
+    pub min_window: ::core::option::Option<::pbjson_types::Duration>,
+}
+impl ::prost::Name for DeploymentReclamation {
+    const NAME: &'static str = "DeploymentReclamation";
+    const PACKAGE: &'static str = "akash.deployment.v1";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.deployment.v1.DeploymentReclamation".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.deployment.v1.DeploymentReclamation".into()
     }
 }
 /// EventDeploymentCreated event is triggered when deployment is created on chain.
