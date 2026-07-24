@@ -370,6 +370,11 @@ fn generate_mod_rs(gen_dir: &Path) -> anyhow::Result<()> {
 
     for filename in rs_files {
         let stem = filename.strip_suffix(".rs").unwrap_or(&filename).to_string();
+        // Console API clients are included by the hand-written section in mod.rs
+        // (gen-console). Skip them in the auto tree to avoid duplicate `pub mod console`.
+        if stem.starts_with("console.") {
+            continue;
+        }
         if !stem.contains('.') {
             top_level.push(filename);
         } else {

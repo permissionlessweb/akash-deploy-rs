@@ -609,7 +609,7 @@ deployment:
         assert!(ru.price.is_some());
 
         let price = ru.price.as_ref().unwrap();
-        assert_eq!(price.denom, "uakt");
+        assert_eq!(price.denom, "uact");
         // 1000 * 10^18 = 1000000000000000000000
         assert_eq!(price.amount, "1000000000000000000000");
 

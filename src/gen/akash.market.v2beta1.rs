@@ -1347,7 +1347,7 @@ pub mod query_client {
                 .insert(GrpcMethod::new("akash.market.v2beta1.Query", "Lease"));
             self.inner.unary(req, path, codec).await
         }
-        /// Params returns the total set of minting parameters.
+        /// Params returns the total set of market parameters.
         pub async fn params(
             &mut self,
             request: impl tonic::IntoRequest<super::QueryParamsRequest>,
@@ -1436,7 +1436,7 @@ pub mod query_server {
             tonic::Response<super::QueryLeaseResponse>,
             tonic::Status,
         >;
-        /// Params returns the total set of minting parameters.
+        /// Params returns the total set of market parameters.
         async fn params(
             &self,
             request: tonic::Request<super::QueryParamsRequest>,

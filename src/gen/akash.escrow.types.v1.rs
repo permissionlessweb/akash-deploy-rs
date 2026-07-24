@@ -44,9 +44,6 @@ pub struct Depositor {
     pub balance: ::core::option::Option<
         super::super::super::super::cosmos::base::v1beta1::DecCoin,
     >,
-    /// direct indicates if deposited currency should be swapped to ACT (false) at time of the deposit
-    #[prost(bool, tag = "5")]
-    pub direct: bool,
 }
 impl ::prost::Name for Depositor {
     const NAME: &'static str = "Depositor";

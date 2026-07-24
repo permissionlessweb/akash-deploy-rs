@@ -15,6 +15,8 @@ pub struct ServiceExposeHttpOptions {
     pub next_timeout: u32,
     #[prost(string, repeated, tag = "6")]
     pub next_cases: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint32, tag = "7")]
+    pub proxy_buffer_size: u32,
 }
 impl ::prost::Name for ServiceExposeHttpOptions {
     const NAME: &'static str = "ServiceExposeHTTPOptions";
@@ -84,6 +86,53 @@ impl ::prost::Name for StorageParams {
         "/akash.manifest.v2beta3.StorageParams".into()
     }
 }
+/// ServicePermissions defines resource access permissions for the service.
+/// Resources map to Kubernetes RBAC permissions:
+///
+/// * logs
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ServicePermissions {
+    #[prost(string, repeated, tag = "1")]
+    pub read: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+impl ::prost::Name for ServicePermissions {
+    const NAME: &'static str = "ServicePermissions";
+    const PACKAGE: &'static str = "akash.manifest.v2beta3";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.manifest.v2beta3.ServicePermissions".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.manifest.v2beta3.ServicePermissions".into()
+    }
+}
+/// TEEParams configures Trusted Execution Environment for the service.
+/// The type field selects the TEE capability and the provider resolves the
+/// runtime class based on its detected platform (TDX or SNP).
+/// The attestation field controls whether the provider injects an attestation sidecar.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TeeParams {
+    /// type is the TEE capability: cpu, cpu-gpu
+    #[prost(string, tag = "1")]
+    pub r#type: ::prost::alloc::string::String,
+    /// attestation controls whether the provider injects an attestation sidecar.
+    /// IMPORTANT: proto3 bool defaults to false, but the intended default is true.
+    /// All producers MUST set this field explicitly. The Go SDL builder enforces
+    /// this; non-Go clients must set attestation=true when sidecar injection is desired.
+    #[prost(bool, tag = "2")]
+    pub attestation: bool,
+}
+impl ::prost::Name for TeeParams {
+    const NAME: &'static str = "TEEParams";
+    const PACKAGE: &'static str = "akash.manifest.v2beta3";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.manifest.v2beta3.TEEParams".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.manifest.v2beta3.TEEParams".into()
+    }
+}
 /// ServiceParams
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -92,6 +141,10 @@ pub struct ServiceParams {
     pub storage: ::prost::alloc::vec::Vec<StorageParams>,
     #[prost(message, optional, tag = "10")]
     pub credentials: ::core::option::Option<ImageCredentials>,
+    #[prost(message, optional, tag = "11")]
+    pub permissions: ::core::option::Option<ServicePermissions>,
+    #[prost(message, optional, tag = "12")]
+    pub tee: ::core::option::Option<TeeParams>,
 }
 impl ::prost::Name for ServiceParams {
     const NAME: &'static str = "ServiceParams";
@@ -152,6 +205,20 @@ pub struct Service {
     pub params: ::core::option::Option<ServiceParams>,
     #[prost(message, optional, tag = "10")]
     pub credentials: ::core::option::Option<ImageCredentials>,
+    /// InterconnectGroup carries the SDL gpu.attributes.interconnect_group
+    /// peer-group label. Lifted from Resources.GPU.Attributes by the
+    /// manifest builder so the off-chain workload builder can label pods
+    /// for per-group anti-affinity. Services sharing the same value form
+    /// one NCCL peer group; the provider schedules them on distinct nodes.
+    /// Empty when the service is not part of any GPU interconnect group.
+    ///
+    /// JSON / YAML tags carry `omitempty`: the on-chain manifest `version`
+    /// is a SHA hash of the JSON-serialized off-chain manifest, so any
+    /// field that always serializes (even at zero value) would shift the
+    /// hash for every non-interconnect SDL and break send-manifest
+    /// validation on existing leases.
+    #[prost(string, tag = "11")]
+    pub interconnect_group: ::prost::alloc::string::String,
 }
 impl ::prost::Name for Service {
     const NAME: &'static str = "Service";

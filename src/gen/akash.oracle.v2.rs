@@ -12,12 +12,12 @@ pub struct DataId {
 }
 impl ::prost::Name for DataId {
     const NAME: &'static str = "DataID";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.DataID".into()
+        "akash.oracle.v2.DataID".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.DataID".into()
+        "/akash.oracle.v2.DataID".into()
     }
 }
 /// PriceDataID identifies price data from a specific source for a specific pair
@@ -36,12 +36,33 @@ pub struct PriceDataId {
 }
 impl ::prost::Name for PriceDataId {
     const NAME: &'static str = "PriceDataID";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.PriceDataID".into()
+        "akash.oracle.v2.PriceDataID".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.PriceDataID".into()
+        "/akash.oracle.v2.PriceDataID".into()
+    }
+}
+/// PriceLatestDataState holds the timestamp of the most recent price record for a source/pair
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PriceLatestDataState {
+    /// timestamp is when the price was recorded
+    #[prost(message, optional, tag = "1")]
+    pub timestamp: ::core::option::Option<::pbjson_types::Timestamp>,
+    /// sequence disambiguates multiple price entries at the same timestamp
+    #[prost(uint64, tag = "5")]
+    pub sequence: u64,
+}
+impl ::prost::Name for PriceLatestDataState {
+    const NAME: &'static str = "PriceLatestDataState";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.PriceLatestDataState".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.PriceLatestDataState".into()
     }
 }
 /// PriceDataRecordID represents a price from a specific source at a specific time.
@@ -58,39 +79,39 @@ pub struct PriceDataRecordId {
     /// base_denom is the base denomination for the price pair
     #[prost(string, tag = "3")]
     pub base_denom: ::prost::alloc::string::String,
-    /// height is the block height when this price was recorded
-    #[prost(int64, tag = "4")]
-    pub height: i64,
+    /// timestamp is when this price was recorded
+    #[prost(message, optional, tag = "4")]
+    pub timestamp: ::core::option::Option<::pbjson_types::Timestamp>,
+    /// sequence disambiguates multiple price entries at the same timestamp
+    #[prost(uint64, tag = "5")]
+    pub sequence: u64,
 }
 impl ::prost::Name for PriceDataRecordId {
     const NAME: &'static str = "PriceDataRecordID";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.PriceDataRecordID".into()
+        "akash.oracle.v2.PriceDataRecordID".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.PriceDataRecordID".into()
+        "/akash.oracle.v2.PriceDataRecordID".into()
     }
 }
-/// PriceDataState represents the price value and timestamp for a price entry
+/// PriceDataState represents the price value
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct PriceDataState {
     /// price is the decimal price value
     #[prost(string, tag = "1")]
     pub price: ::prost::alloc::string::String,
-    /// timestamp is when the price was recorded
-    #[prost(message, optional, tag = "2")]
-    pub timestamp: ::core::option::Option<::pbjson_types::Timestamp>,
 }
 impl ::prost::Name for PriceDataState {
     const NAME: &'static str = "PriceDataState";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.PriceDataState".into()
+        "akash.oracle.v2.PriceDataState".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.PriceDataState".into()
+        "/akash.oracle.v2.PriceDataState".into()
     }
 }
 /// PriceData combines a price record identifier with its state
@@ -106,12 +127,12 @@ pub struct PriceData {
 }
 impl ::prost::Name for PriceData {
     const NAME: &'static str = "PriceData";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.PriceData".into()
+        "akash.oracle.v2.PriceData".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.PriceData".into()
+        "/akash.oracle.v2.PriceData".into()
     }
 }
 /// AggregatedPrice represents the final aggregated price from all sources
@@ -145,12 +166,12 @@ pub struct AggregatedPrice {
 }
 impl ::prost::Name for AggregatedPrice {
     const NAME: &'static str = "AggregatedPrice";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.AggregatedPrice".into()
+        "akash.oracle.v2.AggregatedPrice".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.AggregatedPrice".into()
+        "/akash.oracle.v2.AggregatedPrice".into()
     }
 }
 /// PriceHealth represents the health status of a price feed
@@ -181,12 +202,170 @@ pub struct PriceHealth {
 }
 impl ::prost::Name for PriceHealth {
     const NAME: &'static str = "PriceHealth";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.PriceHealth".into()
+        "akash.oracle.v2.PriceHealth".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.PriceHealth".into()
+        "/akash.oracle.v2.PriceHealth".into()
+    }
+}
+/// EventPriceData is emitted when new price data is added to the oracle
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventPriceData {
+    /// source is the address of the price source (oracle provider)
+    #[prost(string, tag = "1")]
+    pub source: ::prost::alloc::string::String,
+    /// id identifies the price pair (denom and base_denom)
+    #[prost(message, optional, tag = "2")]
+    pub id: ::core::option::Option<DataId>,
+    /// price is the decimal price value
+    #[prost(string, tag = "3")]
+    pub price: ::prost::alloc::string::String,
+    /// timestamp is when this price was recorded
+    #[prost(message, optional, tag = "4")]
+    pub timestamp: ::core::option::Option<::pbjson_types::Timestamp>,
+}
+impl ::prost::Name for EventPriceData {
+    const NAME: &'static str = "EventPriceData";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.EventPriceData".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.EventPriceData".into()
+    }
+}
+/// EventPriceStaleWarning is emitted when price has not been updated and is about to become stale
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventPriceStaleWarning {
+    /// id identifies the price pair
+    #[prost(message, optional, tag = "2")]
+    pub id: ::core::option::Option<DataId>,
+    /// last_height is the block height when the price was last updated
+    #[prost(int64, tag = "3")]
+    pub last_height: i64,
+    /// blocks_to_stall is the number of blocks until the price becomes stale
+    #[prost(int64, tag = "4")]
+    pub blocks_to_stall: i64,
+}
+impl ::prost::Name for EventPriceStaleWarning {
+    const NAME: &'static str = "EventPriceStaleWarning";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.EventPriceStaleWarning".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.EventPriceStaleWarning".into()
+    }
+}
+/// EventPriceStaled is emitted when a price has become stale
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventPriceStaled {
+    /// id identifies the price pair
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<DataId>,
+    /// last_height is the block height when the price was last updated before becoming stale
+    #[prost(int64, tag = "2")]
+    pub last_height: i64,
+}
+impl ::prost::Name for EventPriceStaled {
+    const NAME: &'static str = "EventPriceStaled";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.EventPriceStaled".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.EventPriceStaled".into()
+    }
+}
+/// EventPriceRecovered is emitted when a stale price has started receiving updates again
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventPriceRecovered {
+    /// id identifies the price pair
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<DataId>,
+    /// height is the block height when the price recovery was detected
+    #[prost(int64, tag = "2")]
+    pub height: i64,
+}
+impl ::prost::Name for EventPriceRecovered {
+    const NAME: &'static str = "EventPriceRecovered";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.EventPriceRecovered".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.EventPriceRecovered".into()
+    }
+}
+/// EventAggregatedPrice is emitted when aggregated price has an update
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EventAggregatedPrice {
+    /// price is the aggregated price data
+    #[prost(message, optional, tag = "1")]
+    pub price: ::core::option::Option<AggregatedPrice>,
+}
+impl ::prost::Name for EventAggregatedPrice {
+    const NAME: &'static str = "EventAggregatedPrice";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.EventAggregatedPrice".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.EventAggregatedPrice".into()
+    }
+}
+/// Params defines the parameters for the oracle module
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Params {
+    /// sources addresses allowed to write prices into oracle module
+    /// those are to be smartcontract addresses
+    #[prost(string, repeated, tag = "1")]
+    pub sources: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Minimum number of price sources required (default: 1)
+    #[prost(uint32, tag = "2")]
+    pub min_price_sources: u32,
+    /// Maximum price staleness in seconds (default: 60s)
+    #[prost(message, optional, tag = "3")]
+    pub max_price_staleness_period: ::core::option::Option<::pbjson_types::Duration>,
+    /// TWAP window as a duration (default: 5s)
+    #[prost(message, optional, tag = "4")]
+    pub twap_window: ::core::option::Option<::pbjson_types::Duration>,
+    /// Maximum price deviation in basis points (default: 150 = 1.5%)
+    #[prost(uint64, tag = "5")]
+    pub max_price_deviation_bps: u64,
+    /// feed_contracts_params contains the configuration for the price feed contracts
+    #[prost(message, repeated, tag = "6")]
+    pub feed_contracts_params: ::prost::alloc::vec::Vec<::pbjson_types::Any>,
+    /// price_retention is how long to keep price records (default: 24h)
+    #[prost(message, optional, tag = "7")]
+    pub price_retention: ::core::option::Option<::pbjson_types::Duration>,
+    /// prune_epoch is the epoch identifier that triggers pruning (default: "hour")
+    #[prost(string, tag = "8")]
+    pub prune_epoch: ::prost::alloc::string::String,
+    /// max_prune_per_epoch is the max records to delete per epoch pruning pass (default: 1000)
+    #[prost(int64, tag = "9")]
+    pub max_prune_per_epoch: i64,
+    /// max_future_time_drift is the maximum amount of time a price timestamp
+    /// may exceed the current block time (default: 1m)
+    #[prost(message, optional, tag = "10")]
+    pub max_future_time_drift: ::core::option::Option<::pbjson_types::Duration>,
+}
+impl ::prost::Name for Params {
+    const NAME: &'static str = "Params";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.Params".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.Params".into()
     }
 }
 /// PricesFilter defines filters used to query price data
@@ -199,18 +378,92 @@ pub struct PricesFilter {
     /// base_denom is the base denomination to filter by
     #[prost(string, tag = "2")]
     pub base_denom: ::prost::alloc::string::String,
-    /// height is the block height to filter by
-    #[prost(int64, tag = "3")]
-    pub height: i64,
+    /// start_time is the inclusive start of the time range to filter by
+    #[prost(message, optional, tag = "3")]
+    pub start_time: ::core::option::Option<::pbjson_types::Timestamp>,
+    /// end_time is the inclusive end of the time range to filter by
+    #[prost(message, optional, tag = "4")]
+    pub end_time: ::core::option::Option<::pbjson_types::Timestamp>,
 }
 impl ::prost::Name for PricesFilter {
     const NAME: &'static str = "PricesFilter";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.PricesFilter".into()
+        "akash.oracle.v2.PricesFilter".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.PricesFilter".into()
+        "/akash.oracle.v2.PricesFilter".into()
+    }
+}
+/// QueryParamsRequest is the request type for the Query/Params RPC method.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryParamsRequest {}
+impl ::prost::Name for QueryParamsRequest {
+    const NAME: &'static str = "QueryParamsRequest";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.QueryParamsRequest".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.QueryParamsRequest".into()
+    }
+}
+/// QueryParamsResponse is the response type for the Query/Params RPC method.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryParamsResponse {
+    /// params defines the parameters of the module.
+    #[prost(message, optional, tag = "1")]
+    pub params: ::core::option::Option<Params>,
+}
+impl ::prost::Name for QueryParamsResponse {
+    const NAME: &'static str = "QueryParamsResponse";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.QueryParamsResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.QueryParamsResponse".into()
+    }
+}
+/// QueryAggregatedPriceRequest is the request type for aggregated price.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryAggregatedPriceRequest {
+    /// denom is the asset denomination
+    #[prost(string, tag = "1")]
+    pub denom: ::prost::alloc::string::String,
+}
+impl ::prost::Name for QueryAggregatedPriceRequest {
+    const NAME: &'static str = "QueryAggregatedPriceRequest";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.QueryAggregatedPriceRequest".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.QueryAggregatedPriceRequest".into()
+    }
+}
+/// QueryAggregatedPriceResponse is the response type for aggregated price.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryAggregatedPriceResponse {
+    /// aggregated_price is the aggregated price data
+    #[prost(message, optional, tag = "1")]
+    pub aggregated_price: ::core::option::Option<AggregatedPrice>,
+    /// price_health is the health status for the price feed
+    #[prost(message, optional, tag = "2")]
+    pub price_health: ::core::option::Option<PriceHealth>,
+}
+impl ::prost::Name for QueryAggregatedPriceResponse {
+    const NAME: &'static str = "QueryAggregatedPriceResponse";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.QueryAggregatedPriceResponse".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.QueryAggregatedPriceResponse".into()
     }
 }
 /// QueryPricesRequest is the request type for querying price history
@@ -228,12 +481,12 @@ pub struct QueryPricesRequest {
 }
 impl ::prost::Name for QueryPricesRequest {
     const NAME: &'static str = "QueryPricesRequest";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.QueryPricesRequest".into()
+        "akash.oracle.v2.QueryPricesRequest".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.QueryPricesRequest".into()
+        "/akash.oracle.v2.QueryPricesRequest".into()
     }
 }
 /// QueryPricesResponse is the response type for querying price history
@@ -251,227 +504,12 @@ pub struct QueryPricesResponse {
 }
 impl ::prost::Name for QueryPricesResponse {
     const NAME: &'static str = "QueryPricesResponse";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.QueryPricesResponse".into()
+        "akash.oracle.v2.QueryPricesResponse".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.QueryPricesResponse".into()
-    }
-}
-/// EventPriceData is emitted when new price data is added to the oracle
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventPriceData {
-    /// source is the address of the price source (oracle provider)
-    #[prost(string, tag = "1")]
-    pub source: ::prost::alloc::string::String,
-    /// id identifies the price pair (denom and base_denom)
-    #[prost(message, optional, tag = "2")]
-    pub id: ::core::option::Option<DataId>,
-    /// data contains the price value and timestamp
-    #[prost(message, optional, tag = "3")]
-    pub data: ::core::option::Option<PriceDataState>,
-}
-impl ::prost::Name for EventPriceData {
-    const NAME: &'static str = "EventPriceData";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.EventPriceData".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.EventPriceData".into()
-    }
-}
-/// EventPriceStaleWarning is emitted when price has not been updated and is about to become stale
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventPriceStaleWarning {
-    /// source is the address of the price source
-    #[prost(string, tag = "1")]
-    pub source: ::prost::alloc::string::String,
-    /// id identifies the price pair
-    #[prost(message, optional, tag = "2")]
-    pub id: ::core::option::Option<DataId>,
-    /// last_height is the block height when the price was last updated
-    #[prost(int64, tag = "3")]
-    pub last_height: i64,
-    /// blocks_to_stall is the number of blocks until the price becomes stale
-    #[prost(int64, tag = "4")]
-    pub blocks_to_stall: i64,
-}
-impl ::prost::Name for EventPriceStaleWarning {
-    const NAME: &'static str = "EventPriceStaleWarning";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.EventPriceStaleWarning".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.EventPriceStaleWarning".into()
-    }
-}
-/// EventPriceStaled is emitted when a price has become stale
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventPriceStaled {
-    /// id identifies the price pair
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<DataId>,
-    /// last_height is the block height when the price was last updated before becoming stale
-    #[prost(int64, tag = "2")]
-    pub last_height: i64,
-}
-impl ::prost::Name for EventPriceStaled {
-    const NAME: &'static str = "EventPriceStaled";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.EventPriceStaled".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.EventPriceStaled".into()
-    }
-}
-/// EventPriceRecovered is emitted when a stale price has started receiving updates again
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventPriceRecovered {
-    /// id identifies the price pair
-    #[prost(message, optional, tag = "1")]
-    pub id: ::core::option::Option<DataId>,
-    /// height is the block height when the price recovery was detected
-    #[prost(int64, tag = "2")]
-    pub height: i64,
-}
-impl ::prost::Name for EventPriceRecovered {
-    const NAME: &'static str = "EventPriceRecovered";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.EventPriceRecovered".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.EventPriceRecovered".into()
-    }
-}
-/// EventAggregatedPrice is emitted when aggregated price has an update
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct EventAggregatedPrice {
-    #[prost(message, optional, tag = "1")]
-    pub price: ::core::option::Option<AggregatedPrice>,
-}
-impl ::prost::Name for EventAggregatedPrice {
-    const NAME: &'static str = "EventAggregatedPrice";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.EventAggregatedPrice".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.EventAggregatedPrice".into()
-    }
-}
-/// Params defines the parameters for the oracle module
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Params {
-    /// sources addresses allowed to write prices into oracle module
-    /// those are to be smartcontract addresses
-    #[prost(string, repeated, tag = "1")]
-    pub sources: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// Minimum number of price sources required (default: 2)
-    #[prost(uint32, tag = "2")]
-    pub min_price_sources: u32,
-    /// Maximum price staleness in blocks (default: 50 = ~ 5 minutes)
-    #[prost(int64, tag = "3")]
-    pub max_price_staleness_blocks: i64,
-    /// TWAP window in blocks (default: 50 = ~ 5 minutes)
-    #[prost(int64, tag = "4")]
-    pub twap_window: i64,
-    /// Maximum price deviation in basis points (default: 150 = 1.5%)
-    #[prost(uint64, tag = "5")]
-    pub max_price_deviation_bps: u64,
-    /// feed_contracts_params contains the configuration for the price feed contracts
-    #[prost(message, repeated, tag = "6")]
-    pub feed_contracts_params: ::prost::alloc::vec::Vec<::pbjson_types::Any>,
-}
-impl ::prost::Name for Params {
-    const NAME: &'static str = "Params";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.Params".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.Params".into()
-    }
-}
-/// QueryParamsRequest is the request type for the Query/Params RPC method.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct QueryParamsRequest {}
-impl ::prost::Name for QueryParamsRequest {
-    const NAME: &'static str = "QueryParamsRequest";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.QueryParamsRequest".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.QueryParamsRequest".into()
-    }
-}
-/// QueryParamsResponse is the response type for the Query/Params RPC method.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct QueryParamsResponse {
-    /// params defines the parameters of the module.
-    #[prost(message, optional, tag = "1")]
-    pub params: ::core::option::Option<Params>,
-}
-impl ::prost::Name for QueryParamsResponse {
-    const NAME: &'static str = "QueryParamsResponse";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.QueryParamsResponse".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.QueryParamsResponse".into()
-    }
-}
-/// QueryAggregatedPriceRequest is the request type for aggregated price.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct QueryAggregatedPriceRequest {
-    /// denom is the asset denomination
-    #[prost(string, tag = "1")]
-    pub denom: ::prost::alloc::string::String,
-}
-impl ::prost::Name for QueryAggregatedPriceRequest {
-    const NAME: &'static str = "QueryAggregatedPriceRequest";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.QueryAggregatedPriceRequest".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.QueryAggregatedPriceRequest".into()
-    }
-}
-/// QueryAggregatedPriceResponse is the response type for aggregated price.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct QueryAggregatedPriceResponse {
-    /// aggregated_price is the aggregated price data
-    #[prost(message, optional, tag = "1")]
-    pub aggregated_price: ::core::option::Option<AggregatedPrice>,
-    /// price_health is the health status for the price feed
-    #[prost(message, optional, tag = "2")]
-    pub price_health: ::core::option::Option<PriceHealth>,
-}
-impl ::prost::Name for QueryAggregatedPriceResponse {
-    const NAME: &'static str = "QueryAggregatedPriceResponse";
-    const PACKAGE: &'static str = "akash.oracle.v1";
-    fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.QueryAggregatedPriceResponse".into()
-    }
-    fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.QueryAggregatedPriceResponse".into()
+        "/akash.oracle.v2.QueryPricesResponse".into()
     }
 }
 /// Generated client implementations.
@@ -585,11 +623,11 @@ pub mod query_client {
                 })?;
             let codec = tonic_prost::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/akash.oracle.v1.Query/Prices",
+                "/akash.oracle.v2.Query/Prices",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("akash.oracle.v1.Query", "Prices"));
+                .insert(GrpcMethod::new("akash.oracle.v2.Query", "Prices"));
             self.inner.unary(req, path, codec).await
         }
         /// Params returns the total set of oracle parameters.
@@ -610,11 +648,11 @@ pub mod query_client {
                 })?;
             let codec = tonic_prost::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/akash.oracle.v1.Query/Params",
+                "/akash.oracle.v2.Query/Params",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("akash.oracle.v1.Query", "Params"));
+                .insert(GrpcMethod::new("akash.oracle.v2.Query", "Params"));
             self.inner.unary(req, path, codec).await
         }
         /// AggregatedPrice queries the aggregated price for a given denom.
@@ -635,11 +673,11 @@ pub mod query_client {
                 })?;
             let codec = tonic_prost::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/akash.oracle.v1.Query/AggregatedPrice",
+                "/akash.oracle.v2.Query/AggregatedPrice",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("akash.oracle.v1.Query", "AggregatedPrice"));
+                .insert(GrpcMethod::new("akash.oracle.v2.Query", "AggregatedPrice"));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -760,7 +798,7 @@ pub mod query_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/akash.oracle.v1.Query/Prices" => {
+                "/akash.oracle.v2.Query/Prices" => {
                     #[allow(non_camel_case_types)]
                     struct PricesSvc<T: Query>(pub Arc<T>);
                     impl<T: Query> tonic::server::UnaryService<super::QueryPricesRequest>
@@ -803,7 +841,7 @@ pub mod query_server {
                     };
                     Box::pin(fut)
                 }
-                "/akash.oracle.v1.Query/Params" => {
+                "/akash.oracle.v2.Query/Params" => {
                     #[allow(non_camel_case_types)]
                     struct ParamsSvc<T: Query>(pub Arc<T>);
                     impl<T: Query> tonic::server::UnaryService<super::QueryParamsRequest>
@@ -846,7 +884,7 @@ pub mod query_server {
                     };
                     Box::pin(fut)
                 }
-                "/akash.oracle.v1.Query/AggregatedPrice" => {
+                "/akash.oracle.v2.Query/AggregatedPrice" => {
                     #[allow(non_camel_case_types)]
                     struct AggregatedPriceSvc<T: Query>(pub Arc<T>);
                     impl<
@@ -926,7 +964,7 @@ pub mod query_server {
         }
     }
     /// Generated gRPC service name
-    pub const SERVICE_NAME: &str = "akash.oracle.v1.Query";
+    pub const SERVICE_NAME: &str = "akash.oracle.v2.Query";
     impl<T> tonic::server::NamedService for QueryServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
@@ -945,32 +983,35 @@ pub struct MsgAddPriceEntry {
     /// id uniquely identifies the price data by denomination and base denomination
     #[prost(message, optional, tag = "2")]
     pub id: ::core::option::Option<DataId>,
-    /// price contains the price value and timestamp for this entry
-    #[prost(message, optional, tag = "3")]
-    pub price: ::core::option::Option<PriceDataState>,
+    /// price is the decimal price value
+    #[prost(string, tag = "3")]
+    pub price: ::prost::alloc::string::String,
+    /// timestamp is when this price was observed
+    #[prost(message, optional, tag = "4")]
+    pub timestamp: ::core::option::Option<::pbjson_types::Timestamp>,
 }
 impl ::prost::Name for MsgAddPriceEntry {
     const NAME: &'static str = "MsgAddPriceEntry";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.MsgAddPriceEntry".into()
+        "akash.oracle.v2.MsgAddPriceEntry".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.MsgAddPriceEntry".into()
+        "/akash.oracle.v2.MsgAddPriceEntry".into()
     }
 }
-/// MsgAddPriceEntryResponse defines the Msg/MsgAddDPriceEntry response type.
+/// MsgAddPriceEntryResponse defines the Msg/MsgAddPriceEntry response type.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MsgAddPriceEntryResponse {}
 impl ::prost::Name for MsgAddPriceEntryResponse {
     const NAME: &'static str = "MsgAddPriceEntryResponse";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.MsgAddPriceEntryResponse".into()
+        "akash.oracle.v2.MsgAddPriceEntryResponse".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.MsgAddPriceEntryResponse".into()
+        "/akash.oracle.v2.MsgAddPriceEntryResponse".into()
     }
 }
 /// MsgUpdateParams is the Msg/UpdateParams request type.
@@ -990,12 +1031,12 @@ pub struct MsgUpdateParams {
 }
 impl ::prost::Name for MsgUpdateParams {
     const NAME: &'static str = "MsgUpdateParams";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.MsgUpdateParams".into()
+        "akash.oracle.v2.MsgUpdateParams".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.MsgUpdateParams".into()
+        "/akash.oracle.v2.MsgUpdateParams".into()
     }
 }
 /// MsgUpdateParamsResponse defines the response structure for executing a
@@ -1007,12 +1048,12 @@ impl ::prost::Name for MsgUpdateParams {
 pub struct MsgUpdateParamsResponse {}
 impl ::prost::Name for MsgUpdateParamsResponse {
     const NAME: &'static str = "MsgUpdateParamsResponse";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.MsgUpdateParamsResponse".into()
+        "akash.oracle.v2.MsgUpdateParamsResponse".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.MsgUpdateParamsResponse".into()
+        "/akash.oracle.v2.MsgUpdateParamsResponse".into()
     }
 }
 /// Generated client implementations.
@@ -1126,14 +1167,14 @@ pub mod msg_client {
                 })?;
             let codec = tonic_prost::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/akash.oracle.v1.Msg/AddPriceEntry",
+                "/akash.oracle.v2.Msg/AddPriceEntry",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("akash.oracle.v1.Msg", "AddPriceEntry"));
+                .insert(GrpcMethod::new("akash.oracle.v2.Msg", "AddPriceEntry"));
             self.inner.unary(req, path, codec).await
         }
-        /// UpdateParams defines a governance operation for updating the x/wasm module
+        /// UpdateParams defines a governance operation for updating the x/oracle module
         /// parameters. The authority is hard-coded to the x/gov module account.
         ///
         /// Since: akash v2.0.0
@@ -1154,11 +1195,11 @@ pub mod msg_client {
                 })?;
             let codec = tonic_prost::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/akash.oracle.v1.Msg/UpdateParams",
+                "/akash.oracle.v2.Msg/UpdateParams",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("akash.oracle.v1.Msg", "UpdateParams"));
+                .insert(GrpcMethod::new("akash.oracle.v2.Msg", "UpdateParams"));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -1185,7 +1226,7 @@ pub mod msg_server {
             tonic::Response<super::MsgAddPriceEntryResponse>,
             tonic::Status,
         >;
-        /// UpdateParams defines a governance operation for updating the x/wasm module
+        /// UpdateParams defines a governance operation for updating the x/oracle module
         /// parameters. The authority is hard-coded to the x/gov module account.
         ///
         /// Since: akash v2.0.0
@@ -1274,7 +1315,7 @@ pub mod msg_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/akash.oracle.v1.Msg/AddPriceEntry" => {
+                "/akash.oracle.v2.Msg/AddPriceEntry" => {
                     #[allow(non_camel_case_types)]
                     struct AddPriceEntrySvc<T: Msg>(pub Arc<T>);
                     impl<T: Msg> tonic::server::UnaryService<super::MsgAddPriceEntry>
@@ -1317,7 +1358,7 @@ pub mod msg_server {
                     };
                     Box::pin(fut)
                 }
-                "/akash.oracle.v1.Msg/UpdateParams" => {
+                "/akash.oracle.v2.Msg/UpdateParams" => {
                     #[allow(non_camel_case_types)]
                     struct UpdateParamsSvc<T: Msg>(pub Arc<T>);
                     impl<T: Msg> tonic::server::UnaryService<super::MsgUpdateParams>
@@ -1395,9 +1436,51 @@ pub mod msg_server {
         }
     }
     /// Generated gRPC service name
-    pub const SERVICE_NAME: &str = "akash.oracle.v1.Msg";
+    pub const SERVICE_NAME: &str = "akash.oracle.v2.Msg";
     impl<T> tonic::server::NamedService for MsgServer<T> {
         const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// GenesisSourceID maps an oracle source address to its numeric identifier
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GenesisSourceId {
+    /// address is the bech32 address of the oracle source
+    #[prost(string, tag = "1")]
+    pub address: ::prost::alloc::string::String,
+    /// id is the numeric identifier assigned to the source
+    #[prost(uint32, tag = "2")]
+    pub id: u32,
+}
+impl ::prost::Name for GenesisSourceId {
+    const NAME: &'static str = "GenesisSourceID";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.GenesisSourceID".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.GenesisSourceID".into()
+    }
+}
+/// GenesisLatestPricesIDs stores the latest price state for a given price pair
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GenesisLatestPricesIDs {
+    /// id identifies the price pair (source, denom, base_denom)
+    #[prost(message, optional, tag = "1")]
+    pub id: ::core::option::Option<PriceDataId>,
+    /// state holds the timestamp of the latest price record
+    #[prost(message, optional, tag = "2")]
+    pub state: ::core::option::Option<PriceLatestDataState>,
+}
+impl ::prost::Name for GenesisLatestPricesIDs {
+    const NAME: &'static str = "GenesisLatestPricesIDs";
+    const PACKAGE: &'static str = "akash.oracle.v2";
+    fn full_name() -> ::prost::alloc::string::String {
+        "akash.oracle.v2.GenesisLatestPricesIDs".into()
+    }
+    fn type_url() -> ::prost::alloc::string::String {
+        "/akash.oracle.v2.GenesisLatestPricesIDs".into()
     }
 }
 /// GenesisState defines the oracle module's genesis state
@@ -1412,15 +1495,21 @@ pub struct GenesisState {
     pub prices: ::prost::alloc::vec::Vec<PriceData>,
     /// latest_height tracks the most recent block height for each price feed source
     #[prost(message, repeated, tag = "3")]
-    pub latest_height: ::prost::alloc::vec::Vec<PriceDataId>,
+    pub latest_prices_ids: ::prost::alloc::vec::Vec<GenesisLatestPricesIDs>,
+    /// source_ids is the list of oracle source address-to-ID mappings
+    #[prost(message, repeated, tag = "4")]
+    pub source_ids: ::prost::alloc::vec::Vec<GenesisSourceId>,
+    /// source_seq is the next available source identifier sequence number
+    #[prost(uint64, tag = "5")]
+    pub source_seq: u64,
 }
 impl ::prost::Name for GenesisState {
     const NAME: &'static str = "GenesisState";
-    const PACKAGE: &'static str = "akash.oracle.v1";
+    const PACKAGE: &'static str = "akash.oracle.v2";
     fn full_name() -> ::prost::alloc::string::String {
-        "akash.oracle.v1.GenesisState".into()
+        "akash.oracle.v2.GenesisState".into()
     }
     fn type_url() -> ::prost::alloc::string::String {
-        "/akash.oracle.v1.GenesisState".into()
+        "/akash.oracle.v2.GenesisState".into()
     }
 }
